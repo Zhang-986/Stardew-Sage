@@ -8,7 +8,7 @@
 </template>
 
 <script>
-const ORIGINAL_THEME = '#409EFF' // default color
+const ORIGINAL_THEME = '#ff0000' // default color
 
 export default {
   data() {
