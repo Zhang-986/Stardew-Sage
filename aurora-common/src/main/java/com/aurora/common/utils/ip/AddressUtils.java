@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
-import com.aurora.common.config.RuoYiConfig;
+import com.aurora.common.config.AuroraConfig;
 import com.aurora.common.constant.Constants;
 import com.aurora.common.utils.StringUtils;
 import com.aurora.common.utils.http.HttpUtils;
@@ -31,7 +31,7 @@ public class AddressUtils
         {
             return "内网IP";
         }
-        if (RuoYiConfig.isAddressEnabled())
+        if (AuroraConfig.isAddressEnabled())
         {
             try
             {

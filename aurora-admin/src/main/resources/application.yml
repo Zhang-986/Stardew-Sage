@@ -1,5 +1,5 @@
 # 项目相关配置
-ruoyi:
+aurora:
   # 名称
   name: aurora
   # 版本
@@ -9,7 +9,7 @@ ruoyi:
   # 文件路径 示例（ Windows配置D:/aurora/uploadPath，Linux配置 /home/aurora/uploadPath）
   profile: D:/aurora/uploadPath
   # 获取ip地址开关
-  addressEnabled: false
+  addressEnabled: true
   # 验证码类型 math 数字计算 char 字符验证
   captchaType: math
 

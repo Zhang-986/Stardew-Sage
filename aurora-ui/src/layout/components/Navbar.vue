@@ -8,9 +8,7 @@
     <div class="right-menu">
       <template v-if="device!=='mobile'">
 
-        <el-tooltip content="布局大小" effect="dark" placement="bottom">
-          <size-select id="size-select" class="right-menu-item hover-effect" />
-        </el-tooltip>
+       
 
       </template>
 
@@ -30,7 +28,7 @@
       </el-dropdown>
 
       <div class="right-menu-item hover-effect setting" @click="setLayout" v-if="setting">
-        <svg-icon icon-class="more-up" />
+        
       </div>
     </div>
   </div>

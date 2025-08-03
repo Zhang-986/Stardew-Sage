@@ -74,7 +74,7 @@ import com.aurora.common.annotation.Excel;
 import com.aurora.common.annotation.Excel.ColumnType;
 import com.aurora.common.annotation.Excel.Type;
 import com.aurora.common.annotation.Excels;
-import com.aurora.common.config.RuoYiConfig;
+import com.aurora.common.config.AuroraConfig;
 import com.aurora.common.core.domain.AjaxResult;
 import com.aurora.common.core.text.Convert;
 import com.aurora.common.exception.UtilException;
@@ -1459,7 +1459,7 @@ public class ExcelUtil<T>
      */
     public String getAbsoluteFile(String filename)
     {
-        String downloadPath = RuoYiConfig.getDownloadPath() + filename;
+        String downloadPath = AuroraConfig.getDownloadPath() + filename;
         File desc = new File(downloadPath);
         if (!desc.getParentFile().exists())
         {

@@ -14,7 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.ArrayUtils;
-import com.aurora.common.config.RuoYiConfig;
+import com.aurora.common.config.AuroraConfig;
 import com.aurora.common.constant.Constants;
 import com.aurora.common.utils.DateUtils;
 import com.aurora.common.utils.StringUtils;
@@ -74,7 +74,7 @@ public class FileUtils
      */
     public static String writeImportBytes(byte[] data) throws IOException
     {
-        return writeBytes(data, RuoYiConfig.getImportPath());
+        return writeBytes(data, AuroraConfig.getImportPath());
     }
 
     /**
