@@ -183,12 +183,8 @@
                 <version>${kaptcha.version}</version>
             </dependency>
 
-            <!-- 定时任务-->
-            <dependency>
-                <groupId>com.aurora</groupId>
-                <artifactId>aurora-platform-quartz</artifactId>
-                <version>${aurora-platform.version}</version>
-            </dependency>
+
+
 
             <!-- 代码生成-->
             <dependency>
@@ -225,7 +221,6 @@
         <module>aurora-admin</module>
         <module>aurora-framework</module>
         <module>aurora-system</module>
-        <module>aurora-quartz</module>
         <module>aurora-generator</module>
         <module>aurora-common</module>
     </modules>
