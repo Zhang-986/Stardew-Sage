@@ -9,8 +9,7 @@
     <version>3.9.0</version>
 
     <name>aurora</name>
-    <url>http://www.ruoyi.vip</url>
-    <description>	极光开发</description>
+    <description>极光开发</description>
     
     <properties>
         <aurora.version>3.9.0</aurora.version>
@@ -219,10 +218,6 @@
 
     <modules>
         <module>aurora-admin</module>
-        <module>aurora-framework</module>
-        <module>aurora-system</module>
-        <module>aurora-generator</module>
-        <module>aurora-common</module>
         <module>aurora-product</module>
     </modules>
     <packaging>pom</packaging>
