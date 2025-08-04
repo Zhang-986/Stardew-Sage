@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	
     <groupId>com.aurora</groupId>
-    <artifactId>aurora-platform</artifactId>
+    <artifactId>aurora</artifactId>
     <version>3.9.0</version>
 
     <name>aurora</name>
@@ -13,7 +13,7 @@
     <description>	极光开发</description>
     
     <properties>
-        <aurora-platform.version>3.9.0</aurora-platform.version>
+        <aurora.version>3.9.0</aurora.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
@@ -189,29 +189,29 @@
             <!-- 代码生成-->
             <dependency>
                 <groupId>com.aurora</groupId>
-                <artifactId>aurora-platform-generator</artifactId>
-                <version>${aurora-platform.version}</version>
+                <artifactId>aurora-generator</artifactId>
+                <version>${aurora.version}</version>
             </dependency>
 
             <!-- 核心模块-->
             <dependency>
                 <groupId>com.aurora</groupId>
-                <artifactId>aurora-platform-framework</artifactId>
-                <version>${aurora-platform.version}</version>
+                <artifactId>aurora-framework</artifactId>
+                <version>${aurora.version}</version>
             </dependency>
 
             <!-- 系统模块-->
             <dependency>
                 <groupId>com.aurora</groupId>
-                <artifactId>aurora-platform-system</artifactId>
-                <version>${aurora-platform.version}</version>
+                <artifactId>aurora-system</artifactId>
+                <version>${aurora.version}</version>
             </dependency>
 
             <!-- 通用工具-->
             <dependency>
                 <groupId>com.aurora</groupId>
-                <artifactId>aurora-platform-common</artifactId>
-                <version>${aurora-platform.version}</version>
+                <artifactId>aurora-common</artifactId>
+                <version>${aurora.version}</version>
             </dependency>
 
         </dependencies>
@@ -223,6 +223,7 @@
         <module>aurora-system</module>
         <module>aurora-generator</module>
         <module>aurora-common</module>
+        <module>aurora-product</module>
     </modules>
     <packaging>pom</packaging>
 

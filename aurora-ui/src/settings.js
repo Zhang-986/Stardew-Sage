@@ -27,7 +27,7 @@ module.exports = {
   /**
    * 显示页签图标
    */
-  tagsIcon: false,
+  tagsIcon: true,
 
   /**
    * 是否固定头部
