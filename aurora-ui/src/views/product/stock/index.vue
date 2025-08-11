@@ -99,7 +99,16 @@
           <dict-tag :options="dict.type.product_status" :value="scope.row.status"/>
         </template>
       </el-table-column>
-      <el-table-column label="商品图片" align="center" prop="imageUrl" />
+      <el-table-column label="商品图片" align="center" prop="imageUrl">
+        <template slot-scope="scope">
+          <img
+            v-if="scope.row.imageUrl"
+            :src="getImageUrl(scope.row.imageUrl)"
+            alt="商品图片"
+            style="max-width: 80px; max-height: 80px;"
+          />
+        </template>
+      </el-table-column>
       <el-table-column label="商品描述" align="center" prop="description" />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template slot-scope="scope">
@@ -154,7 +163,7 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item label="商品图片" prop="imageUrl">
-          <el-input v-model="form.imageUrl" placeholder="请输入商品图片" />
+          <image-upload v-model="form.imageUrl" />
         </el-form-item>
         <el-form-item label="商品描述" prop="description">
           <el-input v-model="form.description" type="textarea" placeholder="请输入内容" />
@@ -316,7 +325,66 @@ export default {
       this.download('product/stock/export', {
         ...this.queryParams
       }, `stock_${new Date().getTime()}.xlsx`)
-    }
+    },
+    getImageUrl(url) {
+      // 如果是完整url直接返回，否则补全前缀
+      if (!url) return ''
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url
+      }
+      // 兼容后端返回的 /profile/upload/xxx 路径
+      return process.env.VUE_APP_BASE_API + url
+    },
   }
 }
 </script>
+
+<style scoped>
+.avatar-uploader .el-upload {
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.avatar-uploader .el-upload:hover {
+  border-color: #409EFF;
+}
+.avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 100px;
+  height: 100px;
+  line-height: 100px;
+  text-align: center;
+}
+.avatar {
+  width: 100px;
+  height: 100px;
+  display: block;
+}
+</style>
+.avatar-uploader .el-upload {
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.avatar-uploader .el-upload:hover {
+  border-color: #409EFF;
+}
+.avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 100px;
+  height: 100px;
+  line-height: 100px;
+  text-align: center;
+}
+.avatar {
+  width: 100px;
+  height: 100px;
+  display: block;
+}
+</style>

@@ -43,21 +43,11 @@
             <artifactId>aurora-framework</artifactId>
         </dependency>
 
-
-
         <!-- 代码生成-->
         <dependency>
             <groupId>com.aurora</groupId>
             <artifactId>aurora-generator</artifactId>
         </dependency>
-
-<!--        product模块-->
-        <dependency>
-            <groupId>com.aurora</groupId>
-            <artifactId>aurora-product</artifactId>
-            <version>${aurora.version}</version>
-        </dependency>
-
     </dependencies>
 
     <build>
@@ -67,7 +57,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>2.5.15</version>
                 <configuration>
-                    <fork>true</fork> <!-- 如果没有该配置，devtools不会生效 -->
+                    <fork>true</fork>
                 </configuration>
                 <executions>
                     <execution>

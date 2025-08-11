@@ -9,11 +9,12 @@ import com.aurora.common.core.domain.BaseEntity;
  * 商品库存管理对象 product
  * 
  * @author aurora
- * @date 2025-08-04
+ * @date 2025-08-05
  */
 public class Product extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
+
 
     /** 商品ID */
     private Long id;

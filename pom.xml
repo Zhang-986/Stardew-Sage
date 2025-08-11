@@ -218,7 +218,6 @@
 
     <modules>
         <module>aurora-admin</module>
-        <module>aurora-product</module>
     </modules>
     <packaging>pom</packaging>
 

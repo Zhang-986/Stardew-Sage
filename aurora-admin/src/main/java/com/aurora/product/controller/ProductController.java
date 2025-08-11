@@ -25,7 +25,7 @@ import com.aurora.common.core.page.TableDataInfo;
  * 商品库存管理Controller
  * 
  * @author aurora
- * @date 2025-08-04
+ * @date 2025-08-05
  */
 @RestController
 @RequestMapping("/product/stock")
