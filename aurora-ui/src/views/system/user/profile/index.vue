@@ -9,7 +9,7 @@
             </div>
             <h3>个人信息</h3>
           </div>
-          
+
           <div class="card-body">
             <div class="avatar-section">
               <userAvatar />
@@ -18,7 +18,7 @@
                 <span class="user-role">{{ roleGroup || '暂无角色' }}</span>
               </div>
             </div>
-            
+
             <div class="info-list">
               <div class="info-row">
                 <span class="info-label">手机号码</span>
@@ -44,7 +44,7 @@
           </div>
         </div>
       </el-col>
-      
+
       <el-col :span="16" :xs="24">
         <div class="profile-card settings-card">
           <div class="card-header">
@@ -53,19 +53,19 @@
             </div>
             <h3>基本资料</h3>
           </div>
-          
+
           <div class="card-body">
             <div class="tab-navigation">
-              <div 
-                class="nav-item" 
+              <div
+                class="nav-item"
                 :class="{ active: selectedTab === 'userinfo' }"
                 @click="selectedTab = 'userinfo'"
               >
                 <i class="el-icon-edit"></i>
                 <span>基本资料</span>
               </div>
-              <div 
-                class="nav-item" 
+              <div
+                class="nav-item"
                 :class="{ active: selectedTab === 'resetPwd' }"
                 @click="selectedTab = 'resetPwd'"
               >
@@ -73,7 +73,7 @@
                 <span>修改密码</span>
               </div>
             </div>
-            
+
             <div class="tab-content">
               <userInfo v-if="selectedTab === 'userinfo'" :user="user" />
               <resetPwd v-if="selectedTab === 'resetPwd'" />
@@ -124,9 +124,9 @@ export default {
 <style scoped lang="scss">
 .profile-container {
   padding: 32px;
-  background: linear-gradient(135deg, #ffffff 0%, #513f61 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
   min-height: calc(100vh - 60px);
-  
+
   .profile-card {
     background: #fff;
     border-radius: 16px;
@@ -134,19 +134,19 @@ export default {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     overflow: hidden;
-    
+
     &:hover {
       transform: translateY(-4px);
       box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
     }
-    
+
     .card-header {
-      background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+      background: linear-gradient(135deg, #000000 0%, #000000 100%);
       color: #fff;
       padding: 24px;
       display: flex;
       align-items: center;
-      
+
       .header-icon {
         width: 48px;
         height: 48px;
@@ -156,43 +156,43 @@ export default {
         align-items: center;
         justify-content: center;
         margin-right: 16px;
-        
+
         i {
           font-size: 20px;
         }
       }
-      
+
       h3 {
         margin: 0;
         font-size: 18px;
         font-weight: 500;
       }
     }
-    
+
     .card-body {
       padding: 24px;
     }
   }
-  
+
   .user-card {
     .avatar-section {
       text-align: center;
       padding-bottom: 24px;
       border-bottom: 1px solid #f0f2f5;
       margin-bottom: 24px;
-      
+
       .user-basic {
         margin-top: 16px;
-        
+
         .user-name {
           margin: 0 0 8px 0;
           color: #2c3e50;
           font-size: 18px;
           font-weight: 600;
         }
-        
+
         .user-role {
-          background: linear-gradient(45deg, #667eea, #764ba2);
+          background: linear-gradient(45deg, #000000, #000000);
           color: #fff;
           padding: 4px 16px;
           border-radius: 20px;
@@ -201,7 +201,7 @@ export default {
         }
       }
     }
-    
+
     .info-list {
       .info-row {
         display: flex;
@@ -209,24 +209,24 @@ export default {
         align-items: center;
         padding: 12px 0;
         border-bottom: 1px solid #f8f9fa;
-        
+
         &:last-child {
           border-bottom: none;
         }
-        
+
         &:hover {
           background: #f8f9fa;
           margin: 0 -16px;
           padding: 12px 16px;
           border-radius: 8px;
         }
-        
+
         .info-label {
           color: #666;
           font-size: 14px;
           font-weight: 500;
         }
-        
+
         .info-value {
           color: #2c3e50;
           font-size: 14px;
@@ -238,7 +238,7 @@ export default {
       }
     }
   }
-  
+
   .settings-card {
     .tab-navigation {
       display: flex;
@@ -246,7 +246,7 @@ export default {
       border-radius: 12px;
       padding: 4px;
       margin-bottom: 24px;
-      
+
       .nav-item {
         flex: 1;
         display: flex;
@@ -259,16 +259,16 @@ export default {
         font-weight: 500;
         transition: all 0.3s ease;
         gap: 8px;
-        
+
         i {
           font-size: 16px;
         }
-        
+
         &:hover {
           color: #2c3e50;
           background: rgba(44, 62, 80, 0.1);
         }
-        
+
         &.active {
           background: #fff;
           color: #2c3e50;
@@ -276,7 +276,7 @@ export default {
         }
       }
     }
-    
+
     .tab-content {
       min-height: 400px;
     }
@@ -287,7 +287,7 @@ export default {
 @media (max-width: 992px) {
   .profile-container {
     padding: 20px;
-    
+
     .el-col:first-child {
       margin-bottom: 20px;
     }
@@ -297,47 +297,47 @@ export default {
 @media (max-width: 768px) {
   .profile-container {
     padding: 16px;
-    
+
     .card-header {
       padding: 20px !important;
-      
+
       .header-icon {
         width: 40px !important;
         height: 40px !important;
         margin-right: 12px !important;
-        
+
         i {
           font-size: 18px !important;
         }
       }
-      
+
       h3 {
         font-size: 16px !important;
       }
     }
-    
+
     .card-body {
       padding: 20px !important;
     }
-    
+
     .info-list {
       .info-row {
         flex-direction: column;
         align-items: flex-start;
         gap: 4px;
-        
+
         .info-value {
           max-width: 100%;
           text-align: left;
         }
       }
     }
-    
+
     .tab-navigation {
       .nav-item {
         padding: 10px 16px !important;
         font-size: 14px;
-        
+
         i {
           font-size: 14px !important;
         }
