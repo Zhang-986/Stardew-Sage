@@ -47,6 +47,24 @@ user:
 
 # Spring配置
 spring:
+  # ai信息
+  ai:
+    mcp:
+      client:
+        toolcallback:
+          enabled: true
+        enabled: true
+        name: mcp-client
+        version: 1.0
+        request-timeout: 60s
+        type: sync
+        sse:
+          connections:
+            server1:
+              url: http://localhost:8081/zzk/sse
+
+
+
   # 资源信息
   messages:
     # 国际化资源文件路径

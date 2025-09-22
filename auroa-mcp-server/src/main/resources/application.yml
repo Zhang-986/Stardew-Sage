@@ -1,5 +1,15 @@
 spring:
+  ai:
+    mcp:
+      server:
+        type: sync
+        sse-endpoint: /sse
+        name: mcp-server
+        enabled: true
+
+
   application:
     name: aurora-mcp-server
+
 server:
   port: 8081
