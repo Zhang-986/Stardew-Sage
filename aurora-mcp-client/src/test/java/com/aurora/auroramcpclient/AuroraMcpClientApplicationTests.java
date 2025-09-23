@@ -9,36 +9,50 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+
 @Slf4j
 @SpringBootTest
-class AuroraMcpClientApplicationTests {
+class DirectToolCallTest {
+
     @Autowired
-    private List<McpSyncClient> mcpSyncClients;  // For sync client
+    private List<McpSyncClient> mcpSyncClients;
+
     @Test
-    void inspectSpecificTool() {
+    void directCallWeatherTool() {
         if (mcpSyncClients == null || mcpSyncClients.isEmpty()) {
+            log.error("❌ No available MCP clients found");
             return;
         }
 
+        // 目标工具信息
+        String targetToolName = "getWeather";
+        String testCity = "北京"; // 测试参数
+
         mcpSyncClients.forEach(client -> {
             try {
-                List<McpSchema.Tool> tools = client.listTools().tools();
+                // 1. 验证工具是否存在
+                McpSchema.ListToolsResult toolsResult = client.listTools();
+                boolean toolExists = toolsResult.tools().stream()
+                        .anyMatch(tool -> tool.name().equals(targetToolName));
 
-                tools.forEach(tool -> {
-                    System.out.println("🔍 工具详情: " + tool.name());
-                    System.out.println("   📝 描述: " + tool.description());
+                if (!toolExists) {
+                    log.warn("⚠️ Tool {} not found in client {}", targetToolName, client.getClientInfo());
+                    return;
+                }
 
-                    if (tool.inputSchema() != null) {
-                        System.out.println("   🎯 输入参数: " + tool.inputSchema());
-                    }
+                // 2. 构建工具调用请求
+                McpSchema.CallToolRequest request = new McpSchema.CallToolRequest(
+                        targetToolName,
+                        Map.of("city", testCity) // 参数必须匹配@ToolParam定义
+                );
 
+                // 3. 执行调用
+                McpSchema.CallToolResult callToolResult = client.callTool(request);
 
-                    System.out.println("   -".repeat(20));
-                });
+                callToolResult.content().stream().forEach(System.out::println);
 
             } catch (Exception e) {
-                System.out.println("❌ 获取工具信息失败: " + e.getMessage());
+                log.error("🚨 Exception during tool call", e);
             }
         });
     }
