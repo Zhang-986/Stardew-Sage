@@ -8,10 +8,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class WeatherService {
 
+    private final AIService aIService;
+
+    public WeatherService(AIService aIService) {
+        this.aIService = aIService;
+    }
+
     @Tool(description = "获取城市天气")
     public String getWeather(@ToolParam(description = "城市") String city) {
         log.info("收到当前城市信息:{}",city);
-        // 这里可以调用实际的天气API获取天气信息
-        return city;
+        String s = aIService.sendMessage("请给我一个" + city + "的天气" + ",快速回答");
+        return s;
     }
 }
