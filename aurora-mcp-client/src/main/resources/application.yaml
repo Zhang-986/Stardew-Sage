@@ -1,8 +1,0 @@
-spring:
-  ai:
-    mcp:
-      client:
-        sse:
-          connections:
-            server1:
-              url: http://localhost:8081

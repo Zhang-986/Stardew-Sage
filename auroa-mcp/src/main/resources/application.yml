@@ -1,0 +1,30 @@
+spring:
+  ai:
+    openai:
+      base-url: https://open.bigmodel.cn/api/paas/v4/  # 智谱AI API地址
+      api-key: a019862d5765451eb11a54e7da38824e.wCWob7C5d9ptzYKy # 智谱AI APIKey
+      embedding:
+        embeddings-path: embeddings # 重新设置智谱AI的向量模型路径，覆盖openAi默认配置
+        options:
+          model: embedding-3 # 使用embedding-3文本向量模型
+          dimensions: 2048 # 向量维度
+      chat:
+        completions-path: chat/completions # 重新设置智谱AI的聊天模型路径，覆盖openAi默认配置
+        options:
+          model: GLM-4-AirX # 使用GLM-4-AirX语言模型
+    mcp:
+      server:
+        type: sync
+        sse-endpoint: /sse
+        name: mcp-server
+        enabled: true
+  application:
+    name: aurora-mcp-server
+ai:
+  dashscope:
+    api-key: sk-ff9aa8fa0ebe4dddbe3126694ac5bffc
+    base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+
+
+server:
+  port: 8081
