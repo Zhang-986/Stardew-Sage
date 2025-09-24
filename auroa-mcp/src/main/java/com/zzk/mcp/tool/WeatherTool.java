@@ -1,16 +1,17 @@
-package com.zzk.mcp.service;
+package com.zzk.mcp.tool;
 
+import com.zzk.mcp.service.AIService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 @Slf4j
 @Service
-public class WeatherService {
+public class WeatherTool {
 
     private final AIService aIService;
 
-    public WeatherService(AIService aIService) {
+    public WeatherTool(AIService aIService) {
         this.aIService = aIService;
     }
 

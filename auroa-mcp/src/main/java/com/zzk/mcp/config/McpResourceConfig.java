@@ -1,6 +1,6 @@
 package com.zzk.mcp.config;
 
-import com.zzk.mcp.service.WeatherService;
+import com.zzk.mcp.tool.WeatherTool;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.context.annotation.Bean;
@@ -15,9 +15,9 @@ public class McpResourceConfig {
 
 
     @Bean
-    public ToolCallbackProvider weatherTools(WeatherService weatherService){
+    public ToolCallbackProvider weatherTools(WeatherTool weatherTool){
         return MethodToolCallbackProvider.builder().
-                toolObjects(weatherService)
+                toolObjects(weatherTool)
                 .build();
     }
 
