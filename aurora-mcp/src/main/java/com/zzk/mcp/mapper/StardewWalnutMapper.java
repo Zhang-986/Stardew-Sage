@@ -1,0 +1,16 @@
+package com.zzk.mcp.mapper;
+
+import com.zzk.mcp.model.StardewWalnutEntity;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+
+/**
+ * <p>
+ * 金色核桃 Mapper 接口
+ * </p>
+ *
+ * @author ZZK
+ * @since 2025-09-25
+ */
+public interface StardewWalnutMapper extends BaseMapper<StardewWalnutEntity> {
+
+}

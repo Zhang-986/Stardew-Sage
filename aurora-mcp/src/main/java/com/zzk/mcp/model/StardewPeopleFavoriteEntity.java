@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 村民-爱好
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_people_favorite")
+public class StardewPeopleFavoriteEntity {
 
     /**
      * 主键
@@ -26,42 +26,27 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
+     * 村民ID
+     */
+    private Integer personId;
+
+    /**
+     * 爱好类型
+     */
+    private String favType;
+
+    /**
+     * 爱好名称
+     */
+    private String favName;
+
+    /**
+     * 数据模式
      */
     private Integer dataMode;
 
     /**
-     * 编码
+     * 01添加，02删除
      */
-    private String sysCode;
-
-    /**
-     * 名称-中文
-     */
-    private String nameCh;
-
-    /**
-     * 类型
-     */
-    private String craftType;
-
-    /**
-     * 打造价格
-     */
-    private String makePrice;
-
-    /**
-     * 售出价格
-     */
-    private String sellPrice;
-
-    /**
-     * 来源
-     */
-    private String sourceFrom;
-
-    /**
-     * 简介
-     */
-    private String remark;
+    private String favStatus;
 }

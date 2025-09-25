@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 秘密纸条
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_paper")
+public class StardewPaperEntity {
 
     /**
      * 主键
@@ -26,42 +26,42 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
-     */
-    private Integer dataMode;
-
-    /**
      * 编码
      */
     private String sysCode;
 
     /**
-     * 名称-中文
+     * 数据类型
+     */
+    private Integer dataMode;
+
+    /**
+     * 纸条名称
      */
     private String nameCh;
 
     /**
-     * 类型
+     * 图片URL
      */
-    private String craftType;
+    private String imageUrl;
 
     /**
-     * 打造价格
+     * 纸条内容
      */
-    private String makePrice;
+    private String paperNote;
 
     /**
-     * 售出价格
+     * 提示
      */
-    private String sellPrice;
+    private String paperTip;
 
     /**
-     * 来源
+     * 额外秘密
      */
-    private String sourceFrom;
+    private String paperOther;
 
     /**
-     * 简介
+     * 备注
      */
     private String remark;
 }

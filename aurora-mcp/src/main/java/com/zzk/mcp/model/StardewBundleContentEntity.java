@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 收集包内容
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_bundle_content")
+public class StardewBundleContentEntity {
 
     /**
      * 主键
@@ -26,42 +26,22 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
-     */
-    private Integer dataMode;
-
-    /**
-     * 编码
+     * 关联收集包CODE
      */
     private String sysCode;
 
     /**
-     * 名称-中文
+     * 收集包内容
      */
-    private String nameCh;
+    private String contentName;
 
     /**
-     * 类型
+     * 收集包描述
      */
-    private String craftType;
+    private String contentNote;
 
     /**
-     * 打造价格
+     * 是否混合模式独有
      */
-    private String makePrice;
-
-    /**
-     * 售出价格
-     */
-    private String sellPrice;
-
-    /**
-     * 来源
-     */
-    private String sourceFrom;
-
-    /**
-     * 简介
-     */
-    private String remark;
+    private Boolean contentStatus;
 }

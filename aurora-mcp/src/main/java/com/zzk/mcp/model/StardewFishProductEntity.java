@@ -3,12 +3,13 @@ package com.zzk.mcp.model;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 鱼塘升级和产出
  * </p>
  *
  * @author ZZK
@@ -16,8 +17,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_fish_product")
+public class StardewFishProductEntity {
 
     /**
      * 主键
@@ -26,42 +27,27 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
+     * 关联鱼类Code
      */
-    private Integer dataMode;
+    private Integer fishId;
 
     /**
-     * 编码
+     * 需要数量
      */
-    private String sysCode;
+    private Integer needCount;
 
     /**
-     * 名称-中文
+     * 产出和升级材料
      */
-    private String nameCh;
+    private String material;
 
     /**
-     * 类型
+     * 概率
      */
-    private String craftType;
+    private BigDecimal rate;
 
     /**
-     * 打造价格
+     * 01产出，02升级
      */
-    private String makePrice;
-
-    /**
-     * 售出价格
-     */
-    private String sellPrice;
-
-    /**
-     * 来源
-     */
-    private String sourceFrom;
-
-    /**
-     * 简介
-     */
-    private String remark;
+    private String recordType;
 }

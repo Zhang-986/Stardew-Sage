@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 料理-材料
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_food_material")
+public class StardewFoodMaterialEntity {
 
     /**
      * 主键
@@ -26,42 +26,27 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
+     * 料理ID
      */
-    private Integer dataMode;
+    private String foodId;
 
     /**
-     * 编码
+     * 材料名称
      */
-    private String sysCode;
+    private String materialName;
 
     /**
-     * 名称-中文
+     * 材料编码
      */
-    private String nameCh;
+    private String materialCode;
 
     /**
-     * 类型
+     * 需要数量
      */
-    private String craftType;
+    private Integer needNum;
 
     /**
-     * 打造价格
+     * 是否为链接
      */
-    private String makePrice;
-
-    /**
-     * 售出价格
-     */
-    private String sellPrice;
-
-    /**
-     * 来源
-     */
-    private String sourceFrom;
-
-    /**
-     * 简介
-     */
-    private String remark;
+    private Boolean linkIs;
 }

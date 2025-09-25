@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 题目
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_question")
+public class StardewQuestionEntity {
 
     /**
      * 主键
@@ -31,37 +31,37 @@ public class StardewCraftEntity {
     private Integer dataMode;
 
     /**
-     * 编码
+     * 题目内容
      */
-    private String sysCode;
+    private String questionContent;
 
     /**
-     * 名称-中文
+     * 题目选项A
      */
-    private String nameCh;
+    private String optionA;
 
     /**
-     * 类型
+     * 题目选项B
      */
-    private String craftType;
+    private String optionB;
 
     /**
-     * 打造价格
+     * 题目选项C
      */
-    private String makePrice;
+    private String optionC;
 
     /**
-     * 售出价格
+     * 题目选项D
      */
-    private String sellPrice;
+    private String optionD;
 
     /**
-     * 来源
+     * 答案
      */
-    private String sourceFrom;
+    private String questionAnswer;
 
     /**
-     * 简介
+     * 解析
      */
-    private String remark;
+    private String questionAnalysis;
 }

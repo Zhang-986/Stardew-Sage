@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 收集包
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_bundle")
+public class StardewBundleEntity {
 
     /**
      * 主键
@@ -26,14 +26,14 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
-     */
-    private Integer dataMode;
-
-    /**
-     * 编码
+     * 代码
      */
     private String sysCode;
+
+    /**
+     * 数据模式
+     */
+    private Integer dataMode;
 
     /**
      * 名称-中文
@@ -41,27 +41,32 @@ public class StardewCraftEntity {
     private String nameCh;
 
     /**
-     * 类型
+     * 解锁奖励
      */
-    private String craftType;
+    private String unlockReward;
 
     /**
-     * 打造价格
+     * 奖励
      */
-    private String makePrice;
+    private String reward;
 
     /**
-     * 售出价格
+     * 奖励图标
      */
-    private String sellPrice;
+    private String rewardIcon;
 
     /**
-     * 来源
+     * 需要数量
      */
-    private String sourceFrom;
+    private Integer needCount;
 
     /**
-     * 简介
+     * 备注
      */
     private String remark;
+
+    /**
+     * 收集包类型 01固定，02混合
+     */
+    private String bundleType;
 }

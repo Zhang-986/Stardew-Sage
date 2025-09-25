@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 日历
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_calendar")
+public class StardewCalendarEntity {
 
     /**
      * 主键
@@ -26,42 +26,32 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
+     * 季节
+     */
+    private String season;
+
+    /**
+     * 节日
+     */
+    private String festival;
+
+    /**
+     * 日期
+     */
+    private Integer dayNum;
+
+    /**
+     * 节日类型
+     */
+    private String festivalType;
+
+    /**
+     * 关联CODE
+     */
+    private String relationCode;
+
+    /**
+     * 数据模式
      */
     private Integer dataMode;
-
-    /**
-     * 编码
-     */
-    private String sysCode;
-
-    /**
-     * 名称-中文
-     */
-    private String nameCh;
-
-    /**
-     * 类型
-     */
-    private String craftType;
-
-    /**
-     * 打造价格
-     */
-    private String makePrice;
-
-    /**
-     * 售出价格
-     */
-    private String sellPrice;
-
-    /**
-     * 来源
-     */
-    private String sourceFrom;
-
-    /**
-     * 简介
-     */
-    private String remark;
 }

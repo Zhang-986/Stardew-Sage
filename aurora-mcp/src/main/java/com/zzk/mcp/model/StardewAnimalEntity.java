@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 动物
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_animal")
+public class StardewAnimalEntity {
 
     /**
      * 主键
@@ -26,14 +26,14 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
-     */
-    private Integer dataMode;
-
-    /**
      * 编码
      */
     private String sysCode;
+
+    /**
+     * 数据模式
+     */
+    private Integer dataMode;
 
     /**
      * 名称-中文
@@ -41,14 +41,9 @@ public class StardewCraftEntity {
     private String nameCh;
 
     /**
-     * 类型
+     * 购买价格
      */
-    private String craftType;
-
-    /**
-     * 打造价格
-     */
-    private String makePrice;
+    private String buyPrice;
 
     /**
      * 售出价格
@@ -56,12 +51,22 @@ public class StardewCraftEntity {
     private String sellPrice;
 
     /**
-     * 来源
+     * 需要设施
      */
-    private String sourceFrom;
+    private String needBuild;
 
     /**
-     * 简介
+     * 产出
+     */
+    private String animalOutput;
+
+    /**
+     * 备注
      */
     private String remark;
+
+    /**
+     * 获取方式
+     */
+    private String obtain;
 }

@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 金色核桃
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_walnut")
+public class StardewWalnutEntity {
 
     /**
      * 主键
@@ -26,42 +26,22 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
-     */
-    private Integer dataMode;
-
-    /**
-     * 编码
-     */
-    private String sysCode;
-
-    /**
      * 名称-中文
      */
     private String nameCh;
 
     /**
-     * 类型
-     */
-    private String craftType;
-
-    /**
-     * 打造价格
-     */
-    private String makePrice;
-
-    /**
-     * 售出价格
-     */
-    private String sellPrice;
-
-    /**
-     * 来源
-     */
-    private String sourceFrom;
-
-    /**
-     * 简介
+     * 描述
      */
     private String remark;
+
+    /**
+     * 核桃数量
+     */
+    private Integer walnutNum;
+
+    /**
+     * 类型
+     */
+    private String type;
 }

@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 区域-场景
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_area_scene")
+public class StardewAreaSceneEntity {
 
     /**
      * 主键
@@ -26,9 +26,9 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
+     * 关联的区域ID
      */
-    private Integer dataMode;
+    private Integer areaId;
 
     /**
      * 编码
@@ -36,32 +36,37 @@ public class StardewCraftEntity {
     private String sysCode;
 
     /**
-     * 名称-中文
+     * 数据类型
+     */
+    private Integer dataMode;
+
+    /**
+     * 场景名称
      */
     private String nameCh;
 
     /**
-     * 类型
+     * 居民
      */
-    private String craftType;
+    private String people;
 
     /**
-     * 打造价格
+     * 开放时间
      */
-    private String makePrice;
+    private String openTime;
 
     /**
-     * 售出价格
+     * 关闭时间
      */
-    private String sellPrice;
+    private String closeTime;
 
     /**
-     * 来源
+     * 地址
      */
-    private String sourceFrom;
+    private String address;
 
     /**
-     * 简介
+     * 描述
      */
     private String remark;
 }

@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * <p>
- * 工艺
+ * 村民-行程
  * </p>
  *
  * @author ZZK
@@ -16,8 +16,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@TableName("stardew_craft")
-public class StardewCraftEntity {
+@TableName("stardew_people_trip")
+public class StardewPeopleTripEntity {
 
     /**
      * 主键
@@ -26,42 +26,42 @@ public class StardewCraftEntity {
     private Integer id;
 
     /**
-     * 数据类型
+     * 村民ID
+     */
+    private Integer personId;
+
+    /**
+     * 行程类型
+     */
+    private String tripType;
+
+    /**
+     * 类型顺序
+     */
+    private Integer sortOrderTrip;
+
+    /**
+     * 行程日期
+     */
+    private String dayTag;
+
+    /**
+     * 日期顺序
+     */
+    private Integer sortOrderDay;
+
+    /**
+     * 时间
+     */
+    private String timeTag;
+
+    /**
+     * 行为
+     */
+    private String behaviorTag;
+
+    /**
+     * 模组
      */
     private Integer dataMode;
-
-    /**
-     * 编码
-     */
-    private String sysCode;
-
-    /**
-     * 名称-中文
-     */
-    private String nameCh;
-
-    /**
-     * 类型
-     */
-    private String craftType;
-
-    /**
-     * 打造价格
-     */
-    private String makePrice;
-
-    /**
-     * 售出价格
-     */
-    private String sellPrice;
-
-    /**
-     * 来源
-     */
-    private String sourceFrom;
-
-    /**
-     * 简介
-     */
-    private String remark;
 }

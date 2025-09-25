@@ -12,18 +12,55 @@ import com.baomidou.mybatisplus.generator.config.rules.DateType;
 import com.baomidou.mybatisplus.generator.config.rules.NamingStrategy;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class MyBatisPlusGenerator {
 
     public static void main(String[] args) {
-        // 要生成的数据库表名
-        List<String> tableNames = Arrays.asList("stardew_craft_material");
+        // 自动获取以stardew开头的表名
+        List<String> tableNames = getStardewTables();
+
+        if (tableNames.isEmpty()) {
+            System.out.println("没有找到以stardew开头的表");
+            return;
+        }
+
+        System.out.println("找到以下表: " + String.join(", ", tableNames));
+
         // 创建代码生成工具类
         FastAutoGenerator generator = create(tableNames);
         // 执行生成代码
         generator.execute();
+    }
+
+    /**
+     * 获取所有以stardew开头的表名
+     */
+    private static List<String> getStardewTables() {
+        List<String> tableNames = new ArrayList<>();
+        String url = "jdbc:mysql://117.72.112.62:3306/ry-vue?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
+        String username = "root";
+        String password = "200522";
+
+        try (Connection connection = java.sql.DriverManager.getConnection(url, username, password)) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            // 获取所有表，使用"stardew%"作为模式匹配
+            ResultSet tables = metaData.getTables(null, null, "stardew%", new String[]{"TABLE"});
+
+            while (tables.next()) {
+                String tableName = tables.getString("TABLE_NAME");
+                tableNames.add(tableName);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return tableNames;
     }
 
     private static FastAutoGenerator create(List<String> tableNames) {
