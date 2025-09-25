@@ -4,7 +4,7 @@ import com.openai.client.OpenAIClient;
 
 import com.openai.models.ChatCompletion;
 import com.openai.models.ChatCompletionCreateParams;
-import com.zzk.mcp.ai.DashScopeProperties;
+import com.zzk.mcp.config.properties.DashScopeProperties;
 import org.springframework.stereotype.Service;
 
 @Service

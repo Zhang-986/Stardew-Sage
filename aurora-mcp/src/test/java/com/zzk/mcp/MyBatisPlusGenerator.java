@@ -19,7 +19,7 @@ public class MyBatisPlusGenerator {
 
     public static void main(String[] args) {
         // 要生成的数据库表名
-        List<String> tableNames = Arrays.asList("stardew_craft");
+        List<String> tableNames = Arrays.asList("stardew_craft_material");
         // 创建代码生成工具类
         FastAutoGenerator generator = create(tableNames);
         // 执行生成代码

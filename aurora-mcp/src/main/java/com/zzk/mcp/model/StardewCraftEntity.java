@@ -22,7 +22,7 @@ public class StardewCraftEntity {
     /**
      * 主键
      */
-      @TableId(value = "id", type = IdType.NONE)
+    @TableId(value = "id", type = IdType.NONE)
     private Integer id;
 
     /**

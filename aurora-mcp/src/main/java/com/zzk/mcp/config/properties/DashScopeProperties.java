@@ -1,4 +1,4 @@
-package com.zzk.mcp.ai;
+package com.zzk.mcp.config.properties;
 
 import lombok.Getter;
 import lombok.Setter;

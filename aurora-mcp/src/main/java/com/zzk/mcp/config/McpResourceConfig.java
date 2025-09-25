@@ -1,5 +1,8 @@
 package com.zzk.mcp.config;
 
+import com.openai.client.OpenAIClient;
+import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.zzk.mcp.config.properties.DashScopeProperties;
 import com.zzk.mcp.tool.WeatherTool;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
@@ -22,5 +25,21 @@ public class McpResourceConfig {
     }
 
 
+    @Configuration
+    public static class AIClientConfig {
 
+        private final DashScopeProperties properties;
+
+        public AIClientConfig(DashScopeProperties properties) {
+            this.properties = properties;
+        }
+
+        @Bean
+        public OpenAIClient openAIClient() {
+            return OpenAIOkHttpClient.builder()
+                    .apiKey(properties.getApiKey())
+                    .baseUrl(properties.getBaseUrl())
+                    .build();
+        }
+    }
 }
