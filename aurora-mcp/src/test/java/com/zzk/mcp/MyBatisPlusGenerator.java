@@ -128,8 +128,6 @@ public class MyBatisPlusGenerator {
                 }).templateConfig(builder -> {
                     // 不生成Controller
                     builder.disable(TemplateType.CONTROLLER);
-                    builder.disable(TemplateType.SERVICE);
-                    builder.disable(TemplateType.SERVICE_IMPL);
                 });
         return generator;
     }

@@ -15,12 +15,20 @@ class AuroaMcpServerApplicationTests {
    private StardewCraftMapper stardewCraftMapper;
     @Test
     void contextLoads() {
-        StardewCraftEntity stardewCraftEntity = new StardewCraftEntity();
-        stardewCraftEntity.setCraftType("花花");
-        stardewCraftEntity.setDataMode(1);
-        stardewCraftEntity.setNameCh("花花aa");
-        stardewCraftEntity.setSysCode("asd");
-        stardewCraftMapper.insert(stardewCraftEntity);
+        LambdaQueryWrapper<StardewCraftEntity> stardewCraftEntityLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        stardewCraftEntityLambdaQueryWrapper.isNotNull(StardewCraftEntity::getId);
+        List<StardewCraftEntity> stardewCraftEntities = stardewCraftMapper.selectList(stardewCraftEntityLambdaQueryWrapper);
+        for (StardewCraftEntity stardewCraftEntity : stardewCraftEntities) {
+            System.out.println(stardewCraftEntity.getId());
+            System.out.println(stardewCraftEntity.getSysCode());
+            System.out.println(stardewCraftEntity.getNameCh());
+            System.out.println(stardewCraftEntity.getCraftType());
+            System.out.println(stardewCraftEntity.getMakePrice());
+            System.out.println(stardewCraftEntity.getSellPrice());
+            System.out.println(stardewCraftEntity.getSourceFrom());
+            System.out.println(stardewCraftEntity.getRemark());
+            System.out.println(stardewCraftEntity.getDataMode());
+        }
     }
 
 }

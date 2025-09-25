@@ -42,7 +42,7 @@ public class AgentService {
     public String getDressingAdvice(String userInput) {
         return chatClient.prompt()
                 .user(userInput)
-                .call() // 自动触发getWeather工具调用
+                .call()
                 .content();
     }
 }
