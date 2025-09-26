@@ -17,8 +17,8 @@ public class AgentController {
     @Autowired
     private AgentService agentService;
  
-    @GetMapping("getDressingAdvice/{userInput}")
-    public String getDressingAdvice(@PathVariable String userInput) {
-        return agentService.getDressingAdvice(userInput);
+    @GetMapping("/getDressingAdvice")
+    public String getDressingAdvice() {
+        return agentService.getBirthdayInfo();
     }
 }

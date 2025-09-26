@@ -4,11 +4,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-
 /**
- * 穿衣助手服务（直接调用MCP Server的@Tool方法）
+ * 星露谷用户信息助手
  */
 @Service
 public class AgentService {
@@ -16,22 +13,15 @@ public class AgentService {
 
     public AgentService(ChatClient.Builder chatClientBuilder, ToolCallbackProvider tools) {
         String systemPrompt = """
-                你作为穿衣助手Agent，请严格按以下步骤为用户推荐穿衣搭配：
-                ### 步骤1：获取当前日期
-                当前日期为{currentDate}。
+                你作为星露谷Agent，请严格按以下步骤为用户为用户提供趣味体验，
                 
-                ### 步骤2：校验用户输入
-                如果用户输入不包含城市名则提示用户'请输入城市名'。
+                ### 步骤1：根据tool工具调用数据库星露谷今天生日信息
+                调用工具'getTodayBirthday'获取星露谷今天生日信息的人的信息
                 
-                ### 步骤3：根据城市名获取天气信息
-                调用工具'getWeather'获取天气信息，入参：城市名city（从用户输入中提取）。
+                ### 步骤2：匹配到任务数据项，讲解人物趣味故事。
+                根据人物JSON信息,讲解今天人物的信息,风趣味
                 
-                ### 步骤4：根据天气信息生成穿衣建议
-                结合天气信息直接给出穿搭建议（无需再调用工具）。
                 """;
-
-        String currentDateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        systemPrompt = systemPrompt.replace("{currentDate}", currentDateStr);
 
         this.chatClient = chatClientBuilder
                 .defaultSystem(systemPrompt)
@@ -39,9 +29,10 @@ public class AgentService {
                 .build();
     }
 
-    public String getDressingAdvice(String userInput) {
-        return chatClient.prompt()
-                .user(userInput)
+    public String getBirthdayInfo() {
+        return chatClient
+                .prompt()
+                .user("根据Prompt做一些东西")
                 .call()
                 .content();
     }
