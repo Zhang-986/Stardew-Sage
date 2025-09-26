@@ -18,7 +18,8 @@ spring:
         completions-path: chat/completions # 重新设置智谱AI的聊天模型路径，覆盖openAi默认配置
         options:
           model: GLM-4-AirX # 使用GLM-4-AirX语言模型
-#MCP inspector 测试使用的MCP Server配置信息
+          stream-usage: true
+    #MCP inspector 测试使用的MCP Server配置信息
     mcp:
       server:
         type: sync

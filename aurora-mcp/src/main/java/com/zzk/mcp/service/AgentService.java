@@ -1,39 +1,37 @@
 package com.zzk.mcp.service;
 
+import reactor.core.publisher.Flux;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.stereotype.Service;
 
-/**
- * 星露谷用户信息助手
- */
+import java.time.Duration;
+
 @Service
 public class AgentService {
     private final ChatClient chatClient;
 
     public AgentService(ChatClient.Builder chatClientBuilder, ToolCallbackProvider tools) {
         String systemPrompt = """
-                你作为星露谷Agent，请严格按以下步骤为用户为用户提供趣味体验，
+                你作为星露谷Agent，请严格按以下步骤为用户提供趣味体验：
                 
-                ### 步骤1：根据tool工具调用数据库星露谷今天生日信息
-                调用工具'getTodayBirthday'获取星露谷今天生日信息的人的信息
+                ### 步骤1：调用工具'getTodayBirthday'获取星露谷今天生日信息
                 
-                ### 步骤2：匹配到任务数据项，讲解人物趣味故事。
-                根据人物JSON信息,讲解今天人物的信息,风趣味
-                
+                ### 步骤2：根据人物JSON信息,结合他(她)的具体day,简短讲解关联
                 """;
 
         this.chatClient = chatClientBuilder
                 .defaultSystem(systemPrompt)
-                .defaultToolCallbacks( tools)
+                .defaultToolCallbacks(tools)
                 .build();
     }
 
-    public String getBirthdayInfo() {
-        return chatClient
-                .prompt()
-                .user("根据Prompt做一些东西")
-                .call()
-                .content();
+    public Flux<String> getBirthdayInfoStream() {
+        return chatClient.prompt()
+                .user("获取今日生日信息")
+                .stream()
+                .content()
+                .onErrorResume(e -> Flux.just("data: [ERROR] " + e.getMessage() + "\n\n"))
+                .timeout(Duration.ofMinutes(10)); // 设置更长超时
     }
 }
