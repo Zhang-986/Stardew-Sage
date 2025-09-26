@@ -13,7 +13,7 @@ public class BirthdayTool {
     @Autowired
     private BirthdayService birthdayService;
 
-    @Tool(description = "获取当天人物的生日情况")
+    @Tool(name = "getTodayBirthday",description = "获取今日星露谷NPC玩家生日情况")
     public String getTodayBirthday() {
         return birthdayService.getTodayBirthday();
     }
