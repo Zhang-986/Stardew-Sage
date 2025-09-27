@@ -1,0 +1,481 @@
+// 星露谷物语主题色彩变量
+:root {
+  // 主色调 - 温暖的大地色系
+  --stardew-primary: #8B4513;        // 棕色
+  --stardew-primary-light: #CD853F;  // 浅棕色
+  --stardew-primary-dark: #654321;   // 深棕色
+  
+  // 辅助色
+  --stardew-green: #5E9E27;          // 草绿色
+  --stardew-green-light: #7FBF3A;    // 浅绿色
+  --stardew-orange: #FF8C00;         // 橙色
+  --stardew-yellow: #FFD04D;         // 黄色
+  
+  // 背景色
+  --stardew-bg-primary: #FFF8E6;     // 主背景 - 米黄色
+  --stardew-bg-secondary: #F5F0E6;   // 次级背景
+  --stardew-bg-panel: #FFFBF0;       // 面板背景
+  
+  // 边框色
+  --stardew-border-primary: #B88646; // 主边框 - 金棕色
+  --stardew-border-secondary: #D4AF37; // 次级边框
+  --stardew-border-shadow: #935D1D;  // 边框阴影
+  
+  // 文字色
+  --stardew-text-primary: #4B3A1E;   // 主文字
+  --stardew-text-secondary: #6B5B3D; // 次级文字
+  --stardew-text-light: #8B7D5C;     // 浅色文字
+  --stardew-text-white: #FFF8E6;     // 白色文字
+  
+  // 状态色
+  --stardew-success: #67C23A;        // 成功
+  --stardew-warning: #E6A23C;        // 警告
+  --stardew-danger: #F56C6C;         // 危险
+  --stardew-info: #409EFF;           // 信息
+  
+  // 夜空渐变背景
+  --stardew-night-gradient: linear-gradient(
+    135deg,
+    #1e2c44 0%,
+    #314d61 25%,
+    #3f5d6b 50%,
+    #4a6a64 75%,
+    #5c7a4b 100%
+  );
+  
+  // 阴影
+  --stardew-shadow-light: 0 2px 8px rgba(139, 69, 19, 0.1);
+  --stardew-shadow-medium: 0 4px 16px rgba(139, 69, 19, 0.15);
+  --stardew-shadow-heavy: 0 8px 32px rgba(139, 69, 19, 0.25);
+  
+  // 圆角
+  --stardew-radius-small: 6px;
+  --stardew-radius-medium: 12px;
+  --stardew-radius-large: 20px;
+}
+
+// 全局字体设置
+body {
+  font-family: 'Pixel Arial', 'Microsoft YaHei', 'Arial', sans-serif;
+}
+
+// 星露谷物语风格的通用类
+.stardew-card {
+  background: var(--stardew-bg-panel);
+  border: 3px solid var(--stardew-border-primary);
+  border-radius: var(--stardew-radius-medium);
+  box-shadow: 
+    0 4px 0 var(--stardew-border-shadow),
+    var(--stardew-shadow-medium);
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    background: linear-gradient(45deg, 
+      var(--stardew-border-secondary) 0%, 
+      var(--stardew-border-primary) 100%);
+    border-radius: var(--stardew-radius-medium);
+    z-index: -1;
+  }
+}
+
+.stardew-btn {
+  background: linear-gradient(135deg, var(--stardew-primary), var(--stardew-primary-light));
+  border: 2px solid var(--stardew-border-primary);
+  color: var(--stardew-text-white);
+  padding: 8px 16px;
+  border-radius: var(--stardew-radius-small);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 0 var(--stardew-border-shadow);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 0 var(--stardew-border-shadow);
+    background: linear-gradient(135deg, var(--stardew-primary-light), var(--stardew-primary));
+  }
+  
+  &:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 0 var(--stardew-border-shadow);
+  }
+}
+
+// 星星动画背景
+.stardew-stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(2px 2px at 10% 20%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(2px 2px at 30% 70%, rgba(255,255,255,0.7), transparent 60%),
+    radial-gradient(2px 2px at 80% 40%, rgba(255,255,255,0.8), transparent 60%),
+    radial-gradient(2px 2px at 55% 15%, rgba(255,255,255,0.6), transparent 60%),
+    radial-gradient(2px 2px at 70% 85%, rgba(255,255,255,0.5), transparent 60%);
+  animation: stardew-twinkle 8s linear infinite;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.8), transparent 50%),
+      radial-gradient(1px 1px at 60% 80%, rgba(255,255,255,0.6), transparent 50%),
+      radial-gradient(1px 1px at 90% 10%, rgba(255,255,255,0.7), transparent 50%);
+    animation: stardew-twinkle 12s linear infinite reverse;
+  }
+}
+
+// 装饰元素
+.stardew-decor {
+  &.soil {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 60px;
+    height: 40px;
+    background: repeating-linear-gradient(45deg, #6e4a28 0 14px, #5c3c1d 14px 28px);
+    filter: brightness(.9);
+  }
+  
+  &.grass {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 70px;
+    background: linear-gradient(var(--stardew-green-light), var(--stardew-green));
+    box-shadow: inset 0 4px 0 #4b811d;
+    border-top: 3px solid #35530f;
+  }
+}
+
+// 动画定义
+@keyframes stardew-twinkle {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes stardew-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes stardew-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(255, 212, 77, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(255, 212, 77, 0.8); }
+}
+
+// Element UI 组件覆盖样式
+.el-button--primary {
+  @extend .stardew-btn;
+  border: none;
+}
+
+.el-input__inner {
+  border: 2px solid var(--stardew-border-primary);
+  border-radius: var(--stardew-radius-small);
+  background: var(--stardew-bg-panel);
+  color: var(--stardew-text-primary);
+  
+  &:focus {
+    border-color: var(--stardew-primary-light);
+    box-shadow: 0 0 8px rgba(139, 69, 19, 0.3);
+  }
+}
+
+.el-card {
+  @extend .stardew-card;
+  border: none;
+  box-shadow: var(--stardew-shadow-medium);
+  
+  .el-card__header {
+    background: var(--stardew-bg-secondary);
+    border-bottom: 2px solid var(--stardew-border-primary);
+    color: var(--stardew-text-primary);
+    font-weight: 600;
+  }
+}
+
+// 星露谷物语导航栏和侧边栏样式覆盖
+// 顶部导航栏样式
+.navbar {
+  background: linear-gradient(135deg, var(--stardew-primary) 0%, var(--stardew-primary-light) 100%) !important;
+  border-bottom: 3px solid var(--stardew-border-shadow) !important;
+  box-shadow: 0 3px 0 var(--stardew-border-primary), 0 6px 12px rgba(139, 69, 19, 0.3) !important;
+  
+  .hamburger-container {
+    .hamburger {
+      .hamburger-inner,
+      .hamburger-inner::before,
+      .hamburger-inner::after {
+        background-color: var(--stardew-text-white) !important;
+      }
+    }
+  }
+  
+  .breadcrumb-container {
+    .el-breadcrumb {
+      .el-breadcrumb__item {
+        .el-breadcrumb__inner {
+          color: var(--stardew-text-white) !important;
+          font-weight: 500 !important;
+          
+          &:hover {
+            color: var(--stardew-yellow) !important;
+          }
+        }
+        
+        .el-breadcrumb__separator {
+          color: rgba(255, 248, 230, 0.7) !important;
+        }
+      }
+    }
+  }
+  
+  .right-menu {
+    .right-menu-item {
+      color: var(--stardew-text-white) !important;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-radius: var(--stardew-radius-small) !important;
+      }
+      
+      .avatar-wrapper {
+        .user-avatar {
+          border: 2px solid var(--stardew-text-white) !important;
+        }
+      }
+    }
+    
+    .el-dropdown {
+      .el-dropdown-link {
+        color: var(--stardew-text-white) !important;
+      }
+    }
+  }
+}
+
+// 侧边栏样式
+.sidebar-container {
+  background: var(--stardew-bg-panel) !important;
+  border-right: 3px solid var(--stardew-border-primary) !important;
+  
+  .scrollbar-wrapper {
+    .el-scrollbar__view {
+      .el-menu {
+        background: var(--stardew-bg-panel) !important;
+        border: none !important;
+        
+        .el-menu-item,
+        .el-submenu__title {
+          color: var(--stardew-text-primary) !important;
+          font-weight: 500 !important;
+          border-radius: 0 !important;
+          transition: all 0.3s ease !important;
+          
+          &:hover {
+            background: linear-gradient(90deg, var(--stardew-primary-light), rgba(205, 133, 63, 0.1)) !important;
+            color: var(--stardew-text-white) !important;
+            border-radius: var(--stardew-radius-small) !important;
+            margin: 0 8px !important;
+          }
+          
+          &.is-active {
+            background: linear-gradient(90deg, var(--stardew-primary), var(--stardew-orange)) !important;
+            color: var(--stardew-text-white) !important;
+            border-radius: var(--stardew-radius-small) !important;
+            margin: 0 8px !important;
+            box-shadow: 0 2px 8px rgba(139, 69, 19, 0.3) !important;
+            
+            &::before {
+              content: "🌟" !important;
+              margin-right: 8px !important;
+            }
+          }
+          
+          .svg-icon {
+            color: inherit !important;
+          }
+        }
+        
+        .el-submenu {
+          .el-submenu__title {
+            &:hover {
+              background: rgba(139, 69, 19, 0.1) !important;
+            }
+          }
+          
+          .el-menu {
+            background: var(--stardew-bg-secondary) !important;
+            
+            .el-menu-item {
+              background: transparent !important;
+              
+              &:hover {
+                background: rgba(139, 69, 19, 0.1) !important;
+                padding-left: 24px !important;
+              }
+              
+              &.is-active {
+                background: var(--stardew-primary) !important;
+                color: var(--stardew-text-white) !important;
+                
+                &::before {
+                  content: "🍃" !important;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // logo区域
+  .sidebar-logo-container {
+    background: linear-gradient(135deg, var(--stardew-primary-dark), var(--stardew-primary)) !important;
+    border-bottom: 2px solid var(--stardew-border-primary) !important;
+    
+    .sidebar-logo-link {
+      .sidebar-logo {
+        filter: brightness(0) invert(1) !important;
+      }
+      
+      .sidebar-title {
+        color: var(--stardew-text-white) !important;
+        font-weight: 600 !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+      }
+    }
+  }
+}
+
+// 主内容区域样式
+.main-container {
+  background: var(--stardew-bg-primary) !important;
+  min-height: calc(100vh - 50px) !important;
+  
+  .app-main {
+    background: transparent !important;
+  }
+}
+
+// 标签页样式 (如果启用)
+.tags-view-container {
+  background: var(--stardew-bg-secondary) !important;
+  border-bottom: 2px solid var(--stardew-border-primary) !important;
+  
+  .tags-view-wrapper {
+    .tags-view-item {
+      background: var(--stardew-bg-panel) !important;
+      border: 2px solid var(--stardew-border-primary) !important;
+      color: var(--stardew-text-primary) !important;
+      border-radius: var(--stardew-radius-small) !important;
+      margin-right: 6px !important;
+      
+      &:hover {
+        background: var(--stardew-primary-light) !important;
+        color: var(--stardew-text-white) !important;
+      }
+      
+      &.active {
+        background: var(--stardew-primary) !important;
+        color: var(--stardew-text-white) !important;
+        border-color: var(--stardew-primary-dark) !important;
+      }
+      
+      .el-icon-close {
+        color: inherit !important;
+        
+        &:hover {
+          background: rgba(255, 255, 255, 0.2) !important;
+          border-radius: 50% !important;
+        }
+      }
+    }
+  }
+}
+
+// 设置面板样式
+.setting-drawer-container {
+  .setting-drawer {
+    background: var(--stardew-bg-panel) !important;
+    
+    .drawer-container {
+      background: var(--stardew-bg-panel) !important;
+      
+      .drawer-title {
+        color: var(--stardew-text-primary) !important;
+        border-bottom: 2px solid var(--stardew-border-primary) !important;
+      }
+      
+      .drawer-item {
+        .drawer-item-title {
+          color: var(--stardew-text-primary) !important;
+        }
+      }
+    }
+  }
+}
+
+// 下拉菜单样式
+.el-dropdown-menu {
+  background: var(--stardew-bg-panel) !important;
+  border: 2px solid var(--stardew-border-primary) !important;
+  border-radius: var(--stardew-radius-small) !important;
+  box-shadow: var(--stardew-shadow-medium) !important;
+  
+  .el-dropdown-menu__item {
+    color: var(--stardew-text-primary) !important;
+    
+    &:hover {
+      background: var(--stardew-primary-light) !important;
+      color: var(--stardew-text-white) !important;
+    }
+  }
+}
+
+// 消息提示样式
+.el-message {
+  background: var(--stardew-bg-panel) !important;
+  border: 2px solid var(--stardew-border-primary) !important;
+  border-radius: var(--stardew-radius-small) !important;
+  
+  &.el-message--success {
+    border-color: var(--stardew-success) !important;
+    
+    .el-message__icon {
+      color: var(--stardew-success) !important;
+    }
+  }
+  
+  &.el-message--warning {
+    border-color: var(--stardew-warning) !important;
+    
+    .el-message__icon {
+      color: var(--stardew-warning) !important;
+    }
+  }
+  
+  &.el-message--error {
+    border-color: var(--stardew-danger) !important;
+    
+    .el-message__icon {
+      color: var(--stardew-danger) !important;
+    }
+  }
+}

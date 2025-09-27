@@ -15,8 +15,12 @@ public class AgentController {
     @Autowired
     private AgentService agentService;
 
-    @GetMapping(value = "/getDressingAdvice", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> getDressingAdviceStream() {
+    @GetMapping(value = "/getBirthInfoStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> getBirthInfoStream() {
         return agentService.getBirthdayInfoStream();
+    }
+    @GetMapping(value = "/getMissionInfoStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> getMissionInfoStream() {
+        return agentService.getMissionInfoStream();
     }
 }
