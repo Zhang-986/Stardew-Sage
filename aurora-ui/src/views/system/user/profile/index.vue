@@ -1,44 +1,62 @@
 <template>
-  <div class="profile-container">
+  <div class="stardew-profile">
+    <!-- 星空背景 -->
+    <div class="stardew-stars"></div>
+    
     <el-row :gutter="20">
       <el-col :span="8" :xs="24">
-        <div class="profile-card user-card">
+        <div class="stardew-card farmer-info-card">
           <div class="card-header">
             <div class="header-icon">
-              <i class="el-icon-user"></i>
+              👤
             </div>
-            <h3>个人信息</h3>
+            <h3>老乡信息</h3>
           </div>
 
           <div class="card-body">
             <div class="avatar-section">
               <userAvatar />
-              <div class="user-basic">
-                <h4 class="user-name">{{ user.userName || '用户' }}</h4>
-                <span class="user-role">{{ roleGroup || '暂无角色' }}</span>
+              <div class="farmer-basic">
+                <h4 class="farmer-name">🌾 {{ user.userName || '新手农夫' }}</h4>
+                <span class="farmer-role">{{ roleGroup || '见习农夫' }}</span>
               </div>
             </div>
 
             <div class="info-list">
               <div class="info-row">
-                <span class="info-label">手机号码</span>
-                <span class="info-value">{{ user.phonenumber || '未设置' }}</span>
+                <span class="info-icon">📱</span>
+                <div class="info-content">
+                  <span class="info-label">联系方式</span>
+                  <span class="info-value">{{ user.phonenumber || '未设置' }}</span>
+                </div>
               </div>
               <div class="info-row">
-                <span class="info-label">用户邮箱</span>
-                <span class="info-value">{{ user.email || '未设置' }}</span>
+                <span class="info-icon">📧</span>
+                <div class="info-content">
+                  <span class="info-label">农场邮箱</span>
+                  <span class="info-value">{{ user.email || '未设置' }}</span>
+                </div>
               </div>
               <div class="info-row" v-if="user.dept">
-                <span class="info-label">所属部门</span>
-                <span class="info-value">{{ user.dept.deptName }}</span>
+                <span class="info-icon">🏢</span>
+                <div class="info-content">
+                  <span class="info-label">所属农业社</span>
+                  <span class="info-value">{{ user.dept.deptName }}</span>
+                </div>
               </div>
               <div class="info-row" v-if="postGroup">
-                <span class="info-label">岗位信息</span>
-                <span class="info-value">{{ postGroup }}</span>
+                <span class="info-icon">💼</span>
+                <div class="info-content">
+                  <span class="info-label">农场职务</span>
+                  <span class="info-value">{{ postGroup }}</span>
+                </div>
               </div>
               <div class="info-row">
-                <span class="info-label">创建时间</span>
-                <span class="info-value">{{ user.createTime }}</span>
+                <span class="info-icon">🗓️</span>
+                <div class="info-content">
+                  <span class="info-label">入驻时间</span>
+                  <span class="info-value">{{ user.createTime }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -46,30 +64,30 @@
       </el-col>
 
       <el-col :span="16" :xs="24">
-        <div class="profile-card settings-card">
+        <div class="stardew-card settings-card">
           <div class="card-header">
             <div class="header-icon">
-              <i class="el-icon-setting"></i>
+              ⚙️
             </div>
-            <h3>基本资料</h3>
+            <h3>农场设置</h3>
           </div>
 
           <div class="card-body">
-            <div class="tab-navigation">
+            <div class="stardew-tabs">
               <div
-                class="nav-item"
+                class="tab-item"
                 :class="{ active: selectedTab === 'userinfo' }"
                 @click="selectedTab = 'userinfo'"
               >
-                <i class="el-icon-edit"></i>
+                <i class="tab-icon">📝</i>
                 <span>基本资料</span>
               </div>
               <div
-                class="nav-item"
+                class="tab-item"
                 :class="{ active: selectedTab === 'resetPwd' }"
                 @click="selectedTab = 'resetPwd'"
               >
-                <i class="el-icon-lock"></i>
+                <i class="tab-icon">🔐</i>
                 <span>修改密码</span>
               </div>
             </div>
@@ -82,6 +100,10 @@
         </div>
       </el-col>
     </el-row>
+    
+    <!-- 装饰元素 -->
+    <div class="stardew-decor soil"></div>
+    <div class="stardew-decor grass"></div>
   </div>
 </template>
 
@@ -122,31 +144,54 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.profile-container {
-  padding: 32px;
-  background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+.stardew-profile {
+  position: relative;
   min-height: calc(100vh - 60px);
-
-  .profile-card {
-    background: #fff;
-    border-radius: 16px;
+  padding: 32px;
+  background: var(--stardew-night-gradient);
+  font-family: 'Pixel Arial', 'Microsoft YaHei', sans-serif;
+  overflow: hidden;
+  
+  .stardew-stars {
+    z-index: 1;
+  }
+  
+  .stardew-card {
+    @extend .stardew-card;
+    background: var(--stardew-bg-panel);
+    border: 4px solid var(--stardew-border-primary);
+    border-radius: var(--stardew-radius-large);
+    box-shadow: 0 6px 0 var(--stardew-border-shadow), var(--stardew-shadow-heavy);
     margin-bottom: 24px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     overflow: hidden;
-
+    transition: all 0.3s ease;
+    position: relative;
+    
     &:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 0 var(--stardew-border-shadow), var(--stardew-shadow-heavy);
     }
-
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      background: linear-gradient(45deg, var(--stardew-border-secondary), var(--stardew-border-primary));
+      border-radius: var(--stardew-radius-large);
+      z-index: -1;
+    }
+    
     .card-header {
-      background: linear-gradient(135deg, #000000 0%, #000000 100%);
-      color: #fff;
-      padding: 24px;
+      background: linear-gradient(135deg, var(--stardew-primary), var(--stardew-orange));
+      color: var(--stardew-text-white);
+      padding: 20px 24px;
       display: flex;
       align-items: center;
-
+      border-bottom: 3px solid var(--stardew-border-shadow);
+      
       .header-icon {
         width: 48px;
         height: 48px;
@@ -156,138 +201,170 @@ export default {
         align-items: center;
         justify-content: center;
         margin-right: 16px;
-
-        i {
-          font-size: 20px;
-        }
+        font-size: 24px;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
       }
-
+      
       h3 {
         margin: 0;
-        font-size: 18px;
-        font-weight: 500;
+        font-size: 20px;
+        font-weight: 600;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
       }
     }
-
+    
     .card-body {
       padding: 24px;
     }
   }
-
-  .user-card {
+  
+  .farmer-info-card {
     .avatar-section {
       text-align: center;
       padding-bottom: 24px;
-      border-bottom: 1px solid #f0f2f5;
+      border-bottom: 2px dashed var(--stardew-border-primary);
       margin-bottom: 24px;
-
-      .user-basic {
+      
+      .farmer-basic {
         margin-top: 16px;
-
-        .user-name {
-          margin: 0 0 8px 0;
-          color: #2c3e50;
+        
+        .farmer-name {
+          margin: 0 0 12px 0;
+          color: var(--stardew-text-primary);
           font-size: 18px;
           font-weight: 600;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
-
-        .user-role {
-          background: linear-gradient(45deg, #000000, #000000);
-          color: #fff;
-          padding: 4px 16px;
+        
+        .farmer-role {
+          background: linear-gradient(45deg, var(--stardew-green), var(--stardew-green-light));
+          color: var(--stardew-text-white);
+          padding: 6px 16px;
           border-radius: 20px;
           font-size: 12px;
-          font-weight: 500;
+          font-weight: 600;
+          display: inline-block;
+          box-shadow: 0 2px 4px rgba(94, 158, 39, 0.3);
+          text-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
       }
     }
-
+    
     .info-list {
       .info-row {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        padding: 12px 0;
-        border-bottom: 1px solid #f8f9fa;
-
+        padding: 16px 0;
+        border-bottom: 1px solid var(--stardew-bg-secondary);
+        transition: all 0.3s ease;
+        
         &:last-child {
           border-bottom: none;
         }
-
+        
         &:hover {
-          background: #f8f9fa;
+          background: rgba(139, 69, 19, 0.05);
           margin: 0 -16px;
-          padding: 12px 16px;
-          border-radius: 8px;
+          padding: 16px 16px;
+          border-radius: var(--stardew-radius-small);
         }
-
-        .info-label {
-          color: #666;
-          font-size: 14px;
-          font-weight: 500;
+        
+        .info-icon {
+          font-size: 20px;
+          margin-right: 16px;
+          width: 32px;
+          text-align: center;
         }
-
-        .info-value {
-          color: #2c3e50;
-          font-size: 14px;
-          font-weight: 600;
-          text-align: right;
-          max-width: 60%;
-          word-break: break-all;
+        
+        .info-content {
+          flex: 1;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          
+          .info-label {
+            color: var(--stardew-text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+          }
+          
+          .info-value {
+            color: var(--stardew-text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-all;
+          }
         }
       }
     }
   }
-
+  
   .settings-card {
-    .tab-navigation {
+    .stardew-tabs {
       display: flex;
-      background: #f8f9fa;
-      border-radius: 12px;
-      padding: 4px;
+      background: var(--stardew-bg-secondary);
+      border: 2px solid var(--stardew-border-primary);
+      border-radius: var(--stardew-radius-medium);
+      padding: 6px;
       margin-bottom: 24px;
-
-      .nav-item {
+      
+      .tab-item {
         flex: 1;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 12px 20px;
-        border-radius: 8px;
+        border-radius: var(--stardew-radius-small);
         cursor: pointer;
-        color: #666;
+        color: var(--stardew-text-secondary);
         font-weight: 500;
         transition: all 0.3s ease;
         gap: 8px;
-
-        i {
+        
+        .tab-icon {
           font-size: 16px;
         }
-
+        
         &:hover {
-          color: #2c3e50;
-          background: rgba(44, 62, 80, 0.1);
+          color: var(--stardew-text-primary);
+          background: rgba(139, 69, 19, 0.1);
         }
-
+        
         &.active {
-          background: #fff;
-          color: #2c3e50;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          background: linear-gradient(135deg, var(--stardew-primary), var(--stardew-orange));
+          color: var(--stardew-text-white);
+          box-shadow: 0 3px 0 var(--stardew-border-shadow);
+          text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+          
+          &::before {
+            content: "✨";
+            margin-right: 4px;
+          }
         }
       }
     }
-
+    
     .tab-content {
       min-height: 400px;
+      background: rgba(255, 248, 230, 0.5);
+      border: 2px dashed var(--stardew-border-primary);
+      border-radius: var(--stardew-radius-small);
+      padding: 20px;
     }
+  }
+  
+  .stardew-decor {
+    z-index: 0;
   }
 }
 
 // 响应式设计
 @media (max-width: 992px) {
-  .profile-container {
+  .stardew-profile {
     padding: 20px;
-
+    
     .el-col:first-child {
       margin-bottom: 20px;
     }
@@ -295,50 +372,54 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .profile-container {
+  .stardew-profile {
     padding: 16px;
-
+    
     .card-header {
-      padding: 20px !important;
-
+      padding: 16px 20px !important;
+      
       .header-icon {
         width: 40px !important;
         height: 40px !important;
         margin-right: 12px !important;
-
-        i {
-          font-size: 18px !important;
-        }
+        font-size: 20px !important;
       }
-
+      
       h3 {
         font-size: 16px !important;
       }
     }
-
+    
     .card-body {
       padding: 20px !important;
     }
-
+    
     .info-list {
       .info-row {
         flex-direction: column;
         align-items: flex-start;
-        gap: 4px;
-
-        .info-value {
-          max-width: 100%;
-          text-align: left;
+        gap: 8px;
+        
+        .info-content {
+          width: 100%;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+          
+          .info-value {
+            max-width: 100%;
+            text-align: left;
+          }
         }
       }
     }
-
-    .tab-navigation {
-      .nav-item {
+    
+    .stardew-tabs {
+      .tab-item {
         padding: 10px 16px !important;
         font-size: 14px;
-
-        i {
+        
+        .tab-icon {
           font-size: 14px !important;
         }
       }

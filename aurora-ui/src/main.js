@@ -7,6 +7,7 @@ import './assets/styles/element-variables.scss'
 
 import '@/assets/styles/index.scss' // global css
 import '@/assets/styles/aurora.scss' // ruoyi css
+import '@/assets/styles/stardew-theme.scss' // stardew valley theme
 import App from './App'
 import store from './store'
 import router from './router'
