@@ -1,4 +1,8 @@
 spring:
+  data:
+    redis:
+      host: 192.168.1.124
+      port: 6380
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://117.72.112.62:3306/ry-vue?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
@@ -6,6 +10,10 @@ spring:
       username: root
       password: 200522
   ai:
+    vectorstore:
+      redis:
+        index-name: stardew_index #向量库索引名字
+        initialize-schema: true
     openai:
       base-url: https://open.bigmodel.cn/api/paas/v4/  # 智谱AI API地址
       api-key: a019862d5765451eb11a54e7da38824e.wCWob7C5d9ptzYKy # 智谱AI APIKey
@@ -28,11 +36,11 @@ spring:
         enabled: true
   application:
     name: aurora-mcp-server
-
-#通义大模型
-ai:
-  dashscope:
-    api-key: sk-ff9aa8fa0ebe4dddbe3126694ac5bffc
-    base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
 server:
   port: 8099
+logging:
+  level:
+    com.zzk.mcp: debug
+meta:
+  data:
+    length: 40

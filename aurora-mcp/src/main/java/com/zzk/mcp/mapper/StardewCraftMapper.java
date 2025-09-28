@@ -1,7 +1,7 @@
 package com.zzk.mcp.mapper;
 
-import com.zzk.mcp.model.StardewCraftEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.zzk.mcp.model.StardewCraftEntity;
 
 /**
  * <p>

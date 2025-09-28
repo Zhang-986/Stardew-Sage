@@ -3,6 +3,7 @@ package com.zzk.mcp.service;
 import com.zzk.mcp.prompt.PeoplePrompt;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -10,15 +11,12 @@ import java.time.Duration;
 
 @Service
 public class AgentService {
+
     private final ChatClient chatClient;
-    private final ToolCallbackProvider tools;
 
     // 不再设置默认 Prompt
-    public AgentService(ChatClient.Builder chatClientBuilder, ToolCallbackProvider tools) {
-        this.chatClient = chatClientBuilder
-                .defaultToolCallbacks(tools) // 只保留默认工具回调
-                .build();
-        this.tools = tools;
+    public AgentService(@Qualifier("mcpClient") ChatClient chatClientBuilder, ToolCallbackProvider tools) {
+        this.chatClient = chatClientBuilder;
     }
 
     // 生日信息流（使用生日 Prompt）

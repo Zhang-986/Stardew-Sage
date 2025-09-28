@@ -2,13 +2,11 @@ package com.zzk.mcp.service;
 
 import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.zzk.mcp.mapper.StardewPeopleFavoriteMapper;
 import com.zzk.mcp.mapper.StardewPeopleMapper;
 import com.zzk.mcp.model.StardewPeopleEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 @RequiredArgsConstructor

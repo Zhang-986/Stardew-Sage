@@ -1,34 +1,72 @@
 package com.zzk.mcp;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.zzk.mcp.mapper.StardewCraftMapper;
-import com.zzk.mcp.model.StardewCraftEntity;
+import com.alibaba.fastjson2.JSON;
+import com.zzk.mcp.model.StardewAnimalEntity;
+import com.zzk.mcp.service.ResourceService;
+import com.zzk.mcp.util.MetadataUtils;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.redis.RedisVectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 
 @SpringBootTest(classes = AuroaMcpServerApplication.class)
 class AuroaMcpServerApplicationTests {
-   @Autowired
-   private StardewCraftMapper stardewCraftMapper;
+    @Autowired
+    @Qualifier("ragClient")
+    private ChatClient ragChatClient; // 注入Builder便于动态调整
+
+    @Autowired
+    private ResourceService resourceService;
+
+    @Autowired
+    private RedisVectorStore vectorStore;
+
     @Test
-    void contextLoads() {
-        LambdaQueryWrapper<StardewCraftEntity> stardewCraftEntityLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        stardewCraftEntityLambdaQueryWrapper.isNotNull(StardewCraftEntity::getId);
-        List<StardewCraftEntity> stardewCraftEntities = stardewCraftMapper.selectList(stardewCraftEntityLambdaQueryWrapper);
-        for (StardewCraftEntity stardewCraftEntity : stardewCraftEntities) {
-            System.out.println(stardewCraftEntity.getId());
-            System.out.println(stardewCraftEntity.getSysCode());
-            System.out.println(stardewCraftEntity.getNameCh());
-            System.out.println(stardewCraftEntity.getCraftType());
-            System.out.println(stardewCraftEntity.getMakePrice());
-            System.out.println(stardewCraftEntity.getSellPrice());
-            System.out.println(stardewCraftEntity.getSourceFrom());
-            System.out.println(stardewCraftEntity.getRemark());
-            System.out.println(stardewCraftEntity.getDataMode());
+    public void testVectorStore(){
+        SearchRequest request = SearchRequest.builder()
+                .query("800以上的动物")
+                .topK(5)
+                .similarityThreshold(0.6)
+                .build();
+        List<Document> documentList = vectorStore.similaritySearch(request);
+        if(documentList != null){
+            for (Document document : documentList) {
+                System.out.println(document.getId());
+                System.out.println(document.getScore());
+                System.out.println(document.getText());
+            }
         }
     }
+    @Test
+    void reloadMetadata() {
+        System.out.println(ragChatClient.prompt()
+                .user("星露谷性价比高的动物推荐")
+                .call()
+                .content());
+    }
 
+    @Test
+    void search() {
+        vectorStore.similaritySearch("牛")
+                .stream().forEach(System.out::println);
+    }
+    @Test
+    void contextLoads() {
+        List<StardewAnimalEntity> animalInfo = resourceService.getAnimalInfo();
+        List<Document> documentList = animalInfo.stream().map(
+                item -> {
+                    return Document.builder()
+                            .metadata(MetadataUtils.convertToMetadata(item))
+                            .text(JSON.toJSONString(item))
+                            .build();
+                }
+        ).toList();
+        vectorStore.add(documentList);
+    }
 }
