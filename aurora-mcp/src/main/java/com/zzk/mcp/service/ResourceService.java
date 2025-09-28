@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -42,22 +41,16 @@ public class ResourceService {
     }
 
 
-    public List<Map<String, String>> getTableInfo(String tableName) {
+    public String getTableInfo(String tableName) {
         List<String> tablesByDatabase = databaseMapper.getTablesByDatabase(dataName);
         boolean contains = tablesByDatabase.contains(tableName);
         if (contains) {
-            List<Map<String, String>> tableInfo = databaseMapper.getTableInfo(tableName, dataName);
-            log.debug("tableInfo数据是{}",JSON.toJSONString(tableInfo));
-            return tableInfo;
+            log.info("查看表中信息：{}", tableName);
+            List<Object> tableInfo = databaseMapper.getTableInfo(tableName);
+            String jsonString = JSON.toJSONString(tableInfo);
+            log.info("查看表中信息完成{}",jsonString);
+            return jsonString;
         }
         return null;
-    }
-
-    public String getDataInfo(String tableName,String conlums) {
-        log.info("conlums内容是{}",conlums);
-        List<String> list = JSON.parseArray(conlums, String.class);
-        List<Object> dataList = databaseMapper.getDataInfoDetail(tableName,list);
-        log.info("dataLIst数据是{}",JSON.toJSONString(dataList));
-        return JSON.toJSONString(dataList);
     }
 }

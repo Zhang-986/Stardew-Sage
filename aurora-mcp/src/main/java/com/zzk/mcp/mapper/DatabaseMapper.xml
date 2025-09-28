@@ -3,11 +3,5 @@
 <mapper namespace="com.zzk.mcp.mapper.DatabaseMapper">
 
 
-    <select id="getDataInfoDetail" resultType="java.lang.Object">
-        SELECT
-        <foreach collection="columns" item="column" separator=",">
-            `${column}`
-        </foreach>
-        FROM `${tableName}`
-    </select>
+
 </mapper>

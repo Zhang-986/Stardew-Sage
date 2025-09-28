@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -20,14 +19,10 @@ public class DBTool {
         return resourceService.getAllTables();
     }
 
-    @Tool(name = "getTableInfo",description = "查看当前表中的备注信息")
-    public List<Map<String,String>> getTableInfo(@ToolParam(description = "表名")String tableName){
+    @Tool(name = "getTableInfo",description = "根据表查看具体信息")
+    public String getTableInfo(@ToolParam(description = "表名")String tableName){
         return resourceService.getTableInfo(tableName);
     }
 
-    @Tool(name = "getDataInfo",description = "获取数据信息")
-    public String getDataInfo(@ToolParam(description = "表名")String tableName,
-                              @ToolParam(description = "查询的列信息")String conlums){
-        return resourceService.getDataInfo(tableName,conlums);
-    }
+
 }

@@ -4,7 +4,6 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
-import java.util.Map;
 
 public interface DatabaseMapper {
 
@@ -14,13 +13,8 @@ public interface DatabaseMapper {
 
 
 
-    @Select("SELECT COLUMN_NAME AS columnName, COLUMN_COMMENT AS columnComment " +
-            "FROM INFORMATION_SCHEMA.COLUMNS " +
-            "WHERE TABLE_SCHEMA = #{dataName} AND TABLE_NAME = #{tableName}")
-    List<Map<String, String>> getTableInfo(@Param("tableName") String tableName,
-                                           @Param("dataName") String dataName);
+    @Select("SELECT * FROM ${tableName}")
+    List<Object> getTableInfo(@Param("tableName") String tableName);
 
 
-
-    List<Object> getDataInfoDetail(String tableName, List<String> conlums);
 }
