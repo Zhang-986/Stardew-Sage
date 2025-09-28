@@ -1,6 +1,7 @@
 package com.zzk.mcp.config;
 
 import com.zzk.mcp.tool.BirthdayTool;
+import com.zzk.mcp.tool.DBTool;
 import com.zzk.mcp.tool.MissionTool;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
@@ -16,9 +17,9 @@ public class McpResourceConfig {
 
 
     @Bean
-    public ToolCallbackProvider allTools(BirthdayTool birthdayTool, MissionTool missionTool){
+    public ToolCallbackProvider allTools(BirthdayTool birthdayTool, MissionTool missionTool, DBTool dbTool){
         return MethodToolCallbackProvider.builder().
-                toolObjects(birthdayTool,missionTool)
+                toolObjects(birthdayTool,missionTool,dbTool)
                 .build();
     }
 

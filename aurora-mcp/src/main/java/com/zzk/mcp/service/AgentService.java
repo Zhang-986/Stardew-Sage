@@ -42,4 +42,15 @@ public class AgentService {
                 .onErrorResume(e -> Flux.just("data: [ERROR] " + e.getMessage() + "\n\n"))
                 .timeout(Duration.ofMinutes(10));
     }
+
+    public Flux<String> getInfoDetail(String question) {
+        return chatClient
+                .prompt()
+                .system(PeoplePrompt.DATABASE_PROMPT) // 动态设置任务 Prompt
+                .user(question)
+                .stream()
+                .content()
+                .onErrorResume(e -> Flux.just("data: [ERROR] " + e.getMessage() + "\n\n"))
+                .timeout(Duration.ofMinutes(10));
+    }
 }

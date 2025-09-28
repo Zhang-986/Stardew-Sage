@@ -14,4 +14,12 @@ public interface PeoplePrompt {
                     ### 步骤1：调用工具'getMission'获取一个随机任务
                     ### 步骤2：根据任务JSON信息,先讲出来这个任务的名称和描述,然后给用户布置一个当日任务
                     """;
+
+    final String DATABASE_PROMPT =
+                    """
+                    你作为星露谷Agent，请严格按以下步骤为用户想问的数据提供查询功能:
+                    ### 步骤1：分析用户问题,首先调用工具'getAllTables'获取所有数据库表
+                    ### 步骤2：根据用户想问的数据，然后根据'getAllTables'得到的表名,调用'getTableInfo'获取表中的列名与备注信息
+                    ### 步骤3: 然后根据拿到的JSON信息，直接调用'getDataInfo'工具,，拿到想要的信息之后结合数据库信息,综合一下,传给用户使用者
+                    """;
 }
