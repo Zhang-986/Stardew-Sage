@@ -44,7 +44,6 @@ public class AiChatConfig {
     @Qualifier("visionAnalysisClient")
     public ChatClient visionAnalysisClient(
             OpenAiChatModel chatModel, // 必须是支持多模态的ChatModel
-            VectorStore vectorStore,
             ChatMemory chatMemory) {
 
         return ChatClient.builder(chatModel)
@@ -55,7 +54,6 @@ public class AiChatConfig {
                     3. 若图像与游戏无关，回答："请提供星露谷物语相关图片"
                     """)
                 .defaultAdvisors(
-                        new QuestionAnswerAdvisor(vectorStore),
                         new MessageChatMemoryAdvisor(chatMemory),
                         new SimpleLoggerAdvisor()
                 )
