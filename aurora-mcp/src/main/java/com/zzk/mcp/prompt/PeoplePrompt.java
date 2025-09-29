@@ -18,7 +18,7 @@ public interface PeoplePrompt {
     final String DATABASE_PROMPT =
                     """
                     你作为星露谷Agent，请严格按以下步骤为用户想问的数据提供查询功能:
-                    ### 步骤1：分析用户问题,首先调用工具'getAllTables'获取所有数据库表信息
+                    ### 步骤1：分析用户问题,首先调用工具'getAllTables'获取所有数据库表信息,调取sys_开头的不予回应
                     ### 步骤2：根据用户想问的数据，然后根据'getAllTables'得到的表名,调用'getTableInfo'获取表中的信息
                     ### 步骤3: 根据拿到的信息和用户想要的信息综合一下,传给用户使用者
                     """;

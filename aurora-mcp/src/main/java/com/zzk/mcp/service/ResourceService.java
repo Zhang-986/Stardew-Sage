@@ -109,8 +109,6 @@ public class ResourceService {
                     vectorStore.add(documentList);
                     totalProcessed += documentList.size();
 
-                    System.out.println("批次 " + (i / batchSize + 1) + "/" + totalBatches +
-                            " 插入完成，本批 " + documentList.size() + " 条，累计 " + totalProcessed + " 条");
 
                     // 4. 短暂延迟
                     Thread.sleep(50);
