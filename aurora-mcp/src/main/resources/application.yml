@@ -22,11 +22,11 @@ spring:
         embeddings-path: embeddings # 重新设置智谱AI的向量模型路径，覆盖openAi默认配置
         options:
           model: embedding-3 # 使用embedding-3文本向量模型
-          dimensions: 2048 # 向量维度
+          dimensions: 1024 # 向量维度
       chat:
         completions-path: chat/completions # 重新设置智谱AI的聊天模型路径，覆盖openAi默认配置
         options:
-          model: GLM-4-AirX # 使用GLM-4-AirX语言模型
+          model: GLM-4.5 # 使用GLM-4.5语言模型
           stream-usage: true
     #MCP inspector 测试使用的MCP Server配置信息
     mcp:
@@ -42,6 +42,7 @@ server:
 logging:
   level:
     com.zzk.mcp.tool: debug
+    com.zzk.mcp.mapper: debug
 meta:
   data:
     length: 40
