@@ -1,12 +1,9 @@
 package com.zzk.mcp.service;
 
 import com.alibaba.fastjson2.JSON;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.zzk.mcp.mapper.DatabaseMapper;
-import com.zzk.mcp.mapper.StardewAnimalMapper;
 import com.zzk.mcp.model.ColumnSimpleMeta;
-import com.zzk.mcp.model.StardewAnimalEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
@@ -31,19 +28,6 @@ public class ResourceService {
     private final VectorStore vectorStore;
 
     private final DatabaseMapper databaseMapper;
-
-    private final StardewAnimalMapper stardewAnimalMapper;
-
-    public List<StardewAnimalEntity> getAnimalInfo() {
-        LambdaQueryWrapper<StardewAnimalEntity> stardewAnimalEntityLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        stardewAnimalEntityLambdaQueryWrapper.select(StardewAnimalEntity::getNameCh,
-                StardewAnimalEntity::getBuyPrice,
-                StardewAnimalEntity::getSellPrice,
-                StardewAnimalEntity::getNeedBuild,
-                StardewAnimalEntity::getAnimalOutput,
-                StardewAnimalEntity::getRemark);
-        return stardewAnimalMapper.selectList(stardewAnimalEntityLambdaQueryWrapper);
-    }
 
 
     public List<String> getAllTables() {

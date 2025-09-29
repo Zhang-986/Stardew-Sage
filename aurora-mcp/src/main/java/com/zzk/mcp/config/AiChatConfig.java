@@ -36,6 +36,29 @@ public class AiChatConfig {
     public ChatClient mcpClient(OpenAiChatModel chatModel, ToolCallbackProvider tools) {
         return ChatClient.builder(chatModel)
                 .defaultToolCallbacks(tools)
+                .defaultAdvisors(new SimpleLoggerAdvisor())
+                .build();
+    }
+
+    @Bean
+    @Qualifier("visionAnalysisClient")
+    public ChatClient visionAnalysisClient(
+            OpenAiChatModel chatModel, // 必须是支持多模态的ChatModel
+            VectorStore vectorStore,
+            ChatMemory chatMemory) {
+
+        return ChatClient.builder(chatModel)
+                .defaultSystem("""
+                    你是一个星露谷物语图像分析专家，请严格遵守：
+                    1. 只分析用户提供的图像内容
+                    2. 结合游戏知识回答（优先使用RAG检索结果）
+                    3. 若图像与游戏无关，回答："请提供星露谷物语相关图片"
+                    """)
+                .defaultAdvisors(
+                        new QuestionAnswerAdvisor(vectorStore),
+                        new MessageChatMemoryAdvisor(chatMemory),
+                        new SimpleLoggerAdvisor()
+                )
                 .build();
     }
 }

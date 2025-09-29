@@ -28,6 +28,9 @@ spring:
         options:
           model: GLM-4.5 # 使用GLM-4.5语言模型
           stream-usage: true
+      image:
+        options:
+          model: GLM-4.5V
     #MCP inspector 测试使用的MCP Server配置信息
     mcp:
       server:
@@ -43,6 +46,3 @@ logging:
   level:
     com.zzk.mcp.tool: debug
     com.zzk.mcp.mapper: debug
-meta:
-  data:
-    length: 40
