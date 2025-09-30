@@ -44,6 +44,6 @@ server:
   port: 8099
 logging:
   level:
-    com.zzk: info
-    org.springframework.ai: info
-    reactor.netty.http.client: info
+    com.zzk: debug
+    org.springframework.ai: debug
+    reactor.netty.http.client: debug
