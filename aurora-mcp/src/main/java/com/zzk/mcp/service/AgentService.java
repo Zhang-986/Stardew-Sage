@@ -14,9 +14,13 @@ public class AgentService {
 
     private final ChatClient chatClient;
 
+    @Qualifier("ragClient")
+    private final ChatClient ragClient;
+
     // 不再设置默认 Prompt
-    public AgentService(@Qualifier("mcpClient") ChatClient chatClientBuilder, ToolCallbackProvider tools) {
+    public AgentService(@Qualifier("mcpClient") ChatClient chatClientBuilder, ToolCallbackProvider tools, ChatClient ragClient) {
         this.chatClient = chatClientBuilder;
+        this.ragClient = ragClient;
     }
 
     // 生日信息流（使用生日 Prompt）
@@ -47,6 +51,17 @@ public class AgentService {
         return chatClient
                 .prompt()
                 .system(PeoplePrompt.DATABASE_PROMPT) // 动态设置任务 Prompt
+                .user(question)
+                .stream()
+                .content()
+                .onErrorResume(e -> Flux.just("data: [ERROR] " + e.getMessage() + "\n\n"))
+                .timeout(Duration.ofMinutes(10));
+    }
+
+    public Flux<String> getInfoRagDetail(String question) {
+        return ragClient.
+                prompt()
+                .system(PeoplePrompt.RAG_PROMPT) // 动态设置任务 Prompt
                 .user(question)
                 .stream()
                 .content()

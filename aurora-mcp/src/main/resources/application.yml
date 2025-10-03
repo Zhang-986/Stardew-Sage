@@ -1,15 +1,17 @@
 spring:
   data:
     redis:
-      host: 192.168.1.124
-      port: 6380
+      host: localhost
+      port: 6379
   datasource:
     database: ry-vue
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://117.72.112.62:3306/ry-vue?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/ry-vue?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
     hikari:
       username: root
-      password: 200522
+      password: 123456
+      max-lifetime: 600000
+      connection-timeout: 600000
   ai:
     vectorstore:
       redis:
@@ -42,8 +44,3 @@ spring:
     name: aurora-mcp-server
 server:
   port: 8099
-logging:
-  level:
-    com.zzk: debug
-    org.springframework.ai: debug
-    reactor.netty.http.client: debug

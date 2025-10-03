@@ -14,12 +14,12 @@ import java.util.List;
 public class DBTool {
     @Autowired
     private ResourceService resourceService;
-    @Tool(name = "getAllTables",description = "查看当前库中所有表")
+    @Tool(name = "get_all_tables",description = "查看当前库中所有表")
     public List<String> getAllTables(){
         return resourceService.getAllTables();
     }
 
-    @Tool(name = "getTableInfo",description = "根据表查看具体信息")
+    @Tool(name = "get_table_info",description = "根据表查看具体信息")
     public String getTableInfo(@ToolParam(description = "表名")String tableName){
         return resourceService.getTableInfo(tableName);
     }

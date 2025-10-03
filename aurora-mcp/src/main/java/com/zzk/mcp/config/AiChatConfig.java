@@ -48,10 +48,9 @@ public class AiChatConfig {
 
         return ChatClient.builder(chatModel)
                 .defaultSystem("""
-                    你是一个星露谷物语图像分析专家，请严格遵守：
+                    你是一个星露谷物语图像分析专
                     1. 只分析用户提供的图像内容
                     2. 结合游戏知识回答（优先使用RAG检索结果）
-                    3. 若图像与游戏无关，回答："请提供星露谷物语相关图片"
                     """)
                 .defaultAdvisors(
                         new MessageChatMemoryAdvisor(chatMemory),

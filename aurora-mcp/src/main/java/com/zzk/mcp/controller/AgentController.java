@@ -28,4 +28,8 @@ public class AgentController {
     public Flux<String> getInfoDetail(@RequestParam(value = "question", required = false)String question ) {
         return agentService.getInfoDetail(question);
     }
+    @GetMapping(value = "/getInfoRagDetail",produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> getInfoRagDetail(@RequestParam(value = "question", required = false)String question ) {
+        return agentService.getInfoRagDetail(question);
+    }
 }
