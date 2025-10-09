@@ -9,7 +9,7 @@ spring:
     url: jdbc:mysql://localhost:3306/ry-vue?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
     hikari:
       username: root
-      password: 123456
+      password: your_password_here
       max-lifetime: 600000
       connection-timeout: 600000
   ai:
@@ -19,7 +19,7 @@ spring:
         initialize-schema: true
     openai:
       base-url: https://open.bigmodel.cn/api/paas/v4/  # 智谱AI API地址
-      api-key: a019862d5765451eb11a54e7da38824e.wCWob7C5d9ptzYKy # 智谱AI APIKey
+      api-key: your_api_key_here # 智谱AI APIKey
       embedding:
         embeddings-path: embeddings # 重新设置智谱AI的向量模型路径，覆盖openAi默认配置
         options:
