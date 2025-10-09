@@ -21,7 +21,7 @@
 
 - 🎂 **Get daily birthday stories** - Discover which Stardew Valley character is celebrating their birthday with engaging AI-generated narratives
 - 🎯 **Receive daily missions** - Get personalized daily tasks and challenges inspired by the game
-- �� **Query game database** - Ask questions about game mechanics, items, characters, and get intelligent responses powered by MCP (Model Context Protocol)
+- 🦐 **Query game database** - Ask questions about game mechanics, items, characters, and get intelligent responses powered by MCP (Model Context Protocol)
 - 📚 **RAG-powered search** - Leverage vector database search for semantic understanding of game content
 - 🖼️ **Image analysis** - Upload game screenshots and get AI-powered analysis and insights using multimodal vision models
 
