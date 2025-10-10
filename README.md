@@ -391,7 +391,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **OpenAI** and **GLM** for AI model capabilities
 - The Stardew Valley community for game data and inspiration
 
-## �� Contact & Support
+##  Contact & Support
 
 - **GitHub Issues**: For bug reports and feature requests
 - **Discussions**: For questions and community support
