@@ -89,7 +89,7 @@ Stardew-Sage/
 - Spring AI 1.0.0-M8 (MCP Server, OpenAI integration)
 - MyBatis Plus 3.5.5
 - MySQL 8.0
-- Redis (Vector Store)
+- RedisStack (Vector Store with RediSearch)
 - Maven
 
 **Frontend:**
@@ -103,7 +103,7 @@ Stardew-Sage/
 - OpenAI-compatible API support
 - Vector embeddings (2048 dimensions)
 - GLM-4.5V vision model
-- Redis vector store for RAG
+- RedisStack vector store for RAG (RediSearch module)
 
 ## 🚀 Quick Start
 
@@ -113,7 +113,7 @@ Stardew-Sage/
 - **Java 8+** (for aurora-admin)
 - **Node.js 8.9+** and npm
 - **MySQL 8.0+**
-- **Redis 6.0+**
+- **RedisStack** (Redis with RediSearch module for vector store)
 - **AI API Key** (OpenAI, GLM, or compatible provider)
 
 ### 1. Database Setup
@@ -125,6 +125,29 @@ source database.sql
 # This creates the 'ry-vue' database with all Stardew Valley data
 ```
 
+**Install RedisStack:**
+
+RedisStack is required for vector search capabilities (RediSearch module).
+
+```bash
+# Option 1: Using Docker (Recommended)
+docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
+
+# Option 2: Install directly on Linux
+curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
+sudo apt-get update
+sudo apt-get install redis-stack-server
+
+# Option 3: On macOS with Homebrew
+brew tap redis-stack/redis-stack
+brew install redis-stack
+
+# Verify RedisStack is running
+redis-cli PING
+# Should return: PONG
+```
+
 ### 2. Backend Setup - MCP Server (aurora-mcp)
 
 ```bash
@@ -134,7 +157,7 @@ cd aurora-mcp
 # Configure application settings
 # Edit src/main/resources/application.yml:
 #   - Database connection (MySQL)
-#   - Redis connection
+#   - RedisStack connection
 #   - AI API key and base URL
 
 # Example configuration:
@@ -146,11 +169,15 @@ cd aurora-mcp
 #   data:
 #     redis:
 #       host: localhost
-#       port: 6379
+#       port: 6379  # RedisStack default port
 #   ai:
 #     openai:
 #       api-key: your_api_key
 #       base-url: your_api_endpoint
+#     vectorstore:
+#       redis:
+#         index-name: stardew_index
+#         initialize-schema: true
 
 # Build and run
 mvn clean install
@@ -288,11 +315,12 @@ The project includes 20+ tables for Stardew Valley data:
 
 ### Vector Store
 
-The system uses Redis as a vector database for RAG:
+The system uses RedisStack as a vector database for RAG:
 - **Index Name**: `stardew_index`
 - **Embedding Model**: embedding-3
 - **Dimensions**: 2048
 - **Purpose**: Semantic search across game content
+- **Requirements**: RedisStack with RediSearch module for vector similarity search
 
 ## 🎮 Usage Examples
 
@@ -336,6 +364,10 @@ Edit `aurora-mcp/src/main/resources/application.yml`:
 
 ```yaml
 spring:
+  data:
+    redis:
+      host: localhost  # RedisStack host
+      port: 6379       # RedisStack port
   ai:
     openai:
       base-url: https://open.bigmodel.cn/api/paas/v4/  # Your AI provider
@@ -352,6 +384,8 @@ spring:
         index-name: stardew_index
         initialize-schema: true
 ```
+
+**Note**: RedisStack is required for vector store functionality. Standard Redis does not include the RediSearch module needed for vector similarity search.
 
 ### Frontend API Configuration
 
