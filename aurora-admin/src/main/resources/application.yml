@@ -62,9 +62,6 @@ spring:
           connections:
             server1:
               url: http://localhost:8081/zzk/sse
-
-
-
   # 资源信息
   messages:
     # 国际化资源文件路径
@@ -88,7 +85,7 @@ spring:
     # 地址
     host: localhost
     # 端口，默认为6379
-    port: 6379
+    port: 6380
     # 数据库索引
     database: 0
     # 密码

@@ -73,12 +73,12 @@
 
     <!-- 推荐结果展示区 -->
     <el-row :gutter="20" v-if="recommendations.length > 0">
-      <el-col 
-        :xs="24" 
-        :sm="12" 
-        :md="8" 
+      <el-col
+        :xs="24"
+        :sm="12"
+        :md="8"
         :lg="6"
-        v-for="(rec, index) in recommendations" 
+        v-for="(rec, index) in recommendations"
         :key="index"
       >
         <el-card class="recommendation-card" shadow="hover">
@@ -91,8 +91,8 @@
           <div class="card-content">
             <h3>{{ rec.itemName }}</h3>
             <div class="score-bar">
-              <el-progress 
-                :percentage="Math.round(rec.score * 100)" 
+              <el-progress
+                :percentage="Math.round(rec.score * 100)"
                 :color="getScoreColor(rec.score)"
               />
             </div>
@@ -116,7 +116,7 @@
     </el-card>
 
     <!-- 空状态 -->
-    <el-empty 
+    <el-empty
       v-if="!loading && recommendations.length === 0 && !streamingText"
       description="暂无推荐内容，请输入查询获取推荐"
     >
@@ -136,6 +136,8 @@
 </template>
 
 <script>
+import axios from "axios";
+
 export default {
   name: 'RecommendationIndex',
   data() {
@@ -169,17 +171,17 @@ export default {
 
       this.loading = true;
       this.recommendations = [];
-      
+
       try {
-        const response = await this.$http.get('/api/recommendation/personalized', {
+        const response = await axios.get('http://localhost:8099/api/recommendation/personalized', {
           params: {
             query: this.personalizedQuery,
             topK: 8
           }
         });
-        
+
         this.recommendations = response.data;
-        
+
         if (this.recommendations.length === 0) {
           this.$message.info('未找到相关推荐，请尝试其他关键词');
         }
@@ -200,34 +202,34 @@ export default {
       this.strategyLoading = true;
       this.isStreaming = true;
       this.streamingText = '';
-      
+
       try {
-        const baseUrl = process.env.VUE_APP_BASE_API || 'http://localhost:8099';
+        const baseUrl =  'http://localhost:8099';
         const url = `${baseUrl}/api/recommendation/strategy?scenario=${encodeURIComponent(this.strategyScenario)}`;
-        
+
         const eventSource = new EventSource(url);
-        
+
         eventSource.onmessage = (event) => {
           this.streamingText += event.data;
         };
-        
+
         eventSource.onerror = (error) => {
           console.error('SSE error:', error);
           eventSource.close();
           this.isStreaming = false;
           this.strategyLoading = false;
-          
+
           if (!this.streamingText) {
             this.$message.error('获取策略建议失败');
           }
         };
-        
+
         eventSource.addEventListener('end', () => {
           eventSource.close();
           this.isStreaming = false;
           this.strategyLoading = false;
         });
-        
+
         // 超时处理
         setTimeout(() => {
           if (this.isStreaming) {
@@ -236,7 +238,7 @@ export default {
             this.strategyLoading = false;
           }
         }, 60000);
-        
+
       } catch (error) {
         console.error('获取策略建议失败:', error);
         this.$message.error('获取策略建议失败');
@@ -253,23 +255,23 @@ export default {
 
       this.isStreaming = true;
       this.streamingText = '';
-      
+
       try {
-        const baseUrl = process.env.VUE_APP_BASE_API || 'http://localhost:8099';
+        const baseUrl =  'http://localhost:8099';
         const url = `${baseUrl}/api/recommendation/contextual?context=${encodeURIComponent(this.contextualContext)}&query=${encodeURIComponent(this.contextualQuery)}`;
-        
+
         const eventSource = new EventSource(url);
-        
+
         eventSource.onmessage = (event) => {
           this.streamingText += event.data;
         };
-        
+
         eventSource.onerror = (error) => {
           console.error('SSE error:', error);
           eventSource.close();
           this.isStreaming = false;
         };
-        
+
       } catch (error) {
         console.error('获取上下文推荐失败:', error);
         this.$message.error('获取推荐失败');
@@ -308,7 +310,7 @@ export default {
 
     useExample(example) {
       this.exampleDialogVisible = false;
-      
+
       if (example.type === 'personalized') {
         this.activeTab = 'personalized';
         this.personalizedQuery = example.query;
@@ -472,7 +474,7 @@ export default {
   .page-header h1 {
     font-size: 24px;
   }
-  
+
   .recommendation-container {
     padding: 10px;
   }

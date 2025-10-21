@@ -2,14 +2,14 @@ spring:
   data:
     redis:
       host: localhost
-      port: 6379
+      port: 6380
   datasource:
     database: ry-vue
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/ry-vue?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://117.72.112.62:3306/ry-vue?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
     hikari:
       username: root
-      password: your_password_here
+      password: 200522
       max-lifetime: 600000
       connection-timeout: 600000
   ai:
@@ -19,7 +19,7 @@ spring:
         initialize-schema: true
     openai:
       base-url: https://open.bigmodel.cn/api/paas/v4/  # 智谱AI API地址
-      api-key: your_api_key_here # 智谱AI APIKey
+      api-key: 3d711fbeb0714d40bb74631fb2681283.9Mkjo8Q3TZMMj8BS # 智谱AI APIKey
       embedding:
         embeddings-path: embeddings # 重新设置智谱AI的向量模型路径，覆盖openAi默认配置
         options:
@@ -44,3 +44,6 @@ spring:
     name: aurora-mcp-server
 server:
   port: 8099
+logging:
+  level:
+    com.aurora.mcp: debug

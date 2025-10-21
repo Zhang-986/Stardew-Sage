@@ -45,23 +45,28 @@ public class RecommendationService {
             if (vectorStore != null) {
                 // 1. 使用向量相似度搜索相关内容
                 List<Document> similarDocs = vectorStore.similaritySearch(
-                    SearchRequest.query(userQuery).withTopK(topK * 2)
+                        SearchRequest.builder()
+                                .query(userQuery)  // 使用构建器设置query
+                                .topK(topK * 2)
+                                .build()
                 );
                 
                 // 2. 转换为推荐结果
-                for (Document doc : similarDocs) {
-                    Recommendation rec = new Recommendation();
-                    rec.setItemId(doc.getId());
-                    rec.setItemName(extractTitle(doc.getContent()));
-                    rec.setItemType(extractType(doc.getMetadata()));
-                    rec.setScore(calculateScore(doc));
-                    rec.setReason("基于向量相似度匹配");
-                    rec.setSource("content_based");
-                    rec.setMetadata(doc.getMetadata());
-                    
-                    recommendations.add(rec);
+                if (similarDocs != null) {
+                    for (Document doc : similarDocs) {
+                        Recommendation rec = new Recommendation();
+                        rec.setItemId(doc.getId());
+                        rec.setItemName(extractTitle(doc.getText()));
+                        rec.setItemType(extractType(doc.getMetadata()));
+                        rec.setScore(calculateScore(doc));
+                        rec.setReason("基于向量相似度匹配");
+                        rec.setSource("content_based");
+                        rec.setMetadata(doc.getMetadata());
+
+                        recommendations.add(rec);
+                    }
                 }
-                
+
                 // 3. 按分数排序并取前 topK
                 recommendations = recommendations.stream()
                     .sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
