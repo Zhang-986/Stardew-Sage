@@ -105,4 +105,25 @@ export function analyzeImage(file, question) {
   })
 }
 
+// 获取用户画像
+export function getUserProfile(userId) {
+  return aiRequest({
+    url: `/api/profile/${userId}`,
+    method: 'get'
+  })
+}
+
+// 触发用户画像分析
+export function analyzeUserProfile(userId, content) {
+  return aiRequest({
+    url: '/api/profile/analyze',
+    method: 'post',
+    params: { userId },
+    data: content,
+    headers: {
+      'Content-Type': 'text/plain'
+    }
+  })
+}
+
 export default aiRequest

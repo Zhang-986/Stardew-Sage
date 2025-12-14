@@ -6,14 +6,23 @@
           <i class="stardew-icon">🤖</i>
           <span class="header-title">Stardew Sage - AI百科助手</span>
         </div>
-        <el-button 
-          style="float: right; padding: 3px 0" 
-          type="text"
-          @click="clearChat"
-          class="refresh-btn"
-        >
-          清空对话
-        </el-button>
+        <div style="float: right;">
+          <el-button 
+            type="text"
+            @click="openProfileDrawer"
+            class="refresh-btn"
+            style="margin-right: 15px;"
+          >
+            <i class="el-icon-user"></i> 我的记忆
+          </el-button>
+          <el-button 
+            type="text"
+            @click="clearChat"
+            class="refresh-btn"
+          >
+            清空对话
+          </el-button>
+        </div>
       </div>
 
       <!-- 模式选择区域 -->
@@ -118,11 +127,67 @@
         </el-row>
       </div>
     </div>
+
+    <!-- 用户画像抽屉 -->
+    <el-drawer
+      title="用户记忆画像"
+      :visible.sync="drawerVisible"
+      direction="rtl"
+      size="30%"
+    >
+      <div class="profile-drawer-content" v-loading="profileLoading">
+        <div class="profile-section">
+          <h3><i class="el-icon-collection-tag"></i> 标签特征</h3>
+          <div class="tags-container">
+            <el-tag 
+              v-for="(tag, index) in userProfile.tags" 
+              :key="index" 
+              size="small" 
+              effect="plain"
+              style="margin-right: 8px; margin-bottom: 8px;"
+            >
+              {{ tag }}
+            </el-tag>
+            <span v-if="!userProfile.tags || userProfile.tags.length === 0" class="empty-text">暂无标签</span>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <h3><i class="el-icon-document"></i> 用户摘要</h3>
+          <p class="summary-text">{{ userProfile.summary || '暂无摘要信息，请多跟我聊聊天吧！' }}</p>
+        </div>
+
+        <div class="profile-section">
+          <h3><i class="el-icon-setting"></i> 偏好设置</h3>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item 
+              v-for="(value, key) in userProfile.preferences" 
+              :key="key" 
+              :label="key"
+            >
+              {{ value }}
+            </el-descriptions-item>
+          </el-descriptions>
+          <div v-if="!userProfile.preferences || Object.keys(userProfile.preferences).length === 0" class="empty-text">
+            暂无偏好记录
+          </div>
+        </div>
+
+        <div class="profile-actions">
+          <el-button type="primary" @click="updateMemory" :loading="analyzing" icon="el-icon-magic-stick" style="width: 100%">
+            基于当前对话更新记忆
+          </el-button>
+          <p class="last-update" v-if="userProfile.lastUpdate">
+            最后更新: {{ formatTime(new Date(userProfile.lastUpdate)) }}
+          </p>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script>
-import { getInfoDetailSSE, getInfoRagDetailSSE } from '@/api/ai'
+import { getInfoDetailSSE, getInfoRagDetailSSE, getUserProfile, analyzeUserProfile } from '@/api/ai'
 import Vue from 'vue'
 
 export default {
@@ -134,7 +199,18 @@ export default {
       isLoading: false,
       isTyping: false,
       currentEventSource: null,
-      selectedMode: 'mcp'
+      selectedMode: 'mcp',
+      
+      // 用户画像相关
+      drawerVisible: false,
+      profileLoading: false,
+      analyzing: false,
+      userProfile: {
+        tags: [],
+        summary: '',
+        preferences: {}
+      },
+      currentUserId: 'default_user' // 示例用户ID
     }
   },
   computed: {
@@ -360,6 +436,44 @@ export default {
       formatted = formatted.replace(/<p><\/p>/g, '')
       
       return formatted
+    },
+
+    // 打开画像抽屉
+    async openProfileDrawer() {
+      this.drawerVisible = true
+      this.profileLoading = true
+      try {
+        const res = await getUserProfile(this.currentUserId)
+        this.userProfile = res
+      } catch (e) {
+        this.$message.error('获取用户画像失败')
+      } finally {
+        this.profileLoading = false
+      }
+    },
+
+    // 手动触发记忆更新
+    async updateMemory() {
+      if (this.messageList.length === 0) {
+        this.$message.warning('当前没有对话内容可供分析')
+        return
+      }
+
+      this.analyzing = true
+      try {
+        // 提取最近的对话内容作为分析素材
+        const chatContent = this.messageList
+          .map(msg => `${msg.type === 'user' ? '用户' : 'AI'}: ${msg.content}`)
+          .join('\n')
+
+        const res = await analyzeUserProfile(this.currentUserId, chatContent)
+        this.userProfile = res
+        this.$message.success('记忆已更新！')
+      } catch (e) {
+        this.$message.error('分析失败')
+      } finally {
+        this.analyzing = false
+      }
     }
   },
   
@@ -672,5 +786,51 @@ export default {
 .chat-container {
   scrollbar-width: auto;
   scrollbar-color: #666 #ddd;
+}
+
+/* 用户画像抽屉样式 */
+.profile-drawer-content {
+  padding: 20px;
+}
+
+.profile-section {
+  margin-bottom: 25px;
+}
+
+.profile-section h3 {
+  font-size: 16px;
+  color: #303133;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary-text {
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.6;
+  background: #f4f4f5;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.empty-text {
+  font-size: 13px;
+  color: #909399;
+  font-style: italic;
+}
+
+.profile-actions {
+  margin-top: 40px;
+  border-top: 1px solid #ebeef5;
+  padding-top: 20px;
+}
+
+.last-update {
+  font-size: 12px;
+  color: #909399;
+  text-align: center;
+  margin-top: 10px;
 }
 </style>
