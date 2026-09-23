@@ -106,6 +106,48 @@ public sealed class EchoFarmClientTests
         Assert.Equal(snapshot.SnapshotVersion, result.SnapshotVersion);
     }
 
+    [Fact]
+    public async Task GetPlayerModelEscapesSaveId()
+    {
+        const string saveId = "farm one/+";
+        string? pathAndQuery = null;
+        var handler = new StubHttpHandler(request =>
+        {
+            pathAndQuery = request.RequestUri?.PathAndQuery;
+            return Task.FromResult(Json(HttpStatusCode.OK, EchoJson.Serialize(new PlayerModel
+            {
+                SaveId = saveId,
+                Revision = 1,
+                EnergyReserve = 40
+            })));
+        });
+        var client = CreateClient(handler);
+
+        PlayerModel model = await client.GetPlayerModelAsync(saveId, CancellationToken.None);
+
+        Assert.Equal(saveId, model.SaveId);
+        Assert.Equal("/v1/player-model?saveId=farm%20one%2F%2B", pathAndQuery);
+    }
+
+    [Fact]
+    public async Task GetPlayerModelRejectsAnotherSave()
+    {
+        var client = CreateClient(new StubHttpHandler(_ =>
+            Task.FromResult(Json(HttpStatusCode.OK, EchoJson.Serialize(ValidModel())))));
+
+        await Assert.ThrowsAsync<EchoFarmProtocolException>(
+            () => client.GetPlayerModelAsync("farm-2", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task MissingPlayerMemoryHasTypedError()
+    {
+        var client = CreateClient(new StubHttpHandler(_ => Task.FromResult(Json(HttpStatusCode.NotFound, "{}"))));
+
+        await Assert.ThrowsAsync<EchoMemoryNotFoundException>(
+            () => client.GetPlayerModelAsync("farm-1", CancellationToken.None));
+    }
+
     private static EchoFarmClient CreateClient(HttpMessageHandler handler) =>
         new(new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:18471") }, TimeSpan.FromSeconds(2));
 
@@ -116,7 +158,11 @@ public sealed class EchoFarmClientTests
 
     private static Demonstration ValidDemonstration() => new()
     {
-        Id = "demo-1", SaveId = "farm-1", SessionId = "teaching-1", StartedAt = 1, EndedAt = 2,
+        Id = "demo-1",
+        SaveId = "farm-1",
+        SessionId = "teaching-1",
+        StartedAt = 1,
+        EndedAt = 2,
         Events = new[]
         {
             new DemonstrationEvent
@@ -129,22 +175,35 @@ public sealed class EchoFarmClientTests
 
     private static WorldSnapshot ValidSnapshot() => new()
     {
-        SaveId = "farm-1", SessionId = "day-2", SnapshotVersion = 7, Day = 2, TimeOfDay = 620,
-        Weather = Weather.Sunny, Location = "Farm", Energy = 200, MaxEnergy = 270,
+        SaveId = "farm-1",
+        SessionId = "day-2",
+        SnapshotVersion = 7,
+        Day = 2,
+        TimeOfDay = 620,
+        Weather = Weather.Sunny,
+        Location = "Farm",
+        Energy = 200,
+        MaxEnergy = 270,
         WateringCan = new ToolState { Name = "Watering Can", Water = 5, Capacity = 40 },
         Crops = new[] { new Crop { Id = "crop-new", NeedsWater = true } }
     };
 
     private static PlayerModel ValidModel() => new()
     {
-        SaveId = "farm-1", Revision = 1, EnergyReserve = 40
+        SaveId = "farm-1",
+        Revision = 1,
+        EnergyReserve = 40
     };
 
     private static SkillProgram ValidSkill() => new()
     {
-        Name = "morning-farm-routine", Revision = 1, Goal = "care for crops", TargetSelector = "actionable_crops",
+        Name = "morning-farm-routine",
+        Revision = 1,
+        Goal = "care for crops",
+        TargetSelector = "actionable_crops",
         Steps = new[] { new SkillStep { Action = ActionKind.WaterTarget, TargetSelector = "dry_crops" } },
-        SuccessConditions = new[] { "all crops cared for" }, EvidenceEventIds = new[] { "water-1" }
+        SuccessConditions = new[] { "all crops cared for" },
+        EvidenceEventIds = new[] { "water-1" }
     };
 
     private static HighLevelAction ValidAction(WorldSnapshot snapshot) => new()

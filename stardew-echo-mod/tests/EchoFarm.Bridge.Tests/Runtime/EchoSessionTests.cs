@@ -25,8 +25,13 @@ public sealed class EchoSessionTests
         Assert.Equal(EchoSessionState.Recording, session.BeginTeaching("farm-1", 1));
         session.Observe(new ObservedGameEvent
         {
-            Kind = EventKind.WaterTarget, Tick = 2, TargetId = "crop-old", Position = new Position(),
-            Before = new GameStateSample(), After = new GameStateSample(), Success = true
+            Kind = EventKind.WaterTarget,
+            Tick = 2,
+            TargetId = "crop-old",
+            Position = new Position(),
+            Before = new GameStateSample(),
+            After = new GameStateSample(),
+            Success = true
         });
         Assert.Equal(EchoSessionState.Ready, await session.CompleteTeachingAsync(3, CancellationToken.None));
         Assert.Equal(EchoSessionState.Acting, session.StartEcho("farm-1", "echo-day-2"));
@@ -98,9 +103,13 @@ public sealed class EchoSessionTests
 
     private static SkillProgram Skill() => new()
     {
-        Name = "morning-farm-routine", Revision = 1, Goal = "care for crops", TargetSelector = "actionable_crops",
+        Name = "morning-farm-routine",
+        Revision = 1,
+        Goal = "care for crops",
+        TargetSelector = "actionable_crops",
         Steps = new[] { new SkillStep { Action = ActionKind.WaterTarget } },
-        SuccessConditions = new[] { "done" }, EvidenceEventIds = new[] { "event-1" }
+        SuccessConditions = new[] { "done" },
+        EvidenceEventIds = new[] { "event-1" }
     };
 
     private sealed class ClientStub : IEchoFarmClient
@@ -118,6 +127,9 @@ public sealed class EchoSessionTests
 
         public Task<HighLevelAction> ReportActionResultAsync(ActionResultRequest request, CancellationToken cancellationToken) =>
             Failure is null ? Task.FromResult(AfterResultAction) : Task.FromException<HighLevelAction>(Failure);
+
+        public Task<PlayerModel> GetPlayerModelAsync(string saveId, CancellationToken cancellationToken) =>
+            Failure is null ? Task.FromResult(LearnResponse.PlayerModel) : Task.FromException<PlayerModel>(Failure);
     }
 
     private sealed class GamePortStub : IGamePort

@@ -61,8 +61,15 @@ public sealed class ActionSafetyGateTests
 
     internal static WorldSnapshot Snapshot() => new()
     {
-        SaveId = "farm-1", SessionId = "echo-day-2", SnapshotVersion = 4, Day = 2, TimeOfDay = 620,
-        Weather = Weather.Sunny, Location = "Farm", Energy = 200, MaxEnergy = 270,
+        SaveId = "farm-1",
+        SessionId = "echo-day-2",
+        SnapshotVersion = 4,
+        Day = 2,
+        TimeOfDay = 620,
+        Weather = Weather.Sunny,
+        Location = "Farm",
+        Energy = 200,
+        MaxEnergy = 270,
         WateringCan = new ToolState { Name = "Watering Can", Water = 10, Capacity = 40 },
         Crops = new[]
         {

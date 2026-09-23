@@ -25,16 +25,16 @@ public sealed class ActionSafetyGate
             case ActionKind.StopSession:
                 return;
             case ActionKind.WaterTarget:
-            {
-                Crop crop = FindCrop(snapshot, action.TargetId);
-                if (snapshot.Weather is Weather.Rainy or Weather.Storm)
-                    throw new UnsafeActionException("Watering is invalid in rain.");
-                if (snapshot.WateringCan.Water <= 0)
-                    throw new UnsafeActionException("Watering can is empty.");
-                if (!crop.NeedsWater)
-                    throw new UnsafeActionException("Crop does not need water.");
-                return;
-            }
+                {
+                    Crop crop = FindCrop(snapshot, action.TargetId);
+                    if (snapshot.Weather is Weather.Rainy or Weather.Storm)
+                        throw new UnsafeActionException("Watering is invalid in rain.");
+                    if (snapshot.WateringCan.Water <= 0)
+                        throw new UnsafeActionException("Watering can is empty.");
+                    if (!crop.NeedsWater)
+                        throw new UnsafeActionException("Crop does not need water.");
+                    return;
+                }
             case ActionKind.HarvestTarget:
                 if (!FindCrop(snapshot, action.TargetId).Mature)
                     throw new UnsafeActionException("Crop is not mature.");

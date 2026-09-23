@@ -40,16 +40,18 @@ public sealed class ModEntry : Mod
         helper.Events.Display.RenderedWorld += OnRenderedWorld;
     }
 
-    private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
+    private async void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
     {
         ResetSaveLifetime();
-        Monitor.Log("EchoFarm ready. Press F7 to teach a morning routine.", LogLevel.Info);
+        await RestoreLearnedStateAsync();
     }
 
-    private void OnDayStarted(object? sender, DayStartedEventArgs e)
+    private async void OnDayStarted(object? sender, DayStartedEventArgs e)
     {
         if (session.State is EchoSessionState.Acting or EchoSessionState.AwaitingResult)
             session.Abort();
+        ResetSaveLifetime();
+        await RestoreLearnedStateAsync();
     }
 
     private void OnSaving(object? sender, SavingEventArgs e) => StopForWorldChange();
@@ -133,6 +135,26 @@ public sealed class ModEntry : Mod
     {
         saveLifetime.Dispose();
         saveLifetime = new CancellationTokenSource();
+    }
+
+    private async Task RestoreLearnedStateAsync()
+    {
+        try
+        {
+            using var client = new HttpClient { BaseAddress = new Uri(config.CoreUrl) };
+            var core = new EchoFarmClient(client, TimeSpan.FromSeconds(2));
+            await core.GetPlayerModelAsync(SaveId(), saveLifetime.Token);
+            session.MarkReady(SaveId());
+            Monitor.Log($"EchoFarm memory loaded. Press {config.SummonKey} to summon Echo.", LogLevel.Info);
+        }
+        catch (EchoMemoryNotFoundException)
+        {
+            Monitor.Log($"No Echo memory yet. Press {config.RecordKey} to teach a morning routine.", LogLevel.Info);
+        }
+        catch (Exception error) when (error is EchoFarmException or OperationCanceledException)
+        {
+            Monitor.Log($"Echo core is unavailable: {error.Message}", LogLevel.Warn);
+        }
     }
 
     private static string SaveId() => Game1.uniqueIDForThisGame.ToString(CultureInfo.InvariantCulture);

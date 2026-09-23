@@ -46,6 +46,42 @@ public sealed class EchoFarmClient : IEchoFarmClient
         return response.Action;
     }
 
+    public async Task<PlayerModel> GetPlayerModelAsync(string saveId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(saveId))
+            throw new ArgumentException("Save ID is required.", nameof(saveId));
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(requestTimeout);
+        HttpResponseMessage response;
+        try
+        {
+            response = await httpClient.GetAsync(
+                $"/v1/player-model?saveId={Uri.EscapeDataString(saveId)}",
+                timeout.Token
+            ).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ModelUnavailableException();
+        }
+        catch (HttpRequestException)
+        {
+            throw new ModelUnavailableException();
+        }
+
+        using (response)
+        {
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                throw new EchoMemoryNotFoundException();
+            EnsureAvailable(response);
+            PlayerModel model = await DeserializeResponse<PlayerModel>(response, timeout.Token).ConfigureAwait(false);
+            if (model.SaveId != saveId)
+                throw new EchoFarmProtocolException("EchoFarm returned player memory for another save.");
+            return model;
+        }
+    }
+
     private async Task<TResponse> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -67,20 +103,29 @@ public sealed class EchoFarmClient : IEchoFarmClient
 
         using (response)
         {
-            if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
-                throw new ModelUnavailableException();
-            if (!response.IsSuccessStatusCode)
-                throw new EchoFarmException($"EchoFarm rejected the request with HTTP {(int)response.StatusCode}.");
+            EnsureAvailable(response);
+            return await DeserializeResponse<TResponse>(response, timeout.Token).ConfigureAwait(false);
+        }
+    }
 
-            string json = await response.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
-            try
-            {
-                return EchoJson.Deserialize<TResponse>(json);
-            }
-            catch (Exception error) when (error is System.Text.Json.JsonException or NotSupportedException)
-            {
-                throw new EchoFarmProtocolException("EchoFarm returned an invalid JSON contract.", error);
-            }
+    private static void EnsureAvailable(HttpResponseMessage response)
+    {
+        if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
+            throw new ModelUnavailableException();
+        if (!response.IsSuccessStatusCode)
+            throw new EchoFarmException($"EchoFarm rejected the request with HTTP {(int)response.StatusCode}.");
+    }
+
+    private static async Task<TResponse> DeserializeResponse<TResponse>(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return EchoJson.Deserialize<TResponse>(json);
+        }
+        catch (Exception error) when (error is System.Text.Json.JsonException or NotSupportedException)
+        {
+            throw new EchoFarmProtocolException("EchoFarm returned an invalid JSON contract.", error);
         }
     }
 

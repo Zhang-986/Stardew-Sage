@@ -67,8 +67,10 @@ stardew-echo-mod/  下一阶段的薄 SMAPI 传感器/执行器
 - [x] Eino 学习、决策和失败重规划图
 - [x] 按存档隔离的 SQLite 玩家记忆
 - [x] localhost API 与离线可复现 Demo
-- [ ] SMAPI 行为采集与 Echo 化身渲染
-- [ ] 游戏内浇水、补水、收获和存箱闭环
+- [x] 可测试的 .NET 桥接核心、行为采集器和 Go HTTP 客户端
+- [x] SMAPI 适配代码、Echo 半透明渲染及浇水/补水执行骨架
+- [ ] 在安装 Stardew Valley + SMAPI 的机器上完成编译与游戏内冒烟
+- [ ] 补齐 Echo 独立背包下的收获和存箱执行
 
 ## 安全边界
 

@@ -23,3 +23,8 @@ public sealed class StaleActionException : EchoFarmProtocolException
 {
     public StaleActionException() : base("EchoFarm returned an action for a stale world snapshot.") { }
 }
+
+public sealed class EchoMemoryNotFoundException : EchoFarmException
+{
+    public EchoMemoryNotFoundException() : base("No Echo memory exists for this save.") { }
+}

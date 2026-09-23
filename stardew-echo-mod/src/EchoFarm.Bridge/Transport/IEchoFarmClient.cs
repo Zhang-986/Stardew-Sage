@@ -7,4 +7,5 @@ public interface IEchoFarmClient
     Task<LearnResponse> LearnAsync(Demonstration demonstration, CancellationToken cancellationToken);
     Task<HighLevelAction> NextActionAsync(WorldSnapshot snapshot, CancellationToken cancellationToken);
     Task<HighLevelAction> ReportActionResultAsync(ActionResultRequest request, CancellationToken cancellationToken);
+    Task<PlayerModel> GetPlayerModelAsync(string saveId, CancellationToken cancellationToken);
 }
