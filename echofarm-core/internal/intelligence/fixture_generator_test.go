@@ -23,6 +23,27 @@ func TestFixtureGeneratorBuildsEvidenceBackedLearningResult(t *testing.T) {
 	}
 }
 
+func TestFixtureLearningResultIncludesInventoryRecoveryStrategies(t *testing.T) {
+	generator := NewFixtureGenerator()
+	var output LearningResult
+
+	if err := generator.GenerateJSON(context.Background(), learningSystemPrompt, learningInput(), &output); err != nil {
+		t.Fatalf("GenerateJSON() error = %v", err)
+	}
+	want := map[string]domain.ActionKind{
+		"inventory_full": domain.ActionDepositItems,
+		"chest_full":     domain.ActionStopSession,
+	}
+	for _, recovery := range output.Skill.RecoveryStrategies {
+		if action, ok := want[recovery.FailureCode]; ok && len(recovery.Actions) > 0 && recovery.Actions[0] == action {
+			delete(want, recovery.FailureCode)
+		}
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing inventory recovery strategies: %v", want)
+	}
+}
+
 func TestFixtureGeneratorDemonstratesChangedWorldDecisions(t *testing.T) {
 	generator := NewFixtureGenerator()
 	tests := []struct {
@@ -61,5 +82,51 @@ func TestFixtureGeneratorDemonstratesChangedWorldDecisions(t *testing.T) {
 				t.Fatalf("action = %+v, want %s %s", output, tt.want, tt.target)
 			}
 		})
+	}
+}
+
+func TestFixtureGeneratorReplansFullInventoryToPreferredChest(t *testing.T) {
+	generator := NewFixtureGenerator()
+	input := validActionInput()
+	input.PlayerModel.PreferredChestID = "chest-1"
+	input.Snapshot.Chests = []domain.Chest{{ID: "chest-1"}}
+	input.Snapshot.Inventory.Items = []domain.InventoryItem{{ItemID: "(O)24", Name: "Parsnip", Quantity: 1}}
+	input.Snapshot.Crops = []domain.Crop{{ID: "crop-ripe", Mature: true}}
+	failed := domain.ActionResult{
+		SaveID: input.Snapshot.SaveID, SessionID: input.Snapshot.SessionID,
+		SnapshotVersion: input.Snapshot.SnapshotVersion, Status: domain.ActionFailed,
+		ErrorCode: "inventory_full",
+		Action:    domain.HighLevelAction{Kind: domain.ActionHarvestTarget, TargetID: "crop-ripe"},
+	}
+	var output domain.HighLevelAction
+
+	if err := generator.GenerateJSON(context.Background(), replanSystemPrompt, ReplanInput{ActionInput: input, LastResult: failed}, &output); err != nil {
+		t.Fatalf("GenerateJSON() error = %v", err)
+	}
+	if output.Kind != domain.ActionDepositItems || output.TargetID != "chest-1" {
+		t.Fatalf("replanned action = %+v, want deposit_items chest-1", output)
+	}
+}
+
+func TestFixtureGeneratorStopsWhenPreferredChestIsFull(t *testing.T) {
+	generator := NewFixtureGenerator()
+	input := validActionInput()
+	input.PlayerModel.PreferredChestID = "chest-1"
+	input.Snapshot.Chests = []domain.Chest{{ID: "chest-1"}}
+	input.Snapshot.Inventory.Items = []domain.InventoryItem{{ItemID: "(O)24", Name: "Parsnip", Quantity: 1}}
+	input.Snapshot.Crops = []domain.Crop{{ID: "crop-ripe", Mature: true}}
+	failed := domain.ActionResult{
+		SaveID: input.Snapshot.SaveID, SessionID: input.Snapshot.SessionID,
+		SnapshotVersion: input.Snapshot.SnapshotVersion, Status: domain.ActionFailed,
+		ErrorCode: "chest_full",
+		Action:    domain.HighLevelAction{Kind: domain.ActionDepositItems, TargetID: "chest-1"},
+	}
+	var output domain.HighLevelAction
+
+	if err := generator.GenerateJSON(context.Background(), replanSystemPrompt, ReplanInput{ActionInput: input, LastResult: failed}, &output); err != nil {
+		t.Fatalf("GenerateJSON() error = %v", err)
+	}
+	if output.Kind != domain.ActionStopSession {
+		t.Fatalf("replanned action = %+v, want stop_session", output)
 	}
 }

@@ -99,6 +99,8 @@ func fixtureLearningResult(input LearningInput) LearningResult {
 			RecoveryStrategies: []domain.RecoveryStrategy{
 				{FailureCode: "out_of_water", Actions: []domain.ActionKind{domain.ActionRefillCan}},
 				{FailureCode: "path_blocked", Actions: []domain.ActionKind{domain.ActionMoveTo, domain.ActionStopSession}},
+				{FailureCode: "inventory_full", Actions: []domain.ActionKind{domain.ActionDepositItems, domain.ActionStopSession}},
+				{FailureCode: "chest_full", Actions: []domain.ActionKind{domain.ActionStopSession}},
 			},
 			EvidenceEventIDs: evidence,
 		},
@@ -139,10 +141,32 @@ func fixtureAction(input ActionInput) domain.HighLevelAction {
 }
 
 func fixtureReplan(input ReplanInput) domain.HighLevelAction {
+	snapshot := input.ActionInput.Snapshot
+	if input.LastResult.ErrorCode == "inventory_full" {
+		for _, chest := range snapshot.Chests {
+			if chest.ID == input.ActionInput.PlayerModel.PreferredChestID {
+				return domain.HighLevelAction{
+					SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+					Kind: domain.ActionDepositItems, TargetID: chest.ID,
+					Reason: "deposit the full Echo inventory into the player's preferred chest",
+				}
+			}
+		}
+		return domain.HighLevelAction{
+			SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+			Kind: domain.ActionStopSession, Reason: "Echo inventory is full and the preferred chest is unavailable",
+		}
+	}
+	if input.LastResult.ErrorCode == "chest_full" {
+		return domain.HighLevelAction{
+			SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+			Kind: domain.ActionStopSession, Reason: "the preferred chest cannot accept the remaining harvest",
+		}
+	}
 	if input.LastResult.ErrorCode == "path_blocked" && input.LastResult.Action.TargetID != "" {
 		return domain.HighLevelAction{
-			SaveID: input.ActionInput.Snapshot.SaveID, SessionID: input.ActionInput.Snapshot.SessionID,
-			SnapshotVersion: input.ActionInput.Snapshot.SnapshotVersion,
+			SaveID: snapshot.SaveID, SessionID: snapshot.SessionID,
+			SnapshotVersion: snapshot.SnapshotVersion,
 			Kind:            domain.ActionMoveTo, TargetID: input.LastResult.Action.TargetID,
 			Reason: "replan a route around the blocked tile",
 		}
