@@ -29,9 +29,9 @@ The integration suite starts the Go service in fixture mode and proves that C# c
 - F8 summons the learned Echo;
 - player movement and semantic tool/action events are recorded;
 - farm crops, chests, water sources, weather, time, and Echo resources are mapped into `WorldSnapshot`;
-- Go actions are queued back onto the game update thread;
+- Go actions are queued back onto the game update thread and use bounded grid pathfinding;
 - the Echo is rendered as a translucent copy of the player's appearance;
-- movement, watering, and watering-can refill are wired;
+- movement is animated tile by tile; watering and watering-can refill are wired;
 - harvest and deposit currently return explicit recoverable failures instead of mutating the player's inventory.
 
 The adapter is intentionally outside `EchoFarm.sln` on machines without the game. `Pathoschild.Stardew.ModBuildConfig` needs legal Stardew Valley assemblies before it can compile.

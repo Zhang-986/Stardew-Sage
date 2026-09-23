@@ -7,10 +7,10 @@ using StardewModdingAPI;
 using StardewValley;
 using StardewValley.Objects;
 using StardewValley.TerrainFeatures;
-
 using BridgePosition = EchoFarm.Bridge.Contracts.Position;
 using GameChest = StardewValley.Objects.Chest;
 using GameCrop = StardewValley.Crop;
+using TileLocation = xTile.Dimensions.Location;
 
 namespace EchoFarm.Mod;
 
@@ -20,7 +20,9 @@ internal sealed class StardewGamePort : IGamePort
     private readonly WorldSnapshotMapper snapshots = new();
     private readonly EchoAvatarState echo = new();
     private readonly ConcurrentQueue<Action> gameThreadWork = new();
+    private readonly GridPathfinder pathfinder = new();
     private BridgePosition? lastObservedPlayerTile;
+    private ActiveExecution? activeExecution;
 
     public StardewGamePort(IMonitor monitor)
     {
@@ -40,8 +42,17 @@ internal sealed class StardewGamePort : IGamePort
 
     public void Pump()
     {
+        if (activeExecution is not null)
+        {
+            AdvanceExecution();
+            return;
+        }
         while (gameThreadWork.TryDequeue(out Action? work))
+        {
             work();
+            if (activeExecution is not null)
+                break;
+        }
     }
 
     public ObservedGameEvent? ObserveMovement(long tick)
@@ -118,56 +129,100 @@ internal sealed class StardewGamePort : IGamePort
         OnGameThread(() => snapshots.Capture(saveId, sessionId, echo), cancellationToken);
 
     public Task<ActionResult> ExecuteAsync(HighLevelAction action, CancellationToken cancellationToken) =>
-        OnGameThread(() => Execute(action), cancellationToken);
+        BeginOnGameThread(action, cancellationToken);
 
-    private ActionResult Execute(HighLevelAction action)
+    private Task<ActionResult> BeginOnGameThread(HighLevelAction action, CancellationToken cancellationToken)
     {
-        string? error = null;
-        bool success = action.Kind switch
+        var completion = new TaskCompletionSource<ActionResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        cancellationToken.Register(() => completion.TrySetCanceled(cancellationToken));
+        gameThreadWork.Enqueue(() =>
         {
-            ActionKind.MoveTo => MoveTo(action),
-            ActionKind.EquipTool => true,
-            ActionKind.WaterTarget => Water(action, out error),
-            ActionKind.RefillCan => Refill(action),
+            try
+            {
+                StartExecution(action, completion);
+            }
+            catch (Exception error)
+            {
+                monitor.Log($"Echo action setup failed: {error.Message}", LogLevel.Warn);
+                completion.TrySetResult(Result(action, success: false, error: "game_error"));
+            }
+        });
+        return completion.Task;
+    }
+
+    private void StartExecution(HighLevelAction action, TaskCompletionSource<ActionResult> completion)
+    {
+        if (completion.Task.IsCompleted)
+            return;
+        if (action.Kind is ActionKind.StopSession or ActionKind.EquipTool)
+        {
+            completion.SetResult(Result(action, success: true, error: null));
+            return;
+        }
+        Vector2 target;
+        if (action.Kind == ActionKind.MoveTo && action.Destination is not null)
+            target = new Vector2(action.Destination.X, action.Destination.Y);
+        else if (!TryResolveTarget(action.TargetId, out target))
+        {
+            completion.SetResult(Result(action, success: false, error: "target_changed"));
+            return;
+        }
+
+        try
+        {
+            int width = Game1.currentLocation.Map.Layers[0].LayerWidth;
+            int height = Game1.currentLocation.Map.Layers[0].LayerHeight;
+            IReadOnlyList<BridgePosition> path = pathfinder.FindPathToAdjacent(
+                new BridgePosition { X = (int)echo.Tile.X, Y = (int)echo.Tile.Y },
+                new BridgePosition { X = (int)target.X, Y = (int)target.Y },
+                new GridBounds(0, 0, width, height),
+                tile => Game1.currentLocation.isTilePassable(new TileLocation(tile.X, tile.Y), Game1.viewport)
+            );
+            activeExecution = new ActiveExecution(action, target, new Queue<BridgePosition>(path), completion);
+            if (path.Count == 0)
+                AdvanceExecution();
+        }
+        catch (Exception error) when (error is PathNotFoundException or ArgumentOutOfRangeException)
+        {
+            completion.SetResult(Result(action, success: false, error: "path_blocked"));
+        }
+    }
+
+    private void AdvanceExecution()
+    {
+        ActiveExecution execution = activeExecution!;
+        if (execution.Completion.Task.IsCompleted)
+        {
+            activeExecution = null;
+            return;
+        }
+        if (execution.Path.TryDequeue(out BridgePosition? next))
+        {
+            echo.Tile = new Vector2(next.X, next.Y);
+            return;
+        }
+
+        string? error = null;
+        bool success = execution.Action.Kind switch
+        {
+            ActionKind.MoveTo => true,
+            ActionKind.WaterTarget => Water(execution.Target, out error),
+            ActionKind.RefillCan => Refill(execution.Target),
             ActionKind.HarvestTarget => Unsupported("harvest_not_enabled", out error),
             ActionKind.DepositItems => Unsupported("deposit_not_enabled", out error),
-            ActionKind.StopSession => true,
             _ => Unsupported("unsupported_action", out error)
         };
-        return new ActionResult
-        {
-            SaveId = action.SaveId,
-            SessionId = action.SessionId,
-            SnapshotVersion = action.SnapshotVersion,
-            Action = action,
-            Status = success ? ActionStatus.Succeeded : ActionStatus.Failed,
-            ErrorCode = error
-        };
+        activeExecution = null;
+        execution.Completion.TrySetResult(Result(execution.Action, success, error));
     }
 
-    private bool MoveTo(HighLevelAction action)
-    {
-        if (TryResolveTarget(action.TargetId, out Vector2 tile))
-        {
-            echo.Tile = tile + new Vector2(0, 1);
-            return true;
-        }
-        if (action.Destination is not null)
-        {
-            echo.Tile = new Vector2(action.Destination.X, action.Destination.Y);
-            return true;
-        }
-        return false;
-    }
-
-    private bool Water(HighLevelAction action, out string? error)
+    private bool Water(Vector2 tile, out string? error)
     {
         error = null;
         if (echo.Water <= 0)
             return Unsupported("out_of_water", out error);
-        if (!TryResolveTarget(action.TargetId, out Vector2 tile) || !TryCrop(tile, out HoeDirt? dirt) || dirt.state.Value != HoeDirt.dry)
+        if (!TryCrop(tile, out HoeDirt? dirt) || dirt.state.Value != HoeDirt.dry)
             return Unsupported("target_changed", out error);
-        echo.Tile = tile + new Vector2(0, 1);
         dirt.state.Value = HoeDirt.watered;
         echo.Water--;
         echo.Energy = Math.Max(0, echo.Energy - 2);
@@ -175,12 +230,10 @@ internal sealed class StardewGamePort : IGamePort
         return true;
     }
 
-    private bool Refill(HighLevelAction action)
+    private bool Refill(Vector2 tile)
     {
-        if (!TryResolveTarget(action.TargetId, out Vector2 tile) ||
-            !Game1.currentLocation.CanRefillWateringCanOnTile((int)tile.X, (int)tile.Y))
+        if (!Game1.currentLocation.CanRefillWateringCanOnTile((int)tile.X, (int)tile.Y))
             return false;
-        echo.Tile = tile + new Vector2(0, 1);
         echo.Water = echo.WaterCapacity;
         Game1.playSound("slosh");
         return true;
@@ -282,6 +335,23 @@ internal sealed class StardewGamePort : IGamePort
         error = errorCode;
         return false;
     }
+
+    private static ActionResult Result(HighLevelAction action, bool success, string? error) => new()
+    {
+        SaveId = action.SaveId,
+        SessionId = action.SessionId,
+        SnapshotVersion = action.SnapshotVersion,
+        Action = action,
+        Status = success ? ActionStatus.Succeeded : ActionStatus.Failed,
+        ErrorCode = error
+    };
+
+    private sealed record ActiveExecution(
+        HighLevelAction Action,
+        Vector2 Target,
+        Queue<BridgePosition> Path,
+        TaskCompletionSource<ActionResult> Completion
+    );
 }
 
 internal sealed record ObservationProbe(EventKind Kind, long Tick, Vector2 TargetTile, GameStateSample Before);
