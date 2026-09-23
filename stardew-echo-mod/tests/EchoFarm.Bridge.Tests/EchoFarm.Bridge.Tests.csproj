@@ -24,4 +24,8 @@
     <ProjectReference Include="..\..\src\EchoFarm.Bridge\EchoFarm.Bridge.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\..\demo\fixtures\*.json" Link="Fixtures\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
