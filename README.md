@@ -49,6 +49,16 @@ go run ./cmd/echofarm
 
 详细配置见 [echofarm-core/README.md](echofarm-core/README.md)，产品设计见 [EchoFarm 设计](docs/superpowers/specs/2026-09-23-echofarm-player-model-design.md)。
 
+## Nexus Mods 打包
+
+正式包按 Windows x64、Linux x64、macOS Intel、macOS Apple Silicon 分开发布，每个压缩包都内置对应的 Go/Eino 服务端，玩家不需要安装 Go。打包命令、发布文案与核对清单见 [release/nexus/README.md](release/nexus/README.md)。
+
+```bash
+./scripts/package-nexus.sh --version 0.2.0 --game-path "/path/to/Stardew Valley"
+```
+
+仓库不会打包游戏程序集、API Key、数据库或日志。首次创建 Nexus 页面后，将分配到的 mod ID 通过 `--nexus-mod-id` 注入发布包的 SMAPI 更新键。
+
 ## 目录
 
 ```text

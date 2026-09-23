@@ -106,7 +106,7 @@ for target in "${targets[@]}"; do
   cp "$mod_build_dir/EchoFarm.Mod.dll" "$package_root/"
   cp "$mod_build_dir/EchoFarm.Bridge.dll" "$package_root/"
   cp "$repo_root/LICENSE" "$package_root/LICENSE"
-  cp "$repo_root/stardew-echo-mod/README.md" "$package_root/README.md"
+  cp "$repo_root/release/nexus/PLAYER_README.md" "$package_root/README.md"
   cp "$core_output" "$package_root/core/$executable"
 
   if [[ -n "$nexus_mod_id" ]]; then

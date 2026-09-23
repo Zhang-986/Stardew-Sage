@@ -1,0 +1,43 @@
+name: EchoFarm CI
+
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: echofarm-core/go.mod
+          cache-dependency-path: echofarm-core/go.sum
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore .NET bridge
+        run: dotnet restore stardew-echo-mod/EchoFarm.sln
+
+      - name: Test .NET bridge
+        run: dotnet test stardew-echo-mod/EchoFarm.sln --no-restore
+
+      - name: Test and vet Go core
+        working-directory: echofarm-core
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+
+      - name: Run cross-process demo
+        run: ./demo/run-core-demo.sh
+
+      - name: Validate Nexus packaging
+        run: ./scripts/tests/package-nexus-smoke.sh

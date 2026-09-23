@@ -12,7 +12,8 @@ printf 'fixture bridge binary\n' >"$temp_root/mod/EchoFarm.Bridge.dll"
 bash "$repo_root/scripts/package-nexus.sh" \
   --version 0.2.0 \
   --mod-build-dir "$temp_root/mod" \
-  --output-dir "$temp_root/out"
+  --output-dir "$temp_root/out" \
+  --nexus-mod-id 12345
 
 expected=(
   "EchoFarm-0.2.0-windows-x64.zip"
@@ -40,5 +41,8 @@ if grep -qx 'EchoFarm/core/echofarm-core.exe' <<<"$linux_listing"; then
   echo "Linux archive contains a Windows core executable" >&2
   exit 1
 fi
+
+unzip -p "$temp_root/out/EchoFarm-0.2.0-windows-x64.zip" EchoFarm/manifest.json \
+  | jq -e '.UpdateKeys == ["Nexus:12345"]' >/dev/null
 
 echo "Nexus package smoke test passed."

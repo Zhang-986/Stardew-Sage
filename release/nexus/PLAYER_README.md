@@ -1,0 +1,32 @@
+# EchoFarm 0.2.0
+
+EchoFarm learns a farm routine from how you play, then creates a translucent AI-controlled Echo that performs the learned goal in the current world instead of replaying yesterday's coordinates.
+
+## Requirements
+
+- Stardew Valley 1.6
+- SMAPI 4.1 or newer
+- Internet access to an OpenAI-compatible model endpoint, unless using an explicitly selected local endpoint or offline fixture demo
+
+## Install
+
+1. Choose the archive matching your operating system and CPU.
+2. Extract it into the Stardew Valley `Mods` directory. The result must be `Mods/EchoFarm/manifest.json`, not an extra nested folder.
+3. Set `ECHOFARM_MODEL_API_KEY` in the environment used to launch SMAPI.
+4. Launch once, then edit `Mods/EchoFarm/config.json` with `ModelBaseUrl` and `ModelName`.
+
+The bundled local Go service starts automatically. It listens only on `127.0.0.1` and stores learned memory under your OS local application-data directory. API keys are inherited from the launch environment and are never written by the Mod.
+
+## Play
+
+- Press F7, perform a normal morning farm routine, then press F7 again to teach Echo.
+- Press F8 on a later day to summon the learned Echo.
+- Echo currently supports walking, watering, refilling its can, harvesting mature crops into its own inventory, and depositing them into the chest you demonstrated.
+
+Use a disposable save for this preview release. If the model or sidecar is unavailable, Echo stops and Stardew Valley continues normally.
+
+## Offline demo mode
+
+Set `ModelMode` to `fixture` in `config.json` only for a deterministic demo without a model provider. Fixture mode proves the transport and gameplay loop; it does not perform real learning.
+
+Source and issue tracker: https://github.com/Zhang-986/Stardew-Sage

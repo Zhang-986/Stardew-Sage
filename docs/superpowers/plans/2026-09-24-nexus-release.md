@@ -117,15 +117,15 @@ Run the smoke test, inspect all ZIP listings, and commit with `build(echofarm): 
 - Create: `.github/workflows/ci.yml`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write the player and publisher material**
+- [x] **Step 1: Write the player and publisher material**
 
 State prerequisites, one-folder installation, OpenAI-compatible configuration, explicit fixture-demo behavior, privacy boundaries, AI-use disclosure, known limitations, supported platforms, required screenshots, and the exact Nexus upload fields. Do not claim live-game validation before it occurs.
 
-- [ ] **Step 2: Add CI for redistributable checks**
+- [x] **Step 2: Add CI for redistributable checks**
 
 Run Go tests with race detection, Go vet, .NET bridge tests, the cross-process demo, and the fixture packaging smoke test. Do not download or redistribute Stardew assemblies in CI.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 Run the complete local verification matrix and commit with `docs(echofarm): prepare Nexus release`.
 
