@@ -209,7 +209,7 @@ internal sealed class StardewGamePort : IGamePort
             ActionKind.WaterTarget => Water(execution.Target, out error),
             ActionKind.RefillCan => Refill(execution.Target),
             ActionKind.HarvestTarget => Harvest(execution.Target, out error),
-            ActionKind.DepositItems => Unsupported("deposit_not_enabled", out error),
+            ActionKind.DepositItems => Deposit(execution.Target, out error),
             _ => Unsupported("unsupported_action", out error)
         };
         activeExecution = null;
@@ -275,6 +275,25 @@ internal sealed class StardewGamePort : IGamePort
             crop.updateDrawMath(tile);
         }
         Game1.playSound("harvest");
+        return true;
+    }
+
+    private bool Deposit(Vector2 tile, out string? error)
+    {
+        error = null;
+        if (!Game1.currentLocation.Objects.TryGetValue(tile, out StardewValley.Object? item) || item is not GameChest chest)
+            return Unsupported("target_changed", out error);
+
+        DepositTransferResult transfer = DepositTransfer.MoveAll(echo.Inventory, stack =>
+        {
+            Item incoming = ItemRegistry.Create(stack.ItemId, stack.Quantity, stack.Quality);
+            Item? remainder = chest.addItem(incoming);
+            return stack.Quantity - (remainder?.Stack ?? 0);
+        });
+        if (transfer.MovedQuantity > 0)
+            Game1.playSound("Ship");
+        if (!transfer.Success)
+            return Unsupported(transfer.ErrorCode ?? "game_error", out error);
         return true;
     }
 

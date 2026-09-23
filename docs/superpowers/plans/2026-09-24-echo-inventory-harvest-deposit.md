@@ -14,8 +14,10 @@
 
 - `stardew-echo-mod/src/EchoFarm.Bridge/Runtime/EchoInventory.cs`: bounded, quality-aware Echo-owned item stacks.
 - `stardew-echo-mod/src/EchoFarm.Bridge/Runtime/HarvestTransfer.cs`: mature-crop checks and atomic crop-to-Echo transfer result.
+- `stardew-echo-mod/src/EchoFarm.Bridge/Runtime/DepositTransfer.cs`: partial-safe Echo-to-chest transfer accounting.
 - `stardew-echo-mod/tests/EchoFarm.Bridge.Tests/Runtime/EchoInventoryTests.cs`: capacity, stacking, removal, and immutable snapshot tests.
 - `stardew-echo-mod/tests/EchoFarm.Bridge.Tests/Runtime/HarvestTransferTests.cs`: immature, dead, full-inventory, one-shot, and regrowing crop tests.
+- `stardew-echo-mod/tests/EchoFarm.Bridge.Tests/Runtime/DepositTransferTests.cs`: empty, complete, partial, and invalid chest acceptance tests.
 - `stardew-echo-mod/src/EchoFarm.Mod/EchoAvatarState.cs`: owns the tested inventory instead of a raw dictionary.
 - `stardew-echo-mod/src/EchoFarm.Mod/StardewGamePort.cs`: maps real crop yields and chests to the tested transfer model.
 - `stardew-echo-mod/src/EchoFarm.Mod/WorldSnapshotMapper.cs`: exposes Echo inventory capacity and contents to the Go policy.
@@ -105,15 +107,15 @@ Run the full .NET test suite. Commit the adapter binding with `feat(echofarm-mod
 **Files:**
 - Modify: `stardew-echo-mod/src/EchoFarm.Mod/StardewGamePort.cs`
 
-- [ ] **Step 1: Implement partial-safe chest transfer**
+- [x] **Step 1: Implement partial-safe chest transfer**
 
 For each Echo stack, create the matching Stardew item and call `Chest.addItem`. Compute the inserted count from the returned remainder, then remove only that inserted count from Echo. Return `inventory_empty` for an empty Echo, `target_changed` for a missing chest, and `chest_full` when any remainder stays in Echo.
 
-- [ ] **Step 2: Keep execution semantics observable**
+- [x] **Step 2: Keep execution semantics observable**
 
 Play chest feedback only when at least one item moved. Report success only when every Echo stack was deposited so the Go policy sees a truthful post-action snapshot and can replan on a full chest.
 
-- [ ] **Step 3: Run all game-independent tests and commit**
+- [x] **Step 3: Run all game-independent tests and commit**
 
 Run the full .NET test suite. Commit the adapter binding with `feat(echofarm-mod): deposit Echo inventory into chests`.
 
