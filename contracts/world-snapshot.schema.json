@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echofarm.local/contracts/world-snapshot.schema.json",
+  "title": "WorldSnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["saveId", "sessionId", "snapshotVersion", "day", "timeOfDay", "weather", "location", "playerPosition", "energy", "maxEnergy", "inventory", "wateringCan"],
+  "properties": {
+    "saveId": { "type": "string", "minLength": 1 },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "snapshotVersion": { "type": "integer", "minimum": 0 },
+    "day": { "type": "integer", "minimum": 1 },
+    "timeOfDay": { "type": "integer", "minimum": 0 },
+    "weather": { "enum": ["sunny", "rainy", "storm", "snow"] },
+    "location": { "type": "string", "minLength": 1 },
+    "playerPosition": { "$ref": "#/$defs/position" },
+    "energy": { "type": "integer", "minimum": 0 },
+    "maxEnergy": { "type": "integer", "minimum": 1 },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["freeSlots"],
+      "properties": {
+        "freeSlots": { "type": "integer", "minimum": 0 },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["itemId", "name", "quantity"],
+            "properties": {
+              "itemId": { "type": "string", "minLength": 1 },
+              "name": { "type": "string", "minLength": 1 },
+              "quantity": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "wateringCan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "level", "water", "capacity"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "level": { "type": "integer", "minimum": 0 },
+        "water": { "type": "integer", "minimum": 0 },
+        "capacity": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "crops": { "type": "array", "items": { "$ref": "#/$defs/crop" } },
+    "waterSources": { "type": "array", "items": { "$ref": "#/$defs/locatedTarget" } },
+    "chests": { "type": "array", "items": { "$ref": "#/$defs/chest" } },
+    "obstacles": { "type": "array", "items": { "$ref": "#/$defs/position" } }
+  },
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } }
+    },
+    "locatedTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "position"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "position": { "$ref": "#/$defs/position" }
+      }
+    },
+    "crop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "position", "growthStage", "mature", "needsWater"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "position": { "$ref": "#/$defs/position" },
+        "kind": { "type": "string" },
+        "growthStage": { "type": "integer", "minimum": 0 },
+        "mature": { "type": "boolean" },
+        "needsWater": { "type": "boolean" }
+      }
+    },
+    "chest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "position"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "position": { "$ref": "#/$defs/position" }
+      }
+    }
+  }
+}

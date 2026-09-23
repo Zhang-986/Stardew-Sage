@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echofarm.local/contracts/high-level-action.schema.json",
+  "title": "HighLevelAction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["saveId", "sessionId", "snapshotVersion", "kind", "reason"],
+  "properties": {
+    "saveId": { "type": "string", "minLength": 1 },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "snapshotVersion": { "type": "integer", "minimum": 0 },
+    "kind": { "$ref": "#/$defs/actionKind" },
+    "targetId": { "type": "string" },
+    "destination": { "$ref": "world-snapshot.schema.json#/$defs/position" },
+    "reason": { "type": "string" }
+  },
+  "$defs": {
+    "actionKind": {
+      "enum": ["move_to", "equip_tool", "water_target", "refill_can", "harvest_target", "deposit_items", "stop_session"]
+    }
+  }
+}
