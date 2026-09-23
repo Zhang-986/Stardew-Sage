@@ -30,11 +30,11 @@
 - Create: `stardew-echo-mod/src/EchoFarm.Bridge/Runtime/CoreProcessSupervisor.cs`
 - Create: `stardew-echo-mod/src/EchoFarm.Bridge/Runtime/SystemCoreProcess.cs`
 
-- [ ] **Step 1: Write failing lifecycle tests**
+- [x] **Step 1: Write failing lifecycle tests**
 
 Test that a healthy pre-existing core is reused without launching, disabled auto-start reports unavailable, an owned child becomes ready after polling, a child exit reports its exit code, timeout terminates the owned child, repeated starts do not launch twice, and `Stop` never terminates an external process.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run:
 
@@ -44,15 +44,15 @@ Run:
 
 Expected: compilation fails because the supervisor contracts do not exist.
 
-- [ ] **Step 3: Implement minimal lifecycle types**
+- [x] **Step 3: Implement minimal lifecycle types**
 
 Add `CoreHostState`, `CoreLaunchOptions`, `ICoreHealthProbe`, `ICoreProcess`, `ICoreProcessLauncher`, and `IAsyncDelay`. `StartAsync` probes first, owns only a process it launched, polls a bounded number of times, and terminates that child on timeout. `Stop` is idempotent.
 
-- [ ] **Step 4: Add real adapters**
+- [x] **Step 4: Add real adapters**
 
 `HttpCoreHealthProbe` performs a bounded `/healthz` request. `SystemCoreProcessLauncher` uses `UseShellExecute=false`, redirects output, passes an explicit environment map, and kills the complete owned process tree.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run the filtered tests and the complete .NET suite, then commit with `feat(echofarm-mod): supervise bundled Go core`.
 
