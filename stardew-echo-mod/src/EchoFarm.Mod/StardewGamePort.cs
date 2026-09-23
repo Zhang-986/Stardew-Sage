@@ -208,7 +208,7 @@ internal sealed class StardewGamePort : IGamePort
             ActionKind.MoveTo => true,
             ActionKind.WaterTarget => Water(execution.Target, out error),
             ActionKind.RefillCan => Refill(execution.Target),
-            ActionKind.HarvestTarget => Unsupported("harvest_not_enabled", out error),
+            ActionKind.HarvestTarget => Harvest(execution.Target, out error),
             ActionKind.DepositItems => Unsupported("deposit_not_enabled", out error),
             _ => Unsupported("unsupported_action", out error)
         };
@@ -236,6 +236,45 @@ internal sealed class StardewGamePort : IGamePort
             return false;
         echo.Water = echo.WaterCapacity;
         Game1.playSound("slosh");
+        return true;
+    }
+
+    private bool Harvest(Vector2 tile, out string? error)
+    {
+        error = null;
+        if (!TryCrop(tile, out HoeDirt? dirt) || dirt.crop is not GameCrop crop)
+            return Unsupported("target_changed", out error);
+        string itemId = crop.indexOfHarvest.Value;
+        if (string.IsNullOrWhiteSpace(itemId))
+            return Unsupported("unsupported_crop", out error);
+
+        Item harvestedItem = ItemRegistry.Create(itemId);
+        int regrowDays = crop.GetData()?.RegrowDays ?? -1;
+        var cropState = new CropGrowthState(
+            crop.currentPhase.Value,
+            crop.phaseDays.Count,
+            crop.fullyGrown.Value,
+            crop.dayOfCurrentPhase.Value,
+            crop.dead.Value,
+            regrowDays
+        );
+        var stack = new EchoItemStack(harvestedItem.QualifiedItemId, harvestedItem.DisplayName, 1, harvestedItem.Quality);
+        HarvestTransferResult transfer = HarvestTransfer.TryCollect(echo.Inventory, stack, cropState);
+        if (!transfer.Success || transfer.Transition is null)
+            return Unsupported(transfer.ErrorCode ?? "game_error", out error);
+
+        CropGrowthTransition transition = transfer.Transition;
+        if (transition.RemoveCrop)
+        {
+            dirt.destroyCrop(showAnimation: false);
+        }
+        else
+        {
+            crop.fullyGrown.Value = transition.FullyGrown;
+            crop.dayOfCurrentPhase.Value = transition.DayOfCurrentPhase;
+            crop.updateDrawMath(tile);
+        }
+        Game1.playSound("harvest");
         return true;
     }
 
@@ -309,6 +348,7 @@ internal sealed class StardewGamePort : IGamePort
     }
 
     private static bool IsMature(GameCrop? crop) => crop is not null &&
+        !crop.dead.Value &&
         crop.currentPhase.Value >= crop.phaseDays.Count - 1 &&
         (!crop.fullyGrown.Value || crop.dayOfCurrentPhase.Value <= 0);
 

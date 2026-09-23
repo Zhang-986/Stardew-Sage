@@ -1,3 +1,4 @@
+using EchoFarm.Bridge.Runtime;
 using Microsoft.Xna.Framework;
 
 namespace EchoFarm.Mod;
@@ -9,5 +10,5 @@ internal sealed class EchoAvatarState
     public int Water { get; set; } = 40;
     public int WaterCapacity { get; set; } = 40;
     public bool Visible { get; set; }
-    public Dictionary<string, int> Inventory { get; } = new(StringComparer.Ordinal);
+    public EchoInventory Inventory { get; } = new(capacity: 12);
 }

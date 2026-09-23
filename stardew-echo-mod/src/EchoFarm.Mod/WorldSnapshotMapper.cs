@@ -68,12 +68,12 @@ internal sealed class WorldSnapshotMapper
             MaxEnergy = Game1.player.MaxStamina,
             Inventory = new InventorySummary
             {
-                FreeSlots = Math.Max(0, 12 - echo.Inventory.Count),
-                Items = echo.Inventory.Select(pair => new InventoryItem
+                FreeSlots = echo.Inventory.FreeSlots,
+                Items = echo.Inventory.Snapshot().Select(stack => new InventoryItem
                 {
-                    ItemId = pair.Key,
-                    Name = pair.Key,
-                    Quantity = pair.Value
+                    ItemId = stack.ItemId,
+                    Name = stack.Name,
+                    Quantity = stack.Quantity
                 }).ToArray()
             },
             WateringCan = new ToolState

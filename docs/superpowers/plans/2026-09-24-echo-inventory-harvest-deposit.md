@@ -84,19 +84,19 @@ Run the filtered test command, then the full .NET solution. Commit the transfer 
 - Modify: `stardew-echo-mod/src/EchoFarm.Mod/StardewGamePort.cs`
 - Modify: `stardew-echo-mod/src/EchoFarm.Mod/WorldSnapshotMapper.cs`
 
-- [ ] **Step 1: Replace the raw dictionary**
+- [x] **Step 1: Replace the raw dictionary**
 
 Construct `EchoInventory` with 12 slots in `EchoAvatarState`. Map `Snapshot()` entries to bridge `InventoryItem` values and use `FreeSlots` directly.
 
-- [ ] **Step 2: Execute `harvest_target` on the game thread**
+- [x] **Step 2: Execute `harvest_target` on the game thread**
 
 Resolve the `HoeDirt`, reject changed/dead/immature targets, create an Echo stack from `crop.indexOfHarvest`, call `HarvestTransfer.TryCollect`, then apply the returned transition by either `dirt.destroyCrop(false)` or setting the regrow fields. Play harvest feedback only after the transfer succeeds.
 
-- [ ] **Step 3: Audit the adapter against Stardew 1.6.8 source**
+- [x] **Step 3: Audit the adapter against Stardew 1.6.8 source**
 
 Confirm `Game1.tileSize`, `FarmerRenderer.draw`, `GameLocation.isTilePassable`, `Character.GetToolLocation`, `terrainFeatures.Pairs`, `Objects.Pairs`, `Crop.GetData`, `HoeDirt.destroyCrop`, and `ItemRegistry.Create` signatures. Record the game-install build gate instead of claiming a local SMAPI build.
 
-- [ ] **Step 4: Run all game-independent tests and commit**
+- [x] **Step 4: Run all game-independent tests and commit**
 
 Run the full .NET test suite. Commit the adapter binding with `feat(echofarm-mod): harvest crops into Echo inventory`.
 
