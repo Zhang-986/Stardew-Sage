@@ -88,21 +88,21 @@ Run all game-independent tests and the expected SMAPI build gate, then commit wi
 - Create: `scripts/tests/package-nexus-smoke.sh`
 - Modify: `.gitignore`
 
-- [ ] **Step 1: Write a failing package smoke test**
+- [x] **Step 1: Write a failing package smoke test**
 
 Create temporary fixture Mod DLLs and invoke package mode without a game build. Assert four ZIPs exist, each has one `EchoFarm/` root, contains the manifest, both DLLs, exactly one correctly named native core, license, and player README, and contains no `.env`, database, log, PDB, or game DLL.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run `bash scripts/tests/package-nexus-smoke.sh`.
 
 Expected: FAIL because the package scripts do not exist.
 
-- [ ] **Step 3: Implement the validator and packager**
+- [x] **Step 3: Implement the validator and packager**
 
 Support `--version`, `--game-path`, `--mod-build-dir`, `--output-dir`, and optional `--nexus-mod-id`. In normal mode, run tests and build `EchoFarm.Mod.csproj`; in fixture mode, consume caller-provided DLLs. Cross-compile `./cmd/echofarm` for `windows/amd64`, `linux/amd64`, `darwin/amd64`, and `darwin/arm64`, stage each archive, validate it, and emit `SHA256SUMS.txt`.
 
-- [ ] **Step 4: Verify green and commit**
+- [x] **Step 4: Verify green and commit**
 
 Run the smoke test, inspect all ZIP listings, and commit with `build(echofarm): package Nexus release archives`.
 

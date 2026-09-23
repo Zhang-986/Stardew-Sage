@@ -38,12 +38,17 @@ nbproject/private/
 build/*
 nbbuild/
 dist/
+artifacts/
 nbdist/
 .nb-gradle/
 
 ######################################################################
 # Others
 *.log
+*.db
+*.sqlite
+.env
+.env.*
 *.xml.versionsBackup
 *.swp
 
