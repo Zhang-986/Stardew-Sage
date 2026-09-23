@@ -125,11 +125,11 @@ Run the full .NET test suite. Commit the adapter binding with `feat(echofarm-mod
 - Modify: `stardew-echo-mod/README.md`
 - Modify: `docs/superpowers/plans/2026-09-24-echo-inventory-harvest-deposit.md`
 
-- [ ] **Step 1: Document the live smoke path**
+- [x] **Step 1: Document the live smoke path**
 
 Describe teaching harvest and deposit actions, summoning Echo after adding a mature crop, checking that the player's backpack is unchanged, and checking that the harvested item appears in the target chest. State that a legal Stardew/SMAPI install is required for this check.
 
-- [ ] **Step 2: Run fresh full verification**
+- [x] **Step 2: Run fresh full verification**
 
 Run:
 
@@ -141,6 +141,6 @@ Run:
 
 Expected: all game-independent checks pass. Also run the SMAPI project build and preserve its expected missing-game-path error as the remaining external integration gate.
 
-- [ ] **Step 3: Mark checkboxes and commit**
+- [x] **Step 3: Mark checkboxes and commit**
 
 Update this plan with completed checkboxes and commit documentation with `docs(echofarm): add harvest and deposit demo runbook`.

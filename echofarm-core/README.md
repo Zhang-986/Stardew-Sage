@@ -13,10 +13,13 @@ cd ..
 ./demo/run-core-demo.sh
 ```
 
-The demo learns from one recorded morning, then shows two changed-world decisions:
+The demo learns from one recorded morning, then shows changed-world decisions:
 
 - rain plus a newly positioned mature crop produces `harvest_target` rather than coordinate replay;
-- an empty watering can plus a dry new crop produces `refill_can` before watering.
+- an empty watering can plus a dry new crop produces `refill_can` before watering;
+- an `inventory_full` harvest failure produces `deposit_items` at the learned preferred chest.
+
+The fixture replanner also routes `inventory_full` to the player's demonstrated chest and stops safely on `chest_full`, matching the game bridge's lossless partial-deposit behavior.
 
 ## Run with a real model
 

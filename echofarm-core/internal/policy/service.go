@@ -148,6 +148,9 @@ func validateActionForSnapshot(action domain.HighLevelAction, snapshot domain.Wo
 		if !hasChest(snapshot.Chests, action.TargetID) {
 			return fmt.Errorf("chest target %q is not present", action.TargetID)
 		}
+		if len(snapshot.Inventory.Items) == 0 {
+			return errors.New("Echo inventory is empty")
+		}
 	case domain.ActionMoveTo:
 		if action.Destination == nil && !hasTarget(snapshot, action.TargetID) {
 			return fmt.Errorf("move target %q is not present", action.TargetID)

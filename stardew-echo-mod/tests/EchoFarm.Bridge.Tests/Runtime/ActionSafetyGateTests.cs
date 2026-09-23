@@ -22,6 +22,7 @@ public sealed class ActionSafetyGateTests
     [InlineData("immature_crop")]
     [InlineData("full_can")]
     [InlineData("missing_chest")]
+    [InlineData("empty_inventory")]
     public void RejectsUnsafeActions(string scenario)
     {
         WorldSnapshot snapshot = Snapshot();
@@ -51,6 +52,9 @@ public sealed class ActionSafetyGateTests
                 break;
             case "missing_chest":
                 action = Action(snapshot, ActionKind.DepositItems, "chest-missing");
+                break;
+            case "empty_inventory":
+                action = Action(snapshot, ActionKind.DepositItems, "chest-1");
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(scenario));

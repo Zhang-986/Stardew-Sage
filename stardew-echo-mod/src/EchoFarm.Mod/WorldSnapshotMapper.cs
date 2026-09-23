@@ -1,5 +1,6 @@
 using System.Globalization;
 using EchoFarm.Bridge.Contracts;
+using EchoFarm.Bridge.Runtime;
 using Microsoft.Xna.Framework;
 using StardewValley;
 using StardewValley.Objects;
@@ -15,7 +16,7 @@ namespace EchoFarm.Mod;
 
 internal sealed class WorldSnapshotMapper
 {
-    private long snapshotVersion;
+    private readonly SnapshotVersionTracker snapshotVersions = new();
 
     public WorldSnapshot Capture(string saveId, string sessionId, EchoAvatarState echo)
     {
@@ -38,6 +39,7 @@ internal sealed class WorldSnapshotMapper
                 NeedsWater = dirt.state.Value == HoeDirt.dry
             });
         }
+        crops.Sort((left, right) => StringComparer.Ordinal.Compare(left.Id, right.Id));
 
         var chests = new List<BridgeChest>();
         foreach ((Vector2 tile, SObject item) in location.Objects.Pairs)
@@ -52,37 +54,70 @@ internal sealed class WorldSnapshotMapper
                 });
             }
         }
+        chests.Sort((left, right) => StringComparer.Ordinal.Compare(left.Id, right.Id));
 
-        var waterSources = FindNearbyWater(location, echo.Tile, radius: 24);
+        IReadOnlyList<WaterSource> waterSources = FindNearbyWater(location, echo.Tile, radius: 24)
+            .OrderBy(source => source.Id, StringComparer.Ordinal)
+            .ToArray();
+        BridgePosition playerPosition = Position(echo.Tile);
+        InventoryItem[] inventoryItems = echo.Inventory.Snapshot()
+            .OrderBy(stack => stack.ItemId, StringComparer.Ordinal)
+            .ThenBy(stack => stack.Quality)
+            .Select(stack => new InventoryItem
+            {
+                ItemId = stack.ItemId,
+                Name = stack.Name,
+                Quantity = stack.Quantity
+            })
+            .ToArray();
+        var inventory = new InventorySummary
+        {
+            FreeSlots = echo.Inventory.FreeSlots,
+            Items = inventoryItems
+        };
+        var wateringCan = new ToolState
+        {
+            Name = "Watering Can",
+            Level = 0,
+            Water = echo.Water,
+            Capacity = echo.WaterCapacity
+        };
+        int day = Math.Max(1, Game1.Date.TotalDays);
+        int timeOfDay = Game1.timeOfDay;
+        Weather weather = GetWeather(location);
+        string locationName = location.NameOrUniqueName;
+        int maxEnergy = Game1.player.MaxStamina;
+        string fingerprint = EchoJson.Serialize(new
+        {
+            saveId,
+            sessionId,
+            day,
+            timeOfDay,
+            weather,
+            locationName,
+            playerPosition,
+            echo.Energy,
+            maxEnergy,
+            inventory,
+            wateringCan,
+            crops,
+            waterSources,
+            chests
+        });
         return new WorldSnapshot
         {
             SaveId = saveId,
             SessionId = sessionId,
-            SnapshotVersion = Interlocked.Increment(ref snapshotVersion),
-            Day = Math.Max(1, Game1.Date.TotalDays),
-            TimeOfDay = Game1.timeOfDay,
-            Weather = GetWeather(location),
-            Location = location.NameOrUniqueName,
-            PlayerPosition = Position(echo.Tile),
+            SnapshotVersion = snapshotVersions.Next(fingerprint),
+            Day = day,
+            TimeOfDay = timeOfDay,
+            Weather = weather,
+            Location = locationName,
+            PlayerPosition = playerPosition,
             Energy = echo.Energy,
-            MaxEnergy = Game1.player.MaxStamina,
-            Inventory = new InventorySummary
-            {
-                FreeSlots = echo.Inventory.FreeSlots,
-                Items = echo.Inventory.Snapshot().Select(stack => new InventoryItem
-                {
-                    ItemId = stack.ItemId,
-                    Name = stack.Name,
-                    Quantity = stack.Quantity
-                }).ToArray()
-            },
-            WateringCan = new ToolState
-            {
-                Name = "Watering Can",
-                Level = 0,
-                Water = echo.Water,
-                Capacity = echo.WaterCapacity
-            },
+            MaxEnergy = maxEnergy,
+            Inventory = inventory,
+            WateringCan = wateringCan,
             Crops = crops,
             WaterSources = waterSources,
             Chests = chests,

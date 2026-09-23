@@ -33,7 +33,8 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
 
 1. 从晨间农活示范形成的玩家画像与技能；
 2. 雨天且布局变化时，对一个全新成熟作物选择 `harvest_target`；
-3. 晴天水壶为空时，先选择 `refill_can`。
+3. 晴天水壶为空时，先选择 `refill_can`；
+4. 收获因 Echo 背包已满而失败时，转去玩家教过的箱子执行 `deposit_items`。
 
 使用真实 OpenAI-compatible 模型：
 
@@ -68,9 +69,10 @@ stardew-echo-mod/  下一阶段的薄 SMAPI 传感器/执行器
 - [x] 按存档隔离的 SQLite 玩家记忆
 - [x] localhost API 与离线可复现 Demo
 - [x] 可测试的 .NET 桥接核心、行为采集器和 Go HTTP 客户端
-- [x] SMAPI 适配代码、Echo 半透明渲染及浇水/补水执行骨架
+- [x] SMAPI 适配代码、Echo 半透明渲染及逐格寻路
+- [x] Echo 独立背包、成熟作物收获和目标箱存放闭环
+- [x] 背包满转存、箱子满安全停止的 AI 失败重规划
 - [ ] 在安装 Stardew Valley + SMAPI 的机器上完成编译与游戏内冒烟
-- [ ] 补齐 Echo 独立背包下的收获和存箱执行
 
 ## 安全边界
 

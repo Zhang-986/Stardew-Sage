@@ -157,6 +157,18 @@ Content-Type: application/json
 
 A failed result invokes the Eino replanning graph with the failure plus latest snapshot. A successful result asks for the next action against the latest snapshot. Both return the same `ActionResponse` shape used by `/next-action`.
 
+Game-side failure codes used by the vertical slice are:
+
+- `target_changed`: the crop, chest, or water source no longer matches the snapshot;
+- `path_blocked`: no bounded passable route reaches an adjacent interaction tile;
+- `out_of_water`: Echo must replan through a water source;
+- `inventory_full`: Echo must deposit before harvesting another distinct stack;
+- `inventory_empty`: a deposit action is no longer necessary;
+- `chest_full`: the chest accepted only part or none of the Echo inventory;
+- `unsupported_crop`: the crop has no safe harvest item mapping.
+
+Harvested items live in Echo's own bounded inventory. A chest transfer removes only the quantity accepted by `Chest.addItem`; a failed or partial deposit never silently deletes the remainder and never routes it through the player's backpack.
+
 ## Read learned memory
 
 ```http

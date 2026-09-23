@@ -159,6 +159,13 @@ func TestNextActionRejectsUnsafeOrInventedTargets(t *testing.T) {
 			},
 			want: "rain",
 		},
+		{
+			name: "depositing an empty inventory",
+			action: func(snapshot domain.WorldSnapshot) domain.HighLevelAction {
+				return actionFor(snapshot, domain.ActionDepositItems, "chest-1")
+			},
+			want: "inventory is empty",
+		},
 	}
 
 	for _, tt := range tests {

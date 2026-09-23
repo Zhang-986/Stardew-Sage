@@ -46,6 +46,8 @@ public sealed class ActionSafetyGate
                 return;
             case ActionKind.DepositItems:
                 EnsureTarget(snapshot.Chests.Select(item => item.Id), action.TargetId, "chest");
+                if (snapshot.Inventory.Items.Count == 0)
+                    throw new UnsafeActionException("Echo inventory is empty.");
                 return;
             case ActionKind.MoveTo:
                 if (action.Destination is null)

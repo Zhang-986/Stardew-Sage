@@ -38,6 +38,12 @@ public sealed class GoCoreContractTests
             HighLevelAction refillAction = await client.NextActionAsync(emptyCan, CancellationToken.None);
             Assert.Equal(ActionKind.RefillCan, refillAction.Kind);
             Assert.Equal("pond-south", refillAction.TargetId);
+
+            ActionResultRequest fullInventory = EchoJson.Deserialize<ActionResultRequest>(
+                File.ReadAllText(Path.Combine(repository, "demo", "fixtures", "full-inventory-result.json")));
+            HighLevelAction depositAction = await client.ReportActionResultAsync(fullInventory, CancellationToken.None);
+            Assert.Equal(ActionKind.DepositItems, depositAction.Kind);
+            Assert.Equal("shipping-chest", depositAction.TargetId);
         }
         finally
         {

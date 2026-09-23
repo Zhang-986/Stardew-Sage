@@ -32,7 +32,9 @@ The integration suite starts the Go service in fixture mode and proves that C# c
 - Go actions are queued back onto the game update thread and use bounded grid pathfinding;
 - the Echo is rendered as a translucent copy of the player's appearance;
 - movement is animated tile by tile; watering and watering-can refill are wired;
-- harvest and deposit currently return explicit recoverable failures instead of mutating the player's inventory.
+- mature crops are collected into a bounded, quality-aware Echo inventory;
+- Echo inventory is deposited into the learned target chest without touching the player's backpack;
+- full inventories and full chests produce explicit replanning failures instead of losing items.
 
 The adapter is intentionally outside `EchoFarm.sln` on machines without the game. `Pathoschild.Stardew.ModBuildConfig` needs legal Stardew Valley assemblies before it can compile.
 
@@ -62,6 +64,8 @@ For a normal Steam installation on macOS, the game path is usually:
 
 Copy the generated EchoFarm mod folder into the game's `Mods` directory if automatic deployment is disabled.
 
+The adapter targets the Stardew 1.6 API surface. The checked calls include `Game1.tileSize`, `FarmerRenderer.draw`, `GameLocation.isTilePassable`, `Character.GetToolLocation`, Net collection `Pairs`, `Crop.GetData`, `HoeDirt.destroyCrop`, `ItemRegistry.Create`, and `Chest.addItem`. This source-level audit does not replace compiling and running against a legally installed game.
+
 ## Run with the Go core
 
 Start the Go service before launching SMAPI:
@@ -78,11 +82,13 @@ Fixture mode is only for transport and gameplay-loop smoke testing. For actual l
 Use a disposable test save:
 
 1. Start the Go core and launch the game through SMAPI.
-2. Press F7, walk through a small crop patch, water it, and press F7 again.
+2. Press F7, water crops, harvest one ripe parsnip, put it in the intended chest, and press F7 again.
 3. Confirm the SMAPI console says the routine was learned.
-4. Sleep, alter the crop layout, and press F8.
+4. Sleep, place a new mature parsnip at a different tile, keep the player's backpack count visible, and press F8.
 5. Confirm a cyan translucent Echo appears and acts while the player remains controllable.
-6. Empty the Echo watering state and confirm it requests a refill before more watering.
-7. Save or return to title during an action and confirm Echo stops without blocking the game.
+6. Confirm Echo walks to the new crop, harvests it without changing the player's backpack, and deposits it into the demonstrated chest.
+7. Fill that chest before another run and confirm Echo retains any rejected items and stops instead of deleting them or looping.
+8. Empty the Echo watering state and confirm it requests a refill before more watering.
+9. Save or return to title during an action and confirm Echo stops without blocking the game.
 
 Do not use a personal save until the live-game checks pass. The adapter never writes save files directly.
