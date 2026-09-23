@@ -64,19 +64,19 @@ Run the filtered tests and the complete .NET suite, then commit with `feat(echof
 - Modify: `stardew-echo-mod/src/EchoFarm.Mod/manifest.json`
 - Modify: `stardew-echo-mod/README.md`
 
-- [ ] **Step 1: Add safe configuration**
+- [x] **Step 1: Add safe configuration**
 
 Add auto-start, executable override, startup timeout, model mode, model URL/name, and database path. Reject non-loopback `CoreUrl`, invalid timeouts, and any model mode other than `openai` or explicitly selected `fixture`. Do not add an API-key field.
 
-- [ ] **Step 2: Resolve the launch environment**
+- [x] **Step 2: Resolve the launch environment**
 
 Use `core/echofarm-core.exe` on Windows and `core/echofarm-core` elsewhere unless overridden. Put the default SQLite file below the OS local application-data directory. Pass non-empty model settings as `ECHOFARM_*` variables and preserve an inherited `ECHOFARM_MODEL_API_KEY`.
 
-- [ ] **Step 3: Start and stop safely**
+- [x] **Step 3: Start and stop safely**
 
 Start asynchronously on `GameLaunched`, await the same startup task before restoring learned state, stream child logs through `IMonitor`, and register process-exit cleanup. A failed sidecar startup disables Echo while leaving the game loop usable.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 Run all game-independent tests and the expected SMAPI build gate, then commit with `feat(echofarm-mod): auto-start local AI core`.
 

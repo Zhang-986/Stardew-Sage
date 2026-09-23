@@ -1,7 +1,7 @@
 {
   "Name": "EchoFarm",
   "Author": "Zhang-986",
-  "Version": "0.1.0",
+  "Version": "0.2.0",
   "Description": "Learn a player's farm routine and manifest it as an AI-controlled echo.",
   "UniqueID": "Zhang986.EchoFarm",
   "EntryDll": "EchoFarm.Mod.dll",

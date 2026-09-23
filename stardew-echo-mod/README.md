@@ -68,7 +68,22 @@ The adapter targets the Stardew 1.6 API surface. The checked calls include `Game
 
 ## Run with the Go core
 
-Start the Go service before launching SMAPI:
+Release archives bundle the correct Go service binary and start it automatically. Set the model provider in SMAPI's generated `config.json`:
+
+```json
+{
+  "CoreUrl": "http://127.0.0.1:18471",
+  "AutoStartCore": true,
+  "CoreStartupTimeoutSeconds": 10,
+  "ModelMode": "openai",
+  "ModelBaseUrl": "https://your-endpoint/v1",
+  "ModelName": "your-model"
+}
+```
+
+Set `ECHOFARM_MODEL_API_KEY` in the environment used to launch SMAPI. EchoFarm intentionally has no API-key field and never writes the key into `config.json`. `DatabasePath` and `CoreExecutablePath` can be overridden; empty values use the OS-local application-data directory and bundled `core/echofarm-core[.exe]` respectively.
+
+For source development, start the Go service before launching SMAPI:
 
 ```bash
 cd echofarm-core

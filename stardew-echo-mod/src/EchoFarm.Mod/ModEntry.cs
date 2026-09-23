@@ -15,6 +15,10 @@ public sealed class ModEntry : Mod
     private StardewGamePort gamePort = null!;
     private EchoSession session = null!;
     private EchoRenderer renderer = null!;
+    private CoreProcessSupervisor coreHost = null!;
+    private CoreLaunchOptions coreLaunchOptions = null!;
+    private Task<bool>? coreStartup;
+    private readonly CancellationTokenSource modLifetime = new();
     private CancellationTokenSource saveLifetime = new();
     private ObservationProbe? pendingObservation;
 
@@ -24,6 +28,29 @@ public sealed class ModEntry : Mod
         if (!Uri.TryCreate(config.CoreUrl, UriKind.Absolute, out Uri? coreUrl) || !coreUrl.IsLoopback)
             throw new InvalidOperationException("EchoFarm CoreUrl must be an absolute loopback URL.");
 
+        string applicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(applicationData))
+            applicationData = helper.DirectoryPath;
+        coreLaunchOptions = CoreLaunchOptionsFactory.Create(new CoreLaunchSettings(
+            helper.DirectoryPath,
+            applicationData,
+            coreUrl,
+            config.AutoStartCore,
+            config.CoreExecutablePath,
+            TimeSpan.FromSeconds(config.CoreStartupTimeoutSeconds),
+            config.ModelMode,
+            config.ModelBaseUrl,
+            config.ModelName,
+            config.DatabasePath,
+            OperatingSystem.IsWindows()
+        ));
+        coreHost = new CoreProcessSupervisor(
+            new HttpCoreHealthProbe(new HttpClient(), TimeSpan.FromMilliseconds(500)),
+            new SystemCoreProcessLauncher((message, isError) =>
+                Monitor.Log($"[EchoFarm Core] {message}", isError ? LogLevel.Warn : LogLevel.Trace)),
+            new TaskAsyncDelay()
+        );
+
         recorder = new TeachingRecorder();
         gamePort = new StardewGamePort(Monitor);
         renderer = new EchoRenderer(gamePort.Echo);
@@ -31,6 +58,7 @@ public sealed class ModEntry : Mod
         var coreClient = new EchoFarmClient(httpClient, TimeSpan.FromSeconds(35));
         session = new EchoSession(recorder, coreClient, gamePort, new ActionSafetyGate());
 
+        helper.Events.GameLoop.GameLaunched += OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
         helper.Events.GameLoop.DayStarted += OnDayStarted;
         helper.Events.GameLoop.Saving += OnSaving;
@@ -38,7 +66,11 @@ public sealed class ModEntry : Mod
         helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
         helper.Events.Input.ButtonPressed += OnButtonPressed;
         helper.Events.Display.RenderedWorld += OnRenderedWorld;
+        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
     }
+
+    private async void OnGameLaunched(object? sender, GameLaunchedEventArgs e) =>
+        await EnsureCoreStartedAsync();
 
     private async void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
     {
@@ -139,6 +171,8 @@ public sealed class ModEntry : Mod
 
     private async Task RestoreLearnedStateAsync()
     {
+        if (!await EnsureCoreStartedAsync())
+            return;
         try
         {
             using var client = new HttpClient { BaseAddress = new Uri(config.CoreUrl) };
@@ -155,6 +189,37 @@ public sealed class ModEntry : Mod
         {
             Monitor.Log($"Echo core is unavailable: {error.Message}", LogLevel.Warn);
         }
+    }
+
+    private async Task<bool> EnsureCoreStartedAsync()
+    {
+        coreStartup ??= StartCoreAsync();
+        bool ready = await coreStartup;
+        if (!ready)
+            coreStartup = null;
+        return ready;
+    }
+
+    private async Task<bool> StartCoreAsync()
+    {
+        try
+        {
+            CoreHostState state = await coreHost.StartAsync(coreLaunchOptions, modLifetime.Token);
+            string ownership = state == CoreHostState.Owned ? "bundled process" : "existing process";
+            Monitor.Log($"EchoFarm core is ready ({ownership}).", LogLevel.Info);
+            return true;
+        }
+        catch (Exception error)
+        {
+            Monitor.Log($"EchoFarm core could not start: {error.Message}", LogLevel.Error);
+            return false;
+        }
+    }
+
+    private void OnProcessExit(object? sender, EventArgs e)
+    {
+        modLifetime.Cancel();
+        coreHost?.Dispose();
     }
 
     private static string SaveId() => Game1.uniqueIDForThisGame.ToString(CultureInfo.InvariantCulture);
