@@ -8,6 +8,11 @@
 target/
 !.mvn/wrapper/maven-wrapper.jar
 
+# Local .NET SDK and build outputs
+.tools/
+**/bin/
+**/obj/
+
 ######################################################################
 # IDE
 

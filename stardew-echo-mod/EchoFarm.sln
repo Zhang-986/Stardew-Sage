@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{04BBBF66-EE51-44F0-ACC8-6CA67C1C2C46}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EchoFarm.Bridge", "src\EchoFarm.Bridge\EchoFarm.Bridge.csproj", "{04019C99-EA3B-4FB7-8FB0-786550C024B7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{C48F9974-2A61-49E5-8BF6-3CD5AC69161A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EchoFarm.Bridge.Tests", "tests\EchoFarm.Bridge.Tests\EchoFarm.Bridge.Tests.csproj", "{DCEF5E08-D4B2-4301-81BA-9D617F129015}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{04019C99-EA3B-4FB7-8FB0-786550C024B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04019C99-EA3B-4FB7-8FB0-786550C024B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04019C99-EA3B-4FB7-8FB0-786550C024B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04019C99-EA3B-4FB7-8FB0-786550C024B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DCEF5E08-D4B2-4301-81BA-9D617F129015}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DCEF5E08-D4B2-4301-81BA-9D617F129015}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DCEF5E08-D4B2-4301-81BA-9D617F129015}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DCEF5E08-D4B2-4301-81BA-9D617F129015}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{04019C99-EA3B-4FB7-8FB0-786550C024B7} = {04BBBF66-EE51-44F0-ACC8-6CA67C1C2C46}
+		{DCEF5E08-D4B2-4301-81BA-9D617F129015} = {C48F9974-2A61-49E5-8BF6-3CD5AC69161A}
+	EndGlobalSection
+EndGlobal
