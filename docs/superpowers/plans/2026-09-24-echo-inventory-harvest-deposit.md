@@ -55,11 +55,11 @@ Run the filtered test command, then the full .NET solution. Commit only the inve
 - Create: `stardew-echo-mod/tests/EchoFarm.Bridge.Tests/Runtime/HarvestTransferTests.cs`
 - Create: `stardew-echo-mod/src/EchoFarm.Bridge/Runtime/HarvestTransfer.cs`
 
-- [ ] **Step 1: Write failing harvest-transfer tests**
+- [x] **Step 1: Write failing harvest-transfer tests**
 
 Use explicit crop states to assert that dead and immature crops return `target_changed`, a full inventory returns `inventory_full` without changing crop or inventory state, a one-shot crop returns `RemoveCrop = true`, and a regrowing crop returns `RemoveCrop = false`, `FullyGrown = true`, and `DayOfCurrentPhase = RegrowDays`.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run:
 
@@ -69,11 +69,11 @@ Run:
 
 Expected: compilation fails because the harvest transfer types do not exist.
 
-- [ ] **Step 3: Implement the minimal transfer**
+- [x] **Step 3: Implement the minimal transfer**
 
 Define immutable `CropGrowthState`, `CropGrowthTransition`, and `HarvestTransferResult` values. `HarvestTransfer.TryCollect` must validate maturity before calling `EchoInventory.TryAdd`, and only return a crop transition after the full item stack is accepted.
 
-- [ ] **Step 4: Verify green and commit**
+- [x] **Step 4: Verify green and commit**
 
 Run the filtered test command, then the full .NET solution. Commit the transfer and tests with `feat(echofarm-mod): model atomic crop collection`.
 
