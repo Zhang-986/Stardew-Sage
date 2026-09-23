@@ -1,0 +1,17 @@
+{
+  "id": "demo-morning-1",
+  "saveId": "demo-farm",
+  "sessionId": "teaching-day-1",
+  "startedAt": 100,
+  "endedAt": 900,
+  "events": [
+    {"id":"move-1","kind":"move","tick":100,"position":{"x":4,"y":8},"delta":{"energyDelta":0,"waterDelta":0,"inventoryDelta":0},"success":true},
+    {"id":"equip-1","kind":"equip_tool","tick":150,"position":{"x":5,"y":8},"tool":"Watering Can","delta":{"energyDelta":0,"waterDelta":0,"inventoryDelta":0},"success":true},
+    {"id":"water-1","kind":"water_target","tick":200,"position":{"x":6,"y":8},"targetId":"crop-old-1","tool":"Watering Can","delta":{"energyDelta":-2,"waterDelta":-1,"inventoryDelta":0},"success":true},
+    {"id":"water-2","kind":"water_target","tick":250,"position":{"x":7,"y":8},"targetId":"crop-old-2","tool":"Watering Can","delta":{"energyDelta":-2,"waterDelta":-1,"inventoryDelta":0},"success":true},
+    {"id":"refill-1","kind":"refill_can","tick":400,"position":{"x":12,"y":14},"targetId":"pond-south","tool":"Watering Can","delta":{"energyDelta":0,"waterDelta":40,"inventoryDelta":0},"success":true},
+    {"id":"water-3","kind":"water_target","tick":550,"position":{"x":8,"y":8},"targetId":"crop-old-3","tool":"Watering Can","delta":{"energyDelta":-2,"waterDelta":-1,"inventoryDelta":0},"success":true},
+    {"id":"harvest-1","kind":"harvest_target","tick":650,"position":{"x":9,"y":8},"targetId":"crop-old-4","delta":{"energyDelta":0,"waterDelta":0,"inventoryDelta":1},"success":true},
+    {"id":"deposit-1","kind":"deposit_items","tick":900,"position":{"x":3,"y":6},"targetId":"shipping-chest","delta":{"energyDelta":0,"waterDelta":0,"inventoryDelta":-1},"success":true}
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "saveId": "demo-farm",
+  "sessionId": "echo-day-2",
+  "snapshotVersion": 1,
+  "day": 2,
+  "timeOfDay": 620,
+  "weather": "rainy",
+  "location": "Farm",
+  "playerPosition": {"x": 4, "y": 8},
+  "energy": 260,
+  "maxEnergy": 270,
+  "inventory": {"freeSlots": 10, "items": []},
+  "wateringCan": {"name": "Watering Can", "level": 1, "water": 18, "capacity": 40},
+  "crops": [
+    {"id":"crop-new-dry","position":{"x":20,"y":11},"kind":"parsnip","growthStage":2,"mature":false,"needsWater":true},
+    {"id":"crop-new-ripe","position":{"x":14,"y":5},"kind":"potato","growthStage":5,"mature":true,"needsWater":false}
+  ],
+  "waterSources": [{"id":"pond-south","position":{"x":12,"y":14}}],
+  "chests": [{"id":"shipping-chest","label":"shipping","position":{"x":3,"y":6}}],
+  "obstacles": [{"x":8,"y":8}]
+}
