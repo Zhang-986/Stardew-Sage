@@ -148,6 +148,7 @@ try {
         $native = @($report.stages | Where-Object name -eq 'semantic_activity_gameplay')
         Assert-True ($report.readyForDisposableSave -and -not $report.readyForPublicRelease) 'Acceptance readiness flags are incorrect.'
         Assert-True ($native.Count -eq 1 -and $native[0].status -eq 'pending' -and -not $native[0].automated) 'Native gameplay gate was not left pending.'
+        Assert-True (-not $raw.Contains($gamePath)) 'Acceptance report leaked an absolute game path.'
         Assert-True (-not $raw.Contains('sk-do-not-display')) 'Acceptance report leaked secret material.'
     }
 

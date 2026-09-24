@@ -487,6 +487,9 @@ function Test-EchoFarmCoreHealth {
         $startInfo.WorkingDirectory = $WorkingDirectory
         $startInfo.UseShellExecute = $false
         $startInfo.CreateNoWindow = $true
+        foreach ($key in @('ECHOFARM_MODEL_API_KEY', 'ECHOFARM_MODEL_BASE_URL', 'ECHOFARM_MODEL_NAME')) {
+            $startInfo.EnvironmentVariables.Remove($key)
+        }
         $startInfo.EnvironmentVariables['ECHOFARM_ADDRESS'] = "127.0.0.1:$port"
         $startInfo.EnvironmentVariables['ECHOFARM_DATABASE_PATH'] = $databasePath
         $startInfo.EnvironmentVariables['ECHOFARM_MODEL_MODE'] = 'fixture'
@@ -508,8 +511,8 @@ function Test-EchoFarmCoreHealth {
                 }
             }
             catch {
-                Start-Sleep -Milliseconds 200
             }
+            Start-Sleep -Milliseconds 200
         }
         if ($issues.Count -eq 0) {
             $issues.Add((New-EchoFarmIssue 'core_health_timeout' 'The EchoFarm sidecar did not become healthy before the deadline.' 'Check endpoint conflicts or security software, then rerun -Prepare.'))
@@ -592,9 +595,7 @@ function New-EchoFarmCandidate {
         generatedAtUtc = [DateTime]::UtcNow.ToString('o')
         readyForDisposableSave = $readyForDisposableSave
         readyForPublicRelease = $false
-        gamePath = [System.IO.Path]::GetFullPath($GamePath)
-        installPath = $install.InstallPath
-        archivePath = $build.ArchivePath
+        archiveFile = [System.IO.Path]::GetFileName($build.ArchivePath)
         packageSha256 = $build.Checksum
         stages = $stages
         nextAction = 'Launch StardewModdingAPI.exe with a disposable save and complete docs/echofarm/windows-smoke-checklist.md.'
