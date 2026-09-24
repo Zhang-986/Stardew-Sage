@@ -31,7 +31,13 @@ public static class EchoMemoryPresenter
         {
             string source = experience.Source == ExperienceSource.Correction ? "玩家纠正" : "失败反思";
             string target = string.IsNullOrWhiteSpace(experience.PreferredTargetId) ? experience.PreferAction.ToString() : experience.PreferredTargetId;
-            lines.Add($"经验·{source}：{experience.Summary} -> {target}");
+            string effectiveness = string.Empty;
+            if (experience.EffectiveConfidence > 0)
+            {
+                int confidence = (int)Math.Round(experience.EffectiveConfidence * 100, MidpointRounding.AwayFromZero);
+                effectiveness = $"（有效 {confidence}% · 成功 {experience.SuccessCount} / 失败 {experience.FailureCount}）";
+            }
+            lines.Add($"经验·{source}：{experience.Summary} -> {target}{effectiveness}");
         }
         return Array.AsReadOnly(lines.Take(8).ToArray());
     }

@@ -150,6 +150,10 @@ public sealed class PolicyExperience : StrictContract
     public string? PreferredTargetId { get; init; }
     public string Summary { get; init; } = string.Empty;
     public double Confidence { get; init; }
+    public double EffectiveConfidence { get; init; }
+    public int SuccessCount { get; init; }
+    public int FailureCount { get; init; }
+    public int NeutralCount { get; init; }
     public int ObservationCount { get; init; }
     public int ContradictionCount { get; init; }
     public int FirstSeenDay { get; init; }

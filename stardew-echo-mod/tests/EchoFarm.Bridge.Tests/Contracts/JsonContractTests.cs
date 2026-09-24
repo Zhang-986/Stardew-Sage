@@ -52,7 +52,15 @@ public sealed class JsonContractTests
               "recentLearningChange":{
                 "modelRevision":3,"kind":"strengthened","key":"task_order",
                 "value":"watering,harvesting","confidence":0.82,"summary":"strengthened"
-              }
+              },
+              "experiences":[{
+                "id":"exp-1","saveId":"farm-1","trigger":"inventory_full","context":"sunny",
+                "whenSignals":["inventory_full"],"avoidAction":"harvest_target","preferAction":"deposit_items",
+                "summary":"deposit first","confidence":0.65,"effectiveConfidence":0.78,
+                "successCount":3,"failureCount":1,"neutralCount":2,
+                "observationCount":2,"contradictionCount":0,"firstSeenDay":1,"lastSeenDay":3,
+                "evidenceRefs":["decision:day-1:1"],"source":"failure"
+              }]
             }
             """;
 
@@ -60,6 +68,10 @@ public sealed class JsonContractTests
 
         Assert.Equal(TraitContext.Sunny, view.StableTraits[0].Context);
         Assert.Equal(LearningChangeKind.Strengthened, view.RecentLearningChange!.Kind);
+        Assert.Equal(0.78, view.Experiences[0].EffectiveConfidence);
+        Assert.Equal(3, view.Experiences[0].SuccessCount);
+        Assert.Equal(1, view.Experiences[0].FailureCount);
+        Assert.Equal(2, view.Experiences[0].NeutralCount);
     }
 
     [Fact]

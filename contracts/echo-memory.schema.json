@@ -37,6 +37,10 @@
         "status": { "type": "string", "minLength": 1 }
       }
     },
-    "lastDecision": { "type": "object" }
+    "lastDecision": { "type": "object" },
+    "experiences": {
+      "type": "array",
+      "items": { "$ref": "policy-experience.schema.json" }
+    }
   }
 }

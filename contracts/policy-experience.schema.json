@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echofarm.local/contracts/policy-experience.schema.json",
+  "title": "PolicyExperience",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "saveId", "trigger", "context", "whenSignals", "preferAction",
+    "summary", "confidence", "observationCount", "contradictionCount",
+    "firstSeenDay", "lastSeenDay", "evidenceRefs", "source"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "saveId": { "type": "string", "minLength": 1 },
+    "trigger": { "enum": ["inventory_full", "out_of_water", "path_blocked", "chest_full", "player_correction"] },
+    "context": { "enum": ["any", "sunny", "rainy", "storm", "snow"] },
+    "whenSignals": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["inventory_full", "inventory_has_items", "can_empty", "raining", "target_blocked"] }
+    },
+    "avoidAction": { "$ref": "high-level-action.schema.json#/$defs/actionKind" },
+    "preferAction": { "$ref": "high-level-action.schema.json#/$defs/actionKind" },
+    "preferredTargetId": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "effectiveConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "successCount": { "type": "integer", "minimum": 0 },
+    "failureCount": { "type": "integer", "minimum": 0 },
+    "neutralCount": { "type": "integer", "minimum": 0 },
+    "observationCount": { "type": "integer", "minimum": 1 },
+    "contradictionCount": { "type": "integer", "minimum": 0 },
+    "firstSeenDay": { "type": "integer", "minimum": 1 },
+    "lastSeenDay": { "type": "integer", "minimum": 1 },
+    "evidenceRefs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "source": { "enum": ["failure", "correction"] }
+  }
+}

@@ -48,7 +48,8 @@ public sealed class EchoMemoryPresenterTests
                     Id = "exp-correction", SaveId = "farm-1", Trigger = ExperienceTrigger.PlayerCorrection,
                     Context = TraitContext.Sunny, WhenSignals = new[] { SituationSignal.InventoryHasItems },
                     PreferAction = ActionKind.DepositItems, PreferredTargetId = "chest-west",
-                    Summary = "use the player's demonstrated chest", Confidence = 0.85,
+                    Summary = "use the player's demonstrated chest", Confidence = 0.85, EffectiveConfidence = 0.78,
+                    SuccessCount = 3, FailureCount = 1, NeutralCount = 2,
                     ObservationCount = 1, FirstSeenDay = 3, LastSeenDay = 3,
                     EvidenceRefs = new[] { "correction-1" }, Source = ExperienceSource.Correction
                 }
@@ -64,6 +65,7 @@ public sealed class EchoMemoryPresenterTests
         Assert.Contains(lines, line => line.Contains("2", StringComparison.Ordinal) && line.Contains("避开", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("91%", StringComparison.Ordinal) && line.Contains("备选", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("玩家纠正", StringComparison.Ordinal) && line.Contains("chest-west", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("有效 78%", StringComparison.Ordinal) && line.Contains("成功 3 / 失败 1", StringComparison.Ordinal));
     }
 
     [Fact]
