@@ -95,7 +95,7 @@ Run the PowerShell suite, full .NET Release suite, Go race/vet, all four cross-p
 
 - [x] **Step 1: Add a cross-language classifier integration test**
 
-Generate tree, rock, mine-floor, and fishing events with `SemanticActivityTracker`, record two teaching days with `TeachingRecorder`, send both through `EchoFarmClient` to a real fixture-mode Go process, and require stable lifestyle memory with no executable activity action.
+Generate tree, rock, mine-floor, and fishing events with `SemanticActivityTracker`, record two teaching days with `TeachingRecorder`, send both through `EchoFarmClient` to a real fixture-mode Go process, and require stable lifestyle memory with no executable activity action. Render that returned memory through `EchoMemoryPresenter` and require player-facing F9 labels without raw evidence IDs.
 
 - [x] **Step 2: Reproduce and isolate the activity-only failure**
 

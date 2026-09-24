@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using EchoFarm.Bridge.Contracts;
 using EchoFarm.Bridge.Recording;
+using EchoFarm.Bridge.Runtime;
 using EchoFarm.Bridge.Transport;
 
 namespace EchoFarm.Bridge.Tests.Integration;
@@ -91,6 +92,10 @@ public sealed class GoCoreContractTests
             Assert.Contains(memory.StableTraits, trait => trait.Key == PreferenceKey.ResourcePriority && trait.Value == "Wood");
             Assert.Contains(memory.StableTraits, trait => trait.Key == PreferenceKey.MineExitPolicy);
             Assert.Contains(memory.StableTraits, trait => trait.Key == PreferenceKey.FishingContext);
+            IReadOnlyList<string> f9Lines = EchoMemoryPresenter.BuildLines(memory);
+            Assert.Contains(f9Lines, line => line.Contains("活动顺序", StringComparison.Ordinal));
+            Assert.Contains(f9Lines, line => line.Contains("资源偏好", StringComparison.Ordinal));
+            Assert.DoesNotContain(f9Lines, line => line.Contains("tree-12-8", StringComparison.Ordinal));
         }
         finally
         {
