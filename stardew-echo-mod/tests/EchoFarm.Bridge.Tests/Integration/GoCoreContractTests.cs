@@ -41,6 +41,10 @@ public sealed class GoCoreContractTests
 
             ActionResultRequest fullInventory = EchoJson.Deserialize<ActionResultRequest>(
                 File.ReadAllText(Path.Combine(repository, "demo", "fixtures", "full-inventory-result.json")));
+            WorldSnapshot beforeFullInventory = WithVersion(fullInventory.Snapshot, fullInventory.Result.SnapshotVersion);
+            HighLevelAction attemptedHarvest = await client.NextActionAsync(beforeFullInventory, CancellationToken.None);
+            Assert.Equal(fullInventory.Result.Action.Kind, attemptedHarvest.Kind);
+            Assert.Equal(fullInventory.Result.Action.TargetId, attemptedHarvest.TargetId);
             HighLevelAction depositAction = await client.ReportActionResultAsync(fullInventory, CancellationToken.None);
             Assert.Equal(ActionKind.DepositItems, depositAction.Kind);
             Assert.Equal("shipping-chest", depositAction.TargetId);
@@ -53,6 +57,28 @@ public sealed class GoCoreContractTests
             File.Delete(database);
         }
     }
+
+    private static WorldSnapshot WithVersion(WorldSnapshot source, long snapshotVersion) => new()
+    {
+        SaveId = source.SaveId,
+        SessionId = source.SessionId,
+        SnapshotVersion = snapshotVersion,
+        Tick = source.Tick,
+        Day = source.Day,
+        TimeOfDay = source.TimeOfDay,
+        Weather = source.Weather,
+        Location = source.Location,
+        PlayerPosition = source.PlayerPosition,
+        Energy = source.Energy,
+        MaxEnergy = source.MaxEnergy,
+        Inventory = source.Inventory,
+        WateringCan = source.WateringCan,
+        Crops = source.Crops,
+        WaterSources = source.WaterSources,
+        Chests = source.Chests,
+        Obstacles = source.Obstacles,
+        RecentPlayerActions = source.RecentPlayerActions
+    };
 
     private static Process StartCore(string repository, int port, string database)
     {

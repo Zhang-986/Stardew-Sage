@@ -8,4 +8,5 @@ public interface IEchoFarmClient
     Task<HighLevelAction> NextActionAsync(WorldSnapshot snapshot, CancellationToken cancellationToken);
     Task<HighLevelAction> ReportActionResultAsync(ActionResultRequest request, CancellationToken cancellationToken);
     Task<PlayerModel> GetPlayerModelAsync(string saveId, CancellationToken cancellationToken);
+    Task<EchoMemoryView> GetMemoryAsync(string saveId, CancellationToken cancellationToken);
 }

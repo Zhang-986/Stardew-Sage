@@ -148,6 +148,24 @@ public sealed class EchoFarmClientTests
             () => client.GetPlayerModelAsync("farm-1", CancellationToken.None));
     }
 
+    [Fact]
+    public async Task GetMemoryEscapesAndValidatesSaveId()
+    {
+        const string saveId = "farm one/+";
+        string? pathAndQuery = null;
+        var view = new EchoMemoryView { SaveId = saveId, ModelRevision = 3, LearnedThroughDay = 3 };
+        var client = CreateClient(new StubHttpHandler(request =>
+        {
+            pathAndQuery = request.RequestUri?.PathAndQuery;
+            return Task.FromResult(Json(HttpStatusCode.OK, EchoJson.Serialize(view)));
+        }));
+
+        EchoMemoryView got = await client.GetMemoryAsync(saveId, CancellationToken.None);
+
+        Assert.Equal(3, got.ModelRevision);
+        Assert.Equal("/v1/echo/memory?saveId=farm%20one%2F%2B", pathAndQuery);
+    }
+
     private static EchoFarmClient CreateClient(HttpMessageHandler handler) =>
         new(new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:18471") }, TimeSpan.FromSeconds(2));
 

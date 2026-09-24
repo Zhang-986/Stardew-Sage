@@ -35,6 +35,8 @@ public sealed class Demonstration : StrictContract
     public string Id { get; init; } = string.Empty;
     public string SaveId { get; init; } = string.Empty;
     public string SessionId { get; init; } = string.Empty;
+    public int Day { get; init; }
+    public Weather Weather { get; init; }
     public long StartedAt { get; init; }
     public long EndedAt { get; init; }
     public IReadOnlyList<DemonstrationEvent> Events { get; init; } = Array.Empty<DemonstrationEvent>();

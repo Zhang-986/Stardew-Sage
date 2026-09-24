@@ -130,6 +130,11 @@ public sealed class EchoSessionTests
 
         public Task<PlayerModel> GetPlayerModelAsync(string saveId, CancellationToken cancellationToken) =>
             Failure is null ? Task.FromResult(LearnResponse.PlayerModel) : Task.FromException<PlayerModel>(Failure);
+
+        public Task<EchoMemoryView> GetMemoryAsync(string saveId, CancellationToken cancellationToken) =>
+            Failure is null
+                ? Task.FromResult(new EchoMemoryView { SaveId = saveId, ModelRevision = LearnResponse.PlayerModel.Revision })
+                : Task.FromException<EchoMemoryView>(Failure);
     }
 
     private sealed class GamePortStub : IGamePort

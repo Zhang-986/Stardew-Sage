@@ -58,11 +58,20 @@ public sealed class InventorySummary : StrictContract
     public IReadOnlyList<InventoryItem> Items { get; init; } = Array.Empty<InventoryItem>();
 }
 
+public sealed class PlayerActivity : StrictContract
+{
+    public EventKind Kind { get; init; }
+    public string TargetId { get; init; } = string.Empty;
+    public long Tick { get; init; }
+    public bool Success { get; init; }
+}
+
 public sealed class WorldSnapshot : StrictContract
 {
     public string SaveId { get; init; } = string.Empty;
     public string SessionId { get; init; } = string.Empty;
     public long SnapshotVersion { get; init; }
+    public long Tick { get; init; }
     public int Day { get; init; }
     public int TimeOfDay { get; init; }
     public Weather Weather { get; init; }
@@ -76,4 +85,5 @@ public sealed class WorldSnapshot : StrictContract
     public IReadOnlyList<WaterSource> WaterSources { get; init; } = Array.Empty<WaterSource>();
     public IReadOnlyList<Chest> Chests { get; init; } = Array.Empty<Chest>();
     public IReadOnlyList<Position> Obstacles { get; init; } = Array.Empty<Position>();
+    public IReadOnlyList<PlayerActivity> RecentPlayerActions { get; init; } = Array.Empty<PlayerActivity>();
 }

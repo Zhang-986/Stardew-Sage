@@ -42,6 +42,7 @@ public sealed class LearnResponse : StrictContract
 {
     public PlayerModel PlayerModel { get; init; } = new();
     public SkillProgram Skill { get; init; } = new();
+    public LearningChange LearningChange { get; init; } = new();
 }
 
 public sealed class ActionResponse : StrictContract

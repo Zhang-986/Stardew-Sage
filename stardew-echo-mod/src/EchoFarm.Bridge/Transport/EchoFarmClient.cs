@@ -82,6 +82,42 @@ public sealed class EchoFarmClient : IEchoFarmClient
         }
     }
 
+    public async Task<EchoMemoryView> GetMemoryAsync(string saveId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(saveId))
+            throw new ArgumentException("Save ID is required.", nameof(saveId));
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(requestTimeout);
+        HttpResponseMessage response;
+        try
+        {
+            response = await httpClient.GetAsync(
+                $"/v1/echo/memory?saveId={Uri.EscapeDataString(saveId)}",
+                timeout.Token
+            ).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ModelUnavailableException();
+        }
+        catch (HttpRequestException)
+        {
+            throw new ModelUnavailableException();
+        }
+
+        using (response)
+        {
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                throw new EchoMemoryNotFoundException();
+            EnsureAvailable(response);
+            EchoMemoryView view = await DeserializeResponse<EchoMemoryView>(response, timeout.Token).ConfigureAwait(false);
+            if (view.SaveId != saveId)
+                throw new EchoFarmProtocolException("EchoFarm returned memory for another save.");
+            return view;
+        }
+    }
+
     private async Task<TResponse> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
