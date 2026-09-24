@@ -37,9 +37,11 @@ cd ..
 ./demo/run-reflective-demo.sh
 ```
 
-This scenario restarts the real Go process twice while retaining one SQLite database. It proves that a failed full-inventory harvest creates bounded policy experience, that the next session deposits before harvesting, and that an explicit player chest correction overrides the earlier target on a later decision. Responses expose calibrated confidence, safe alternatives, and the exact experience ID applied.
+This scenario restarts the real Go process twice while retaining one SQLite database. It proves that a failed full-inventory harvest creates bounded policy experience, that the next session deposits before harvesting, and that an explicit player chest correction overrides the earlier target on a later decision. It then reports that corrected action as successful and verifies that the applied experience gains one success plus a higher effective confidence. Responses expose calibrated confidence, safe alternatives, and the exact experience ID applied.
 
 Failed-action reflection is backed by a durable SQLite job. Result attachment and enqueue commit together; one lease holder performs inference, transient failures return the job to pending, and a later policy request can recover it after restart. Experience persistence remains idempotent by source ID. The model call itself is at-least-once across a crash boundary and may be recomputed, but it cannot apply the learned experience twice.
+
+Applied-experience feedback is deterministic rather than model-scored. A canonical successful result counts as `succeeded`; known resource contradictions such as `out_of_water`, `inventory_full`, `inventory_empty`, and `chest_full` count as `contradicted` for the relevant action; route churn and unknown failures stay `neutral`. The append-only feedback row commits atomically with the first accepted action result and is projected on reads as success/failure/neutral counts plus `(baseConfidence*4+success)/(4+success+failure)`. An experience is cooled only after at least three contradictions drive that effective confidence below `0.40`.
 
 ## Run with a real model
 

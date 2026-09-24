@@ -110,5 +110,38 @@ jq -e '
   .lastDecision.finalAction.targetId == "artisan-chest"
 ' "$temp_root/memory.json" >/dev/null
 
-jq '{decision: .lastDecision, experiences}' "$temp_root/memory.json"
+echo "6) Report the corrected action succeeding and verify effectiveness feedback"
+applied_experience_id="$(jq -r '.appliedExperiences[0]' "$temp_root/day6.json")"
+jq -n \
+  --slurpfile world "$repo_root/demo/fixtures/day-5-reflective-farm.json" \
+  --slurpfile decision "$temp_root/day6.json" '
+  {
+    saveId: "demo-farm",
+    snapshot: ($world[0] |
+      .sessionId = "echo-day-6" |
+      .snapshotVersion = 2 |
+      .tick = 6100 |
+      .day = 6 |
+      .inventory = {freeSlots: 12, items: []}),
+    result: {
+      saveId: "demo-farm",
+      sessionId: "echo-day-6",
+      snapshotVersion: 1,
+      action: $decision[0].action,
+      status: "succeeded"
+    }
+  }' >"$temp_root/day6-success.json"
+curl --silent --fail \
+  -H 'Content-Type: application/json' \
+  --data-binary "@$temp_root/day6-success.json" \
+  "$base_url/v1/echo/action-result" >"$temp_root/day6-next.json"
+curl --silent --fail "$base_url/v1/echo/memory?saveId=demo-farm" >"$temp_root/feedback-memory.json"
+jq -e --arg id "$applied_experience_id" '
+  any(.experiences[];
+    .id == $id and
+    .successCount == 1 and
+    .effectiveConfidence > .confidence)
+' "$temp_root/feedback-memory.json" >/dev/null
+
+jq --arg id "$applied_experience_id" '{decision: .lastDecision, feedback: (.experiences[] | select(.id == $id))}' "$temp_root/feedback-memory.json"
 echo "EchoFarm reflective cross-process demo passed."

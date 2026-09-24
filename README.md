@@ -12,6 +12,8 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
                       游戏内记忆面板 <- SQLite 决策与执行账本
                                                 |
 失败/玩家 F10 纠正 -> Eino 反思 -> 结构化经验 -> 下次提前改变策略
+                                                |
+实际执行结果 -> 幂等反馈账本 -> 有效置信度 -> 强化有效经验/冷却反复失效经验
 ```
 
 ## 为什么 AI 不可替代
@@ -24,6 +26,7 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
 - 识别玩家正在处理的目标，主动承担互补工作而不是与玩家抢活。
 - 将动作失败先写入可恢复的 SQLite 反思任务，再抽象为可复用策略经验；模型暂时失败或进程重启也不会丢掉待学习内容；
 - 玩家可按 F10 否定当前决策，用下一次成功操作教会 Echo 更好的选择。
+- 只对本次真正采用并执行的经验记录结果反馈，用可审计的成功/矛盾计数调整后续排序；路线变化等环境噪声保持中性，避免错误惩罚 AI 经验。
 
 模型只决定高层动作。白名单、目标存在性、天气、工具和体力检查由确定性代码把关。项目不使用 RAG，也不依赖 Web 聊天界面。
 
@@ -56,7 +59,7 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
 ./demo/run-reflective-demo.sh
 ```
 
-它会启动真实 Go 进程并两次重启，证明“首次满背包收获失败 -> 形成经验 -> 下次提前存箱 -> 玩家纠正箱子 -> 再下次优先新箱子”的跨会话学习链。
+它会启动真实 Go 进程并两次重启，证明“首次满背包收获失败 -> 形成经验 -> 下次提前存箱 -> 玩家纠正箱子 -> 再下次优先新箱子 -> 成功结果提高该经验的有效置信度”的跨会话学习链。反馈是追加式、幂等且与规范动作结果同事务提交的，不依赖模型给自己打分。
 
 使用真实 OpenAI-compatible 模型：
 
@@ -69,7 +72,7 @@ export ECHOFARM_MODEL_NAME=your-model
 go run ./cmd/echofarm
 ```
 
-详细配置见 [echofarm-core/README.md](echofarm-core/README.md)，产品设计见 [EchoFarm 设计](docs/superpowers/specs/2026-09-23-echofarm-player-model-design.md) 和 [Reflective Policy 设计](docs/superpowers/specs/2026-09-24-echofarm-reflective-policy-design.md)。
+详细配置见 [echofarm-core/README.md](echofarm-core/README.md)，产品设计见 [EchoFarm 设计](docs/superpowers/specs/2026-09-23-echofarm-player-model-design.md)、[Reflective Policy 设计](docs/superpowers/specs/2026-09-24-echofarm-reflective-policy-design.md) 和 [经验有效性反馈设计](docs/superpowers/specs/2026-09-24-echofarm-experience-feedback-design.md)。
 
 ## Nexus Mods 打包
 
@@ -110,6 +113,7 @@ stardew-echo-mod/  SMAPI 传感器、受控执行器与游戏内记忆面板
 - [x] 失败反思、Top-3 情境经验匹配和跨会话主动避错
 - [x] 带置信度和最多两个备选的可解释动作提案
 - [x] F10 显式玩家纠正、20 秒捕获窗口与幂等经验落账
+- [x] 规范动作结果反馈、经验有效置信度排序与反复失效经验冷却
 - [ ] 在安装 Stardew Valley + SMAPI 的机器上完成编译与游戏内冒烟
 
 ## 安全边界

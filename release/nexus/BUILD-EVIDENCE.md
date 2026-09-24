@@ -10,8 +10,9 @@ Generated on 2026-09-24 from branch `codex/living-valley-director`.
 - `Structured generation`: OpenAI-compatible calls request `json_object` response format; prompts require materially applied experience citations, counterfactual alternatives, and the smallest evidence-supported causal rule.
 - `Durable reflection`: the first canonical failed result atomically enqueues one SQLite job; expiring leases prevent simultaneous processing, transient failures return to pending, and restart recovery preserves once-only experience persistence.
 - `Concurrent result safety`: an optimistic SQLite compare-and-swap elects exactly one canonical action result; identical retries cannot enqueue duplicate work and conflicting outcomes cannot overwrite it. Sixteen-way result and lease races each produced one winner across twenty stress-test runs.
+- `Experience effectiveness`: feedback for materially applied experiences commits atomically with the canonical action result; deterministic attribution separates success, resource contradiction, and neutral world churn. Reads project effective confidence without overwriting semantic confidence, and repeatedly contradicted experience is cooled below the policy threshold.
 - `Correction boundary`: F10 capture is represented by a twenty-second state machine, accepts one successful supported action, stays paused for a retry after model failure, and validates save/session/snapshot/target correlation in C# and Go.
-- `Cross-process demos`: the core, four-day Continuum, and five-stage reflective demos passed. The reflective demo restarted the Go process twice and proved proactive deposit plus corrected-chest selection from persisted SQLite experience.
+- `Cross-process demos`: the core, four-day Continuum, and six-stage reflective demos passed. The reflective demo restarted the Go process twice and proved proactive deposit, corrected-chest selection, and successful-outcome strengthening from persisted SQLite experience.
 - `Nexus packaging smoke`: four platform ZIPs were built with fixture Mod DLLs, validated, and deleted after the test. These smoke archives are not playable release files.
 - `Native sidecar smoke`: the rebuilt 0.4.0 macOS arm64 core started in fixture mode and returned HTTP 200 with `{"status":"ok"}` from `/healthz`.
 - `Reproducibility`: a second clean cross-build was byte-for-byte identical for all four sidecars.
@@ -22,10 +23,10 @@ Generated files are ignored by Git under `artifacts/echofarm-core-0.4.0/`.
 
 | File | Approximate size | SHA-256 |
 | --- | ---: | --- |
-| `echofarm-core-linux-x64` | 24 MB | `3765a4420633433884f22d0935fcc96f104e2f136321b0e781b3242331868afe` |
-| `echofarm-core-macos-arm64` | 21 MB | `c1d7d41615aa053b1a773b250c4f45471dfc4b3ceb7cbcafb2544489d41d7f48` |
-| `echofarm-core-macos-x64` | 25 MB | `fc1671dceeffb41acee4a502a4ed1a166f216f2b1b77132686b1a3f2a97e76dc` |
-| `echofarm-core-windows-x64.exe` | 25 MB | `e74b4113278827af21e81ab80b589cafa8764247c018defb231c99f367e36956` |
+| `echofarm-core-linux-x64` | 24 MB | `376c566625ac122059c52984d4c2abda1fc5f9e2e3a756b34d3dea1875c7e2f8` |
+| `echofarm-core-macos-arm64` | 21 MB | `f4dfebf8fbf1f9af6e4e5310bbc12a9c93fc8715907a8c5fd114ef586b9b2e81` |
+| `echofarm-core-macos-x64` | 25 MB | `517c1074f87ec41d3ddf7a009be81bd2b613f34fef4c543ce8ceefb6705eb153` |
+| `echofarm-core-windows-x64.exe` | 25 MB | `5aa8d5f64a00c734432399949b0fcf88cb6e01d64f04d4f876b334492c98e16b` |
 
 ## External publication gates
 

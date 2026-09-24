@@ -164,6 +164,8 @@ Content-Type: application/json
 
 A failed result invokes the Eino replanning graph with the failure plus latest snapshot. A successful result asks for the next action against the latest snapshot. Both return the same `ActionResponse` shape used by `/next-action`.
 
+When the recorded primary proposal actually applied one or more persisted experiences, accepting its first canonical result also appends deterministic effectiveness feedback for those experience IDs. Success is `succeeded`; action/resource contradictions (`water_target/out_of_water`, `harvest_target/inventory_full`, and `deposit_items/chest_full|inventory_empty`) are `contradicted`; route churn, changed targets, unsupported crops, and unknown failures are `neutral`. Alternatives, safety-stop substitutions, and results that do not exactly match the recorded final action receive no attribution.
+
 Game-side failure codes used by the vertical slice are:
 
 - `target_changed`: the crop, chest, or water source no longer matches the snapshot;
@@ -184,7 +186,7 @@ GET /v1/skills/morning-farm-routine?saveId=farm-123
 GET /v1/echo/memory?saveId=farm-123
 ```
 
-The memory endpoint projects stable multi-day traits, the latest learning change, active Echo session, and last decision record for the F9 panel. A missing profile or skill returns 404.
+The memory endpoint projects stable multi-day traits, the latest learning change, active Echo session, and last decision record for the F9 panel. Policy experiences may additionally expose `effectiveConfidence`, `successCount`, `failureCount`, and `neutralCount`; zero-valued projection fields may be omitted for backward compatibility. A missing profile or skill returns 404.
 
 ## Persistence and idempotency
 
@@ -193,6 +195,8 @@ The memory endpoint projects stable multi-day traits, the latest learning change
 - Runtime decisions use `(saveId, sessionId, snapshotVersion)` as their idempotency key.
 - An action result is accepted only when its full action payload matches the recorded final action for that key.
 - Result attachment is an atomic first-write-wins operation. A canonical failed result and its pending reflection job commit together; identical retries cannot enqueue another job, while a later result with different content is rejected.
+- Feedback for materially applied experience IDs commits in that same transaction and is keyed by the canonical decision plus experience ID. Identical retries cannot double-count an outcome, and a missing referenced experience rolls the whole result transaction back.
+- Base semantic confidence remains part of the learned experience. Memory reads project the append-only feedback ledger into effective confidence using `(confidence * 4 + successes) / (4 + successes + contradictions)`; neutral outcomes remain auditable but do not change the score. Three or more contradictions cool an experience only when the projected score falls below `0.40`.
 - Reflection jobs use expiring SQLite leases. A model failure releases the job for a later policy request, and process restart preserves pending work; the eventual experience revision remains idempotent by source ID.
 - Model candidates rejected by player target claims are retained in the ledger beside the deterministic `stop_session` decision for diagnosis.
 

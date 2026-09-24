@@ -9,6 +9,8 @@
 - Enforced OpenAI-compatible JSON mode and tightened causal, evidence-bounded proposal/reflection prompts.
 - Made concurrent action-result attachment first-write-wins so retries cannot overwrite the canonical outcome.
 - Added leased SQLite reflection jobs so transient model failures and process restarts no longer discard pending failure learning.
+- Added an append-only effectiveness ledger for experiences actually used by executed actions, with atomic idempotent attribution, explainable success/contradiction/neutral counts, effective-confidence ranking, and cooling after repeated contradictions.
+- Extended the reflective cross-process demo with a sixth stage proving that a successful corrected action strengthens the exact experience that drove it.
 
 # 0.3.0 — Continuum co-player
 

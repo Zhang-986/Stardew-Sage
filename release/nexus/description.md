@@ -17,12 +17,13 @@ It is not a chat window and it is not a coordinate macro. Move a crop, add a new
 - While you and Echo work together, a short-lived activity window lets Echo avoid crops and chests you are already handling.
 - Learning revisions and runtime decisions are recorded in a structured local ledger for explainability.
 - Failed actions are reflected into bounded policy experiences, so a later matching session can avoid the failure before trying the same action.
+- Outcomes from actions that actually used an experience feed an auditable local effectiveness score; successful strategies rise, repeated resource contradictions cool them, and transient world changes do not unfairly punish them.
 - Each AI proposal carries calibrated confidence and up to two safe alternatives; low-confidence or invalid plans stop instead of touching the world.
 - A second deterministic safety gate rejects stale, invented, or invalid model actions before game state changes.
 
 ## AI architecture
 
-The local sidecar is written in Go and uses CloudWeGo Eino for trait extraction, player-intent inference, ranked action proposals, and bounded reflection. Deterministic Go code owns evidence and experience merging, durable leased reflection work, idempotency, confidence calibration, target claims, and validation. The C#/SMAPI Mod is deliberately thin: it observes the game, captures explicit corrections, validates actions, animates Echo, and mutates the world only on the game thread. No RAG or external knowledge base is used.
+The local sidecar is written in Go and uses CloudWeGo Eino for trait extraction, player-intent inference, ranked action proposals, and bounded reflection. Deterministic Go code owns evidence and experience merging, durable leased reflection work, idempotent outcome attribution, effective-confidence projection, target claims, and validation. The C#/SMAPI Mod is deliberately thin: it observes the game, captures explicit corrections, validates actions, animates Echo, and mutates the world only on the game thread. No RAG or external knowledge base is used.
 
 The service binds only to localhost. Model credentials stay in the process environment and are not stored in the Mod configuration, logs, archive, or save file.
 
