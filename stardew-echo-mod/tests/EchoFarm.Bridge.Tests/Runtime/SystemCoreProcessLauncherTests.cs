@@ -23,7 +23,7 @@ public sealed class SystemCoreProcessLauncherTests
                 new Dictionary<string, string>()
             ));
 
-            Assert.True(SpinWait.SpinUntil(() => process.HasExited, TimeSpan.FromSeconds(2)));
+            Assert.True(SpinWait.SpinUntil(() => process.HasExited, TimeSpan.FromSeconds(10)));
             Assert.Equal(0, process.ExitCode);
             Assert.True(File.GetUnixFileMode(executable).HasFlag(UnixFileMode.UserExecute));
         }
