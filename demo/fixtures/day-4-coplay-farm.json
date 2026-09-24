@@ -1,0 +1,48 @@
+{
+  "saveId": "demo-farm",
+  "sessionId": "echo-day-4-continuum",
+  "snapshotVersion": 1,
+  "tick": 3000,
+  "day": 4,
+  "timeOfDay": 700,
+  "weather": "sunny",
+  "location": "Farm",
+  "playerPosition": { "x": 8, "y": 8 },
+  "energy": 250,
+  "maxEnergy": 270,
+  "inventory": { "freeSlots": 12, "items": [] },
+  "wateringCan": { "name": "Watering Can", "level": 1, "water": 18, "capacity": 40 },
+  "crops": [
+    {
+      "id": "crop-north-1",
+      "position": { "x": 9, "y": 8 },
+      "kind": "parsnip",
+      "growthStage": 2,
+      "mature": false,
+      "needsWater": true
+    },
+    {
+      "id": "crop-north-2",
+      "position": { "x": 10, "y": 8 },
+      "kind": "parsnip",
+      "growthStage": 2,
+      "mature": false,
+      "needsWater": true
+    },
+    {
+      "id": "crop-south-ripe",
+      "position": { "x": 18, "y": 14 },
+      "kind": "potato",
+      "growthStage": 5,
+      "mature": true,
+      "needsWater": false
+    }
+  ],
+  "waterSources": [{ "id": "pond-south", "position": { "x": 12, "y": 14 } }],
+  "chests": [{ "id": "shipping-chest", "label": "shipping", "position": { "x": 3, "y": 6 } }],
+  "obstacles": [],
+  "recentPlayerActions": [
+    { "kind": "water_target", "targetId": "crop-north-1", "tick": 2900, "success": true },
+    { "kind": "water_target", "targetId": "crop-north-2", "tick": 2960, "success": true }
+  ]
+}

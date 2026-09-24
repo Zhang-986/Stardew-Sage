@@ -58,6 +58,11 @@ curl --silent --fail \
   http://127.0.0.1:18471/v1/echo/next-action | jq .
 
 echo "4) Fill Echo's inventory: it replans the failed harvest into a deposit at the learned chest"
+jq '.snapshot | .snapshotVersion = 1' "$repo_root/demo/fixtures/full-inventory-result.json" | \
+  curl --silent --fail \
+    -H 'Content-Type: application/json' \
+    --data-binary @- \
+    http://127.0.0.1:18471/v1/echo/next-action >/dev/null
 curl --silent --fail \
   -H 'Content-Type: application/json' \
   --data-binary "@$repo_root/demo/fixtures/full-inventory-result.json" \

@@ -1,0 +1,49 @@
+{
+  "id": "demo-morning-2",
+  "saveId": "demo-farm",
+  "sessionId": "teaching-day-2",
+  "day": 2,
+  "weather": "sunny",
+  "startedAt": 1000,
+  "endedAt": 1600,
+  "events": [
+    {
+      "id": "day2-water-1",
+      "kind": "water_target",
+      "tick": 1050,
+      "position": { "x": 10, "y": 8 },
+      "targetId": "crop-day2-1",
+      "tool": "Watering Can",
+      "delta": { "energyDelta": -2, "waterDelta": -1, "inventoryDelta": 0 },
+      "success": true
+    },
+    {
+      "id": "day2-refill-1",
+      "kind": "refill_can",
+      "tick": 1200,
+      "position": { "x": 12, "y": 14 },
+      "targetId": "pond-south",
+      "tool": "Watering Can",
+      "delta": { "energyDelta": 0, "waterDelta": 40, "inventoryDelta": 0 },
+      "success": true
+    },
+    {
+      "id": "day2-harvest-1",
+      "kind": "harvest_target",
+      "tick": 1400,
+      "position": { "x": 11, "y": 8 },
+      "targetId": "crop-day2-ripe",
+      "delta": { "energyDelta": 0, "waterDelta": 0, "inventoryDelta": 1 },
+      "success": true
+    },
+    {
+      "id": "day2-deposit-1",
+      "kind": "deposit_items",
+      "tick": 1600,
+      "position": { "x": 3, "y": 6 },
+      "targetId": "shipping-chest",
+      "delta": { "energyDelta": 0, "waterDelta": 0, "inventoryDelta": -1 },
+      "success": true
+    }
+  ]
+}

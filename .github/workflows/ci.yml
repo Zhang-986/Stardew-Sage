@@ -39,5 +39,8 @@ jobs:
       - name: Run cross-process demo
         run: ./demo/run-core-demo.sh
 
+      - name: Run four-day Continuum demo
+        run: ./demo/run-continuum-demo.sh
+
       - name: Validate Nexus packaging
         run: ./scripts/tests/package-nexus-smoke.sh

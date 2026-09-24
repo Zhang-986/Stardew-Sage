@@ -1,0 +1,29 @@
+{
+  "id": "demo-morning-3",
+  "saveId": "demo-farm",
+  "sessionId": "teaching-day-3",
+  "day": 3,
+  "weather": "rainy",
+  "startedAt": 2000,
+  "endedAt": 2400,
+  "events": [
+    {
+      "id": "day3-harvest-1",
+      "kind": "harvest_target",
+      "tick": 2100,
+      "position": { "x": 15, "y": 6 },
+      "targetId": "crop-day3-ripe",
+      "delta": { "energyDelta": 0, "waterDelta": 0, "inventoryDelta": 1 },
+      "success": true
+    },
+    {
+      "id": "day3-deposit-1",
+      "kind": "deposit_items",
+      "tick": 2400,
+      "position": { "x": 3, "y": 6 },
+      "targetId": "shipping-chest",
+      "delta": { "energyDelta": 0, "waterDelta": 0, "inventoryDelta": -1 },
+      "success": true
+    }
+  ]
+}
