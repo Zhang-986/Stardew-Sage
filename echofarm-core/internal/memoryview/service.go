@@ -15,6 +15,7 @@ type store interface {
 	GetLatestDecision(context.Context, string) (domain.DecisionRecord, error)
 	GetActiveSession(context.Context, string) (domain.EchoSessionMemory, error)
 	ListPolicyExperiences(context.Context, string) ([]domain.PolicyExperience, error)
+	GetLatestModelUsageSummary(context.Context, string) (domain.ModelUsageSummary, error)
 }
 
 type Service struct {
@@ -88,5 +89,10 @@ func (s *Service) Get(ctx context.Context, saveID string) (domain.EchoMemoryView
 		experiences = experiences[:maxVisibleExperiences]
 	}
 	view.Experiences = experiences
+	if usage, err := s.store.GetLatestModelUsageSummary(ctx, saveID); err == nil {
+		view.ModelUsage = &usage
+	} else if !errors.Is(err, memory.ErrNotFound) {
+		return domain.EchoMemoryView{}, err
+	}
 	return view, nil
 }

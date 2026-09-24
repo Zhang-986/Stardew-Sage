@@ -170,6 +170,27 @@ public sealed class JsonContractTests
     }
 
     [Fact]
+    public void ModelUsageRoundTripsKnownAndUnknownTokenState()
+    {
+        const string json = """
+            {
+              "saveId":"farm-1","sessionId":"echo-4","day":4,
+              "session":{"calls":3,"succeeded":2,"failed":1,"reportedTokenCalls":2,"promptTokens":80,"completionTokens":20,"totalTokens":100,"tokensKnown":false,"lastLatencyMs":250,"averageLatencyMs":200},
+              "dayTotals":{"calls":5,"succeeded":4,"failed":1,"reportedTokenCalls":4,"promptTokens":160,"completionTokens":40,"totalTokens":200,"tokensKnown":false,"lastLatencyMs":250,"averageLatencyMs":180},
+              "callBudget":32,"tokenBudget":100000,"budgetExhausted":false
+            }
+            """;
+
+        ModelUsageSummary usage = EchoJson.Deserialize<ModelUsageSummary>(json);
+
+        Assert.Equal(3, usage.Session.Calls);
+        Assert.Equal(100, usage.Session.TotalTokens);
+        Assert.False(usage.Session.TokensKnown);
+        Assert.Equal(5, usage.DayTotals.Calls);
+        Assert.Equal(json.Replace("\r", string.Empty).Replace("\n", string.Empty).Replace(" ", string.Empty), EchoJson.Serialize(usage));
+    }
+
+    [Fact]
     public void UnknownActionKindIsRejected()
     {
         const string json = """

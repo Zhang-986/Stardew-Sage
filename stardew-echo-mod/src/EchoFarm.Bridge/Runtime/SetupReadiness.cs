@@ -13,6 +13,7 @@ public static class SetupIssueCodes
     public const string UnhealthyCore = "unhealthy_core";
     public const string UnsupportedModelMode = "unsupported_model_mode";
     public const string InvalidStartupTimeout = "invalid_startup_timeout";
+    public const string InvalidModelBudget = "invalid_model_budget";
 }
 
 public enum CoreEndpointStatus
@@ -33,7 +34,9 @@ public sealed record SetupReadinessInput(
     string? CoreExecutablePath,
     bool CoreExecutableExists,
     CoreEndpointStatus EndpointStatus,
-    int StartupTimeoutSeconds
+    int StartupTimeoutSeconds,
+    int MaxModelCallsPerSession,
+    int MaxReportedTokensPerSession
 );
 
 public sealed record SetupReadinessReport(
@@ -86,6 +89,15 @@ public static class SetupReadiness
                 mode,
                 "The core startup timeout is outside the supported range.",
                 "Set CoreStartupTimeoutSeconds to a value from 1 through 60."
+            );
+        }
+        if (input.MaxModelCallsPerSession <= 0 || input.MaxReportedTokensPerSession <= 0)
+        {
+            return Failure(
+                SetupIssueCodes.InvalidModelBudget,
+                mode,
+                "The configured model budget is invalid.",
+                "Set both model budget values to positive integers."
             );
         }
         if (mode == "openai")

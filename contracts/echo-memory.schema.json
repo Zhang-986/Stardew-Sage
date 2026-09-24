@@ -41,6 +41,41 @@
     "experiences": {
       "type": "array",
       "items": { "$ref": "policy-experience.schema.json" }
+    },
+    "modelUsage": { "$ref": "#/$defs/modelUsage" }
+  },
+  "$defs": {
+    "usageTotals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["calls", "succeeded", "failed", "reportedTokenCalls", "promptTokens", "completionTokens", "totalTokens", "tokensKnown", "lastLatencyMs", "averageLatencyMs"],
+      "properties": {
+        "calls": { "type": "integer", "minimum": 0 },
+        "succeeded": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "reportedTokenCalls": { "type": "integer", "minimum": 0 },
+        "promptTokens": { "type": "integer", "minimum": 0 },
+        "completionTokens": { "type": "integer", "minimum": 0 },
+        "totalTokens": { "type": "integer", "minimum": 0 },
+        "tokensKnown": { "type": "boolean" },
+        "lastLatencyMs": { "type": "integer", "minimum": 0 },
+        "averageLatencyMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "modelUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["saveId", "sessionId", "day", "session", "dayTotals", "callBudget", "tokenBudget", "budgetExhausted"],
+      "properties": {
+        "saveId": { "type": "string", "minLength": 1 },
+        "sessionId": { "type": "string", "minLength": 1 },
+        "day": { "type": "integer", "minimum": 0 },
+        "session": { "$ref": "#/$defs/usageTotals" },
+        "dayTotals": { "$ref": "#/$defs/usageTotals" },
+        "callBudget": { "type": "integer", "minimum": 1 },
+        "tokenBudget": { "type": "integer", "minimum": 1 },
+        "budgetExhausted": { "type": "boolean" }
+      }
     }
   }
 }

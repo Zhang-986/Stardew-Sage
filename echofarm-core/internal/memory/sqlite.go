@@ -219,14 +219,14 @@ WHERE request_id=? AND save_id=? AND session_id=? AND status=?`,
 	return nil
 }
 
-func (s *SQLite) GetModelUsageSummary(ctx context.Context, saveID, sessionID string, day int) (domain.ModelUsageSummary, error) {
-	if saveID == "" || sessionID == "" || day < 0 {
-		return domain.ModelUsageSummary{}, errors.New("model usage save, session, and day are required")
+func (s *SQLite) GetModelUsageSummary(ctx context.Context, saveID, sessionID string) (domain.ModelUsageSummary, error) {
+	if saveID == "" || sessionID == "" {
+		return domain.ModelUsageSummary{}, errors.New("model usage save and session IDs are required")
 	}
-	var callBudget, tokenBudget int
+	var day, callBudget, tokenBudget int
 	err := s.db.QueryRowContext(ctx, `
-SELECT call_budget, token_budget FROM model_usage
-WHERE save_id=? AND session_id=? ORDER BY started_at DESC, request_id DESC LIMIT 1`, saveID, sessionID).Scan(&callBudget, &tokenBudget)
+SELECT day, call_budget, token_budget FROM model_usage
+WHERE save_id=? AND session_id=? ORDER BY started_at DESC, request_id DESC LIMIT 1`, saveID, sessionID).Scan(&day, &callBudget, &tokenBudget)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.ModelUsageSummary{}, ErrNotFound
 	}
@@ -247,6 +247,23 @@ WHERE save_id=? AND session_id=? ORDER BY started_at DESC, request_id DESC LIMIT
 		CallBudget: callBudget, TokenBudget: tokenBudget,
 		BudgetExhausted: session.Calls >= callBudget || session.TotalTokens >= tokenBudget,
 	}, nil
+}
+
+func (s *SQLite) GetLatestModelUsageSummary(ctx context.Context, saveID string) (domain.ModelUsageSummary, error) {
+	if saveID == "" {
+		return domain.ModelUsageSummary{}, errors.New("model usage save ID is required")
+	}
+	var sessionID string
+	err := s.db.QueryRowContext(ctx, `
+SELECT session_id FROM model_usage
+WHERE save_id=? ORDER BY started_at DESC, request_id DESC LIMIT 1`, saveID).Scan(&sessionID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.ModelUsageSummary{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.ModelUsageSummary{}, fmt.Errorf("read latest model usage session: %w", err)
+	}
+	return s.GetModelUsageSummary(ctx, saveID, sessionID)
 }
 
 func (s *SQLite) modelUsageTotals(ctx context.Context, where string, arguments ...any) (domain.ModelUsageTotals, error) {

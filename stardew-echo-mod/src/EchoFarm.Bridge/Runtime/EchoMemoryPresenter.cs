@@ -12,6 +12,15 @@ public static class EchoMemoryPresenter
         {
             $"Echo v{view.ModelRevision} · 学习到第 {view.LearnedThroughDay} 天"
         };
+        if (view.ModelUsage is not null)
+        {
+            ModelUsageSummary usage = view.ModelUsage;
+            string tokens = usage.Session.TokensKnown
+                ? usage.Session.TotalTokens.ToString(CultureInfo.InvariantCulture)
+                : $"unknown ({usage.Session.ReportedTokenCalls}/{usage.Session.Calls} reported)";
+            lines.Add($"AI session: calls {usage.Session.Calls}/{usage.CallBudget} · tokens {tokens}/{usage.TokenBudget}");
+            lines.Add($"AI health: failure {usage.Session.Failed} · last {usage.Session.LastLatencyMs}ms · day calls {usage.DayTotals.Calls}");
+        }
         foreach (TraitMemory trait in view.StableTraits.Take(2))
         {
             int confidence = (int)Math.Round(trait.Confidence * 100, MidpointRounding.AwayFromZero);
@@ -39,7 +48,7 @@ public static class EchoMemoryPresenter
             }
             lines.Add($"经验·{source}：{experience.Summary} -> {target}{effectiveness}");
         }
-        return Array.AsReadOnly(lines.Take(8).ToArray());
+        return Array.AsReadOnly(lines.Take(10).ToArray());
     }
 
     private static string TraitName(PreferenceKey key) => key switch

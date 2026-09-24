@@ -129,6 +129,19 @@ public sealed class SetupReadinessTests
         Assert.False(report.CanAttemptStart);
     }
 
+    [Theory]
+    [InlineData(0, 100000)]
+    [InlineData(32, 0)]
+    public void InvalidModelBudgetFailsClosed(int calls, int tokens)
+    {
+        SetupReadinessReport report = SetupReadiness.Evaluate(Settings(
+            maxModelCallsPerSession: calls,
+            maxReportedTokensPerSession: tokens));
+
+        Assert.Equal(SetupIssueCodes.InvalidModelBudget, report.Code);
+        Assert.False(report.CanAttemptStart);
+    }
+
     [Fact]
     public void StatusLinesExposeOperationalStateWithoutSecrets()
     {
@@ -166,7 +179,9 @@ public sealed class SetupReadinessTests
         bool autoStartCore = true,
         bool coreExecutableExists = true,
         CoreEndpointStatus endpointStatus = CoreEndpointStatus.Unknown,
-        int startupTimeoutSeconds = 10) => new(
+        int startupTimeoutSeconds = 10,
+        int maxModelCallsPerSession = 32,
+        int maxReportedTokensPerSession = 100000) => new(
             CoreUrl: coreUrl,
             ModelMode: modelMode,
             ModelBaseUrl: modelBaseUrl,
@@ -176,5 +191,7 @@ public sealed class SetupReadinessTests
             CoreExecutablePath: "C:/Games/Stardew Valley/Mods/EchoFarm/core/echofarm-core.exe",
             CoreExecutableExists: coreExecutableExists,
             EndpointStatus: endpointStatus,
-            StartupTimeoutSeconds: startupTimeoutSeconds);
+            StartupTimeoutSeconds: startupTimeoutSeconds,
+            MaxModelCallsPerSession: maxModelCallsPerSession,
+            MaxReportedTokensPerSession: maxReportedTokensPerSession);
 }

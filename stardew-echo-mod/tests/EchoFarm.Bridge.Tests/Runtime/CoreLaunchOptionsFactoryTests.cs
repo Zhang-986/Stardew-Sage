@@ -18,6 +18,8 @@ public sealed class CoreLaunchOptionsFactoryTests
             ModelBaseUrl: "http://127.0.0.1:11434/v1",
             ModelName: "qwen",
             DatabasePath: null,
+            MaxModelCallsPerSession: 32,
+            MaxReportedTokensPerSession: 100000,
             IsWindows: false
         ));
 
@@ -27,6 +29,8 @@ public sealed class CoreLaunchOptionsFactoryTests
         Assert.Equal("openai", options.Environment["ECHOFARM_MODEL_MODE"]);
         Assert.Equal("http://127.0.0.1:11434/v1", options.Environment["ECHOFARM_MODEL_BASE_URL"]);
         Assert.Equal("qwen", options.Environment["ECHOFARM_MODEL_NAME"]);
+        Assert.Equal("32", options.Environment["ECHOFARM_MAX_MODEL_CALLS_PER_SESSION"]);
+        Assert.Equal("100000", options.Environment["ECHOFARM_MAX_REPORTED_TOKENS_PER_SESSION"]);
         Assert.Equal(Path.Combine(options.WorkingDirectory, "echofarm.db"), options.Environment["ECHOFARM_DATABASE_PATH"]);
         Assert.DoesNotContain("ECHOFARM_MODEL_API_KEY", options.Environment.Keys);
         Assert.Equal(40, options.HealthCheckAttempts);
@@ -63,6 +67,20 @@ public sealed class CoreLaunchOptionsFactoryTests
         Assert.ThrowsAny<ArgumentException>(() => CoreLaunchOptionsFactory.Create(settings));
     }
 
+    [Theory]
+    [InlineData(0, 100000)]
+    [InlineData(32, 0)]
+    public void RejectsNonPositiveModelBudgets(int calls, int tokens)
+    {
+        CoreLaunchSettings settings = Settings() with
+        {
+            MaxModelCallsPerSession = calls,
+            MaxReportedTokensPerSession = tokens
+        };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => CoreLaunchOptionsFactory.Create(settings));
+    }
+
     private static CoreLaunchSettings Settings() => new(
         ModDirectory: "/game/Mods/EchoFarm",
         ApplicationDataDirectory: "/users/test/.local/share",
@@ -74,6 +92,8 @@ public sealed class CoreLaunchOptionsFactoryTests
         ModelBaseUrl: null,
         ModelName: null,
         DatabasePath: null,
+        MaxModelCallsPerSession: 32,
+        MaxReportedTokensPerSession: 100000,
         IsWindows: false
     );
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/domain"
@@ -19,6 +20,7 @@ type apiStub struct {
 	skill            domain.SkillProgram
 	outcome          domain.LearningOutcome
 	memoryView       domain.EchoMemoryView
+	usage            domain.ModelUsageSummary
 	action           domain.HighLevelAction
 	decision         domain.ActionDecision
 	correction       domain.PlayerCorrection
@@ -83,6 +85,10 @@ func (s *apiStub) GetSkill(context.Context, string, string) (domain.SkillProgram
 
 func (s *apiStub) Get(context.Context, string) (domain.EchoMemoryView, error) {
 	return s.memoryView, s.err
+}
+
+func (s *apiStub) GetModelUsageSummary(context.Context, string, string) (domain.ModelUsageSummary, error) {
+	return s.usage, s.err
 }
 
 func TestHealthEndpoint(t *testing.T) {
@@ -314,6 +320,49 @@ func TestModelBudgetExhaustionMapsToTypedTooManyRequests(t *testing.T) {
 	}
 }
 
+func TestModelUsageEndpointReturnsBoundedSummary(t *testing.T) {
+	want := domain.ModelUsageSummary{
+		SaveID: "farm-1", SessionID: "echo-4", Day: 4,
+		Session:    domain.ModelUsageTotals{Calls: 3, Failed: 1, TotalTokens: 120, TokensKnown: true},
+		DayTotals:  domain.ModelUsageTotals{Calls: 5, Failed: 1, TotalTokens: 200, TokensKnown: true},
+		CallBudget: 32, TokenBudget: 100000,
+	}
+	stub := &apiStub{usage: want}
+	handler, err := NewHandler(stub, stub, stub, stub, stub, stub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/v1/model-usage?saveId=farm-1&sessionId=echo-4", nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	var got domain.ModelUsageSummary
+	if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("usage = %+v, want %+v", got, want)
+	}
+}
+
+func TestModelUsageEndpointRequiresSaveAndSessionIDs(t *testing.T) {
+	handler, err := NewHandler(&apiStub{}, &apiStub{}, &apiStub{}, &apiStub{}, &apiStub{}, &apiStub{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v1/model-usage?saveId=farm-1", nil))
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", response.Code)
+	}
+}
+
 func TestGetPlayerModelMapsMissingMemoryToNotFound(t *testing.T) {
 	handler := newTestHandler(t, &apiStub{err: memory.ErrNotFound})
 	request := httptest.NewRequest(http.MethodGet, "/v1/player-model?saveId=farm-1", nil)
@@ -328,7 +377,7 @@ func TestGetPlayerModelMapsMissingMemoryToNotFound(t *testing.T) {
 
 func newTestHandler(t *testing.T, stub *apiStub) http.Handler {
 	t.Helper()
-	handler, err := NewHandler(stub, stub, stub, stub, stub)
+	handler, err := NewHandler(stub, stub, stub, stub, stub, stub)
 	if err != nil {
 		t.Fatalf("NewHandler() error = %v", err)
 	}

@@ -207,15 +207,15 @@ git commit -m "feat(ai): stop safely when model budgets are exhausted"
 - Modify: `stardew-echo-mod/src/EchoFarm.Mod/ModConfig.cs`
 - Modify: `stardew-echo-mod/src/EchoFarm.Mod/ModEntry.cs`
 
-- [ ] **Step 1: Write failing API/view/contract tests**
+- [x] **Step 1: Write failing API/view/contract tests**
 
 Add `GET /v1/model-usage?saveId=...&sessionId=...` tests plus memory-view projection tests. C# round-trip tests must preserve known-vs-unknown token state, and presenter tests must show session calls/limit, tokens/limit or `unknown`, failure count, and recent latency without displaying costs.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run targeted Go and .NET tests. Expect missing usage contracts and endpoint methods.
 
-- [ ] **Step 3: Implement API and memory projection**
+- [x] **Step 3: Implement API and memory projection**
 
 Expose the SQLite summary directly and include the latest summary in `EchoMemoryView`. Keep the endpoint loopback-only through the existing server and reject missing save IDs. Do not return prompts, responses, provider bodies, or API-key fields.
 
@@ -232,11 +232,11 @@ type ModelUsageSummary struct {
 }
 ```
 
-- [ ] **Step 4: Wire Mod settings and F9 rendering**
+- [x] **Step 4: Wire Mod settings and F9 rendering**
 
 Add `MaxModelCallsPerSession = 32` and `MaxReportedTokensPerSession = 100000` to `ModConfig`, pass them as child-process environment values through `CoreLaunchOptionsFactory`, and render concise AI usage lines in F9. `0`, negative, and malformed limits must fail before launching the child.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run all Go/.NET/PowerShell tests and the three demos, then commit:
 

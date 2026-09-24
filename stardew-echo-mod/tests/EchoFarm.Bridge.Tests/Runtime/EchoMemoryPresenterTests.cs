@@ -53,12 +53,30 @@ public sealed class EchoMemoryPresenterTests
                     ObservationCount = 1, FirstSeenDay = 3, LastSeenDay = 3,
                     EvidenceRefs = new[] { "correction-1" }, Source = ExperienceSource.Correction
                 }
+            },
+            ModelUsage = new ModelUsageSummary
+            {
+                SaveId = "farm-1", SessionId = "echo-4", Day = 4,
+                Session = new ModelUsageTotals
+                {
+                    Calls = 3, Succeeded = 2, Failed = 1, ReportedTokenCalls = 2,
+                    PromptTokens = 80, CompletionTokens = 20, TotalTokens = 100,
+                    TokensKnown = false, LastLatencyMs = 250, AverageLatencyMs = 200
+                },
+                DayTotals = new ModelUsageTotals
+                {
+                    Calls = 5, Succeeded = 4, Failed = 1, ReportedTokenCalls = 4,
+                    PromptTokens = 160, CompletionTokens = 40, TotalTokens = 200,
+                    TokensKnown = false, LastLatencyMs = 250, AverageLatencyMs = 180
+                },
+                CallBudget = 32,
+                TokenBudget = 100000
             }
         };
 
         IReadOnlyList<string> lines = EchoMemoryPresenter.BuildLines(view);
 
-        Assert.InRange(lines.Count, 5, 8);
+        Assert.InRange(lines.Count, 7, 10);
         Assert.Contains(lines, line => line.Contains("Echo v3", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("浇水", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("crop-3", StringComparison.Ordinal));
@@ -66,6 +84,8 @@ public sealed class EchoMemoryPresenterTests
         Assert.Contains(lines, line => line.Contains("91%", StringComparison.Ordinal) && line.Contains("备选", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("玩家纠正", StringComparison.Ordinal) && line.Contains("chest-west", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("有效 78%", StringComparison.Ordinal) && line.Contains("成功 3 / 失败 1", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("3/32", StringComparison.Ordinal) && line.Contains("unknown", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(lines, line => line.Contains("250ms", StringComparison.Ordinal) && line.Contains("failure 1", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

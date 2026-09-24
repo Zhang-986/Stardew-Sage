@@ -187,6 +187,32 @@ public sealed class EchoSessionMemory : StrictContract
     public string Status { get; init; } = string.Empty;
 }
 
+public sealed class ModelUsageTotals : StrictContract
+{
+    public int Calls { get; init; }
+    public int Succeeded { get; init; }
+    public int Failed { get; init; }
+    public int ReportedTokenCalls { get; init; }
+    public int PromptTokens { get; init; }
+    public int CompletionTokens { get; init; }
+    public int TotalTokens { get; init; }
+    public bool TokensKnown { get; init; }
+    public long LastLatencyMs { get; init; }
+    public long AverageLatencyMs { get; init; }
+}
+
+public sealed class ModelUsageSummary : StrictContract
+{
+    public string SaveId { get; init; } = string.Empty;
+    public string SessionId { get; init; } = string.Empty;
+    public int Day { get; init; }
+    public ModelUsageTotals Session { get; init; } = new();
+    public ModelUsageTotals DayTotals { get; init; } = new();
+    public int CallBudget { get; init; }
+    public int TokenBudget { get; init; }
+    public bool BudgetExhausted { get; init; }
+}
+
 public sealed class EchoMemoryView : StrictContract
 {
     public string SaveId { get; init; } = string.Empty;
@@ -197,4 +223,5 @@ public sealed class EchoMemoryView : StrictContract
     public EchoSessionMemory? ActiveSession { get; init; }
     public DecisionRecord? LastDecision { get; init; }
     public IReadOnlyList<PolicyExperience> Experiences { get; init; } = Array.Empty<PolicyExperience>();
+    public ModelUsageSummary? ModelUsage { get; init; }
 }

@@ -13,6 +13,8 @@ type storeStub struct {
 	decision    domain.DecisionRecord
 	session     domain.EchoSessionMemory
 	experiences []domain.PolicyExperience
+	usage       domain.ModelUsageSummary
+	usageErr    error
 }
 
 func (s *storeStub) GetPlayerModel(context.Context, string) (domain.PlayerModel, error) {
@@ -29,6 +31,9 @@ func (s *storeStub) GetActiveSession(context.Context, string) (domain.EchoSessio
 }
 func (s *storeStub) ListPolicyExperiences(context.Context, string) ([]domain.PolicyExperience, error) {
 	return append([]domain.PolicyExperience(nil), s.experiences...), nil
+}
+func (s *storeStub) GetLatestModelUsageSummary(context.Context, string) (domain.ModelUsageSummary, error) {
+	return s.usage, s.usageErr
 }
 
 func TestGetBuildsStableSortedMemoryView(t *testing.T) {
@@ -51,6 +56,12 @@ func TestGetBuildsStableSortedMemoryView(t *testing.T) {
 			{ID: "exp-low", SaveID: "farm-1", Trigger: domain.ExperienceInventoryFull, Context: domain.TraitContextSunny, WhenSignals: []domain.SituationSignal{domain.SignalInventoryFull}, PreferAction: domain.ActionDepositItems, Summary: "older", Confidence: 0.6, ObservationCount: 1, FirstSeenDay: 2, LastSeenDay: 2, EvidenceRefs: []string{"decision:echo-2:1"}, Source: domain.ExperienceSourceFailure},
 			{ID: "exp-correction", SaveID: "farm-1", Trigger: domain.ExperiencePlayerCorrection, Context: domain.TraitContextSunny, WhenSignals: []domain.SituationSignal{domain.SignalInventoryHasItems}, PreferAction: domain.ActionDepositItems, PreferredTargetID: "chest-west", Summary: "newer", Confidence: 0.85, ObservationCount: 1, FirstSeenDay: 4, LastSeenDay: 4, EvidenceRefs: []string{"correction-1"}, Source: domain.ExperienceSourceCorrection},
 		},
+		usage: domain.ModelUsageSummary{
+			SaveID: "farm-1", SessionID: "echo-4", Day: 4,
+			Session:    domain.ModelUsageTotals{Calls: 3, Succeeded: 2, Failed: 1, TotalTokens: 120, ReportedTokenCalls: 3, TokensKnown: true},
+			DayTotals:  domain.ModelUsageTotals{Calls: 5, Succeeded: 4, Failed: 1, TotalTokens: 200, ReportedTokenCalls: 5, TokensKnown: true},
+			CallBudget: 32, TokenBudget: 100000,
+		},
 	}
 	service, err := NewService(store)
 	if err != nil {
@@ -72,6 +83,9 @@ func TestGetBuildsStableSortedMemoryView(t *testing.T) {
 	}
 	if len(view.Experiences) != 2 || view.Experiences[0].ID != "exp-correction" {
 		t.Fatalf("experiences = %+v", view.Experiences)
+	}
+	if view.ModelUsage == nil || view.ModelUsage.Session.Calls != 3 || view.ModelUsage.DayTotals.TotalTokens != 200 {
+		t.Fatalf("model usage = %+v", view.ModelUsage)
 	}
 }
 

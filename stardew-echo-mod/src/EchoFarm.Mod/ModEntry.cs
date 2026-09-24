@@ -54,7 +54,9 @@ public sealed class ModEntry : Mod
             executablePath,
             File.Exists(executablePath),
             CoreEndpointStatus.Unknown,
-            config.CoreStartupTimeoutSeconds
+            config.CoreStartupTimeoutSeconds,
+            config.MaxModelCallsPerSession,
+            config.MaxReportedTokensPerSession
         );
         setupReadiness = SetupReadiness.Evaluate(setupInput);
         UpdateOperationalStatus();
@@ -72,6 +74,8 @@ public sealed class ModEntry : Mod
                 config.ModelBaseUrl,
                 config.ModelName,
                 config.DatabasePath,
+                config.MaxModelCallsPerSession,
+                config.MaxReportedTokensPerSession,
                 OperatingSystem.IsWindows()
             ));
             databasePath = coreLaunchOptions.Environment["ECHOFARM_DATABASE_PATH"];

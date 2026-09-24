@@ -36,12 +36,17 @@ type memoryViewReader interface {
 	Get(context.Context, string) (domain.EchoMemoryView, error)
 }
 
+type modelUsageReader interface {
+	GetModelUsageSummary(context.Context, string, string) (domain.ModelUsageSummary, error)
+}
+
 type Handler struct {
 	teacher teacher
 	policy  echoPolicy
 	learner correctionLearner
 	memory  memoryReader
 	views   memoryViewReader
+	usage   modelUsageReader
 	mux     *http.ServeMux
 }
 
@@ -73,11 +78,11 @@ type errorResponse struct {
 	Message string `json:"message"`
 }
 
-func NewHandler(teacher teacher, policy echoPolicy, learner correctionLearner, memory memoryReader, views memoryViewReader) (*Handler, error) {
-	if teacher == nil || policy == nil || learner == nil || memory == nil || views == nil {
-		return nil, errors.New("teacher, policy, correction learner, memory, and memory views are required")
+func NewHandler(teacher teacher, policy echoPolicy, learner correctionLearner, memory memoryReader, views memoryViewReader, usage modelUsageReader) (*Handler, error) {
+	if teacher == nil || policy == nil || learner == nil || memory == nil || views == nil || usage == nil {
+		return nil, errors.New("teacher, policy, correction learner, memory, memory views, and model usage are required")
 	}
-	h := &Handler{teacher: teacher, policy: policy, learner: learner, memory: memory, views: views, mux: http.NewServeMux()}
+	h := &Handler{teacher: teacher, policy: policy, learner: learner, memory: memory, views: views, usage: usage, mux: http.NewServeMux()}
 	h.mux.HandleFunc("GET /healthz", h.health)
 	h.mux.HandleFunc("POST /v1/demonstrations/learn", h.learn)
 	h.mux.HandleFunc("POST /v1/echo/next-action", h.nextAction)
@@ -86,6 +91,7 @@ func NewHandler(teacher teacher, policy echoPolicy, learner correctionLearner, m
 	h.mux.HandleFunc("GET /v1/player-model", h.playerModel)
 	h.mux.HandleFunc("GET /v1/skills/morning-farm-routine", h.skill)
 	h.mux.HandleFunc("GET /v1/echo/memory", h.echoMemory)
+	h.mux.HandleFunc("GET /v1/model-usage", h.modelUsage)
 	return h, nil
 }
 
@@ -207,6 +213,21 @@ func (h *Handler) echoMemory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
+}
+
+func (h *Handler) modelUsage(w http.ResponseWriter, r *http.Request) {
+	saveID := r.URL.Query().Get("saveId")
+	sessionID := r.URL.Query().Get("sessionId")
+	if saveID == "" || sessionID == "" {
+		writeAPIError(w, http.StatusBadRequest, "missing_usage_identity", "saveId and sessionId are required")
+		return
+	}
+	usage, err := h.usage.GetModelUsageSummary(r.Context(), saveID, sessionID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, usage)
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, output any) error {

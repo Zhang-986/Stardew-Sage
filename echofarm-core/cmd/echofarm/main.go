@@ -142,7 +142,7 @@ func buildHandler(ctx context.Context, store *memory.SQLite, generator intellige
 	if err != nil {
 		return nil, err
 	}
-	return httpapi.NewHandler(teacher, echoPolicy, experienceService, store, views)
+	return httpapi.NewHandler(teacher, echoPolicy, experienceService, store, views, store)
 }
 
 func loadConfig(lookup func(string) (string, bool)) (config, error) {

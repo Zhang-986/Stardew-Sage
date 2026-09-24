@@ -51,5 +51,6 @@ type ExperienceStore interface {
 type ModelUsageStore interface {
 	ReserveModelCall(context.Context, domain.ModelCallRecord) error
 	CompleteModelCall(context.Context, domain.ModelCallRecord) error
-	GetModelUsageSummary(context.Context, string, string, int) (domain.ModelUsageSummary, error)
+	GetModelUsageSummary(context.Context, string, string) (domain.ModelUsageSummary, error)
+	GetLatestModelUsageSummary(context.Context, string) (domain.ModelUsageSummary, error)
 }

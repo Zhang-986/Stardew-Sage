@@ -62,7 +62,7 @@ func TestSQLiteModelUsagePersistsKnownAndUnknownTokensAcrossReopen(t *testing.T)
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	summary, err := store.GetModelUsageSummary(ctx, "farm-a", "session-a", 4)
+	summary, err := store.GetModelUsageSummary(ctx, "farm-a", "session-a")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,6 +80,10 @@ func TestSQLiteModelUsagePersistsKnownAndUnknownTokensAcrossReopen(t *testing.T)
 	}
 	if summary.CallBudget != 4 || summary.TokenBudget != 100 || summary.BudgetExhausted {
 		t.Fatalf("budget summary = %+v", summary)
+	}
+	latest, err := store.GetLatestModelUsageSummary(ctx, "farm-a")
+	if err != nil || latest.SessionID != "session-b" || latest.DayTotals.Calls != 3 {
+		t.Fatalf("latest usage = %+v, %v", latest, err)
 	}
 }
 

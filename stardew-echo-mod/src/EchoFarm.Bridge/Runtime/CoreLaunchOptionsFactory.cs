@@ -11,6 +11,8 @@ public sealed record CoreLaunchSettings(
     string? ModelBaseUrl,
     string? ModelName,
     string? DatabasePath,
+    int MaxModelCallsPerSession,
+    int MaxReportedTokensPerSession,
     bool IsWindows
 );
 
@@ -31,6 +33,8 @@ public static class CoreLaunchOptionsFactory
             throw new ArgumentOutOfRangeException(nameof(settings), "Core startup timeout must be between 1 millisecond and 60 seconds.");
         if (settings.ModelMode is not ("openai" or "fixture"))
             throw new ArgumentException("Model mode must be openai or fixture.", nameof(settings));
+        if (settings.MaxModelCallsPerSession <= 0 || settings.MaxReportedTokensPerSession <= 0)
+            throw new ArgumentOutOfRangeException(nameof(settings), "Model budget limits must be positive.");
 
         string executable = string.IsNullOrWhiteSpace(settings.ExecutablePath)
             ? Path.Combine(settings.ModDirectory, "core", settings.IsWindows ? "echofarm-core.exe" : "echofarm-core")
@@ -44,7 +48,9 @@ public static class CoreLaunchOptionsFactory
         {
             ["ECHOFARM_ADDRESS"] = settings.CoreUri.Authority,
             ["ECHOFARM_DATABASE_PATH"] = databasePath,
-            ["ECHOFARM_MODEL_MODE"] = settings.ModelMode
+            ["ECHOFARM_MODEL_MODE"] = settings.ModelMode,
+            ["ECHOFARM_MAX_MODEL_CALLS_PER_SESSION"] = settings.MaxModelCallsPerSession.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["ECHOFARM_MAX_REPORTED_TOKENS_PER_SESSION"] = settings.MaxReportedTokensPerSession.ToString(System.Globalization.CultureInfo.InvariantCulture)
         };
         AddIfPresent(environment, "ECHOFARM_MODEL_BASE_URL", settings.ModelBaseUrl);
         AddIfPresent(environment, "ECHOFARM_MODEL_NAME", settings.ModelName);
