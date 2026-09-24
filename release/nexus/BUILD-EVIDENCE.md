@@ -4,7 +4,7 @@ Generated on 2026-09-24 from branch `codex/living-valley-director`.
 
 ## Verified locally
 
-- `.NET bridge`: 69 tests passed, 0 failed.
+- `.NET bridge`: 70 tests passed, 0 failed.
 - `Go core`: all packages passed with `-race -count=1`; `go vet ./...` passed.
 - `Cross-process demo`: learning, rainy-layout harvest, empty-can refill, and full-inventory deposit recovery all returned the expected structured actions.
 - `Nexus packaging smoke`: four platform ZIPs were built with fixture Mod DLLs, validated, and deleted after the test. These smoke archives are not playable release files.
