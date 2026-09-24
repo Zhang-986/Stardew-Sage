@@ -22,7 +22,7 @@ It is not a chat window and it is not a coordinate macro. Move a crop, add a new
 
 ## AI architecture
 
-The local sidecar is written in Go and uses CloudWeGo Eino for trait extraction, player-intent inference, ranked action proposals, and one-shot reflection. Deterministic Go code owns evidence and experience merging, idempotency, confidence calibration, target claims, and validation. The C#/SMAPI Mod is deliberately thin: it observes the game, captures explicit corrections, validates actions, animates Echo, and mutates the world only on the game thread. No RAG or external knowledge base is used.
+The local sidecar is written in Go and uses CloudWeGo Eino for trait extraction, player-intent inference, ranked action proposals, and bounded reflection. Deterministic Go code owns evidence and experience merging, durable leased reflection work, idempotency, confidence calibration, target claims, and validation. The C#/SMAPI Mod is deliberately thin: it observes the game, captures explicit corrections, validates actions, animates Echo, and mutates the world only on the game thread. No RAG or external knowledge base is used.
 
 The service binds only to localhost. Model credentials stay in the process environment and are not stored in the Mod configuration, logs, archive, or save file.
 

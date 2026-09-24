@@ -17,7 +17,7 @@
 - Modify: `echofarm-core/internal/memory/store.go:25-40`
 - Test: `echofarm-core/internal/memory/sqlite_test.go`
 
-- [ ] **Step 1: Write the failing compile-time and validation tests**
+- [x] **Step 1: Write the failing compile-time and validation tests**
 
 Add tests that construct a valid `memory.ReflectionJobLease`, reject an empty save ID or non-positive lease duration, and require `DecisionStore.AttachDecisionResult` to receive the newer `WorldSnapshot`.
 
@@ -44,7 +44,7 @@ type ReflectionJobStore interface {
 }
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -55,7 +55,7 @@ go test ./internal/memory -run 'TestSQLite(RejectsInvalidReflectionClaim|Attache
 
 Expected: compilation fails because the job types/methods and new attachment signature do not exist.
 
-- [ ] **Step 3: Add the minimal types and interfaces**
+- [x] **Step 3: Add the minimal types and interfaces**
 
 Create the two job structs above, add `ErrReflectionLeaseLost`, validate save ID/token/duration at the store boundary, and change the decision method to:
 
@@ -63,11 +63,11 @@ Create the two job structs above, add `ErrReflectionLeaseLost`, validate save ID
 AttachDecisionResult(context.Context, domain.ActionResult, domain.WorldSnapshot) (bool, error)
 ```
 
-- [ ] **Step 4: Run the focused package test**
+- [x] **Step 4: Run the focused package test**
 
 Run `go test ./internal/memory -count=1`; expected PASS after callers are updated only enough to compile.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add echofarm-core/internal/memory/reflection_job.go echofarm-core/internal/memory/store.go echofarm-core/internal/memory/sqlite_test.go
@@ -82,7 +82,7 @@ git commit -m "feat(echofarm): define durable reflection jobs"
 - Modify: `echofarm-core/internal/policy/service.go:112-128`
 - Modify: `echofarm-core/internal/policy/service_test.go:97-110`
 
-- [ ] **Step 1: Write failing SQLite transaction tests**
+- [x] **Step 1: Write failing SQLite transaction tests**
 
 Add tests with a real temporary database that assert:
 
@@ -99,7 +99,7 @@ _, err = store.AttachDecisionResult(ctx, conflicting, currentSnapshot)
 
 Retain the 16-writer race test and assert that exactly one canonical result wins and no more than one failed-result job exists.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -110,7 +110,7 @@ go test -race ./internal/memory -run 'TestSQLite(Attaches|Enqueues|RejectsResult
 
 Expected: failures because `reflection_jobs` is absent and attachment is not transactional with enqueue.
 
-- [ ] **Step 3: Implement the schema and transaction**
+- [x] **Step 3: Implement the schema and transaction**
 
 Add the `reflection_jobs` table from the design. Marshal this private payload:
 
@@ -123,7 +123,7 @@ type reflectionJobPayload struct {
 
 Validate snapshot/result identity and strict version progression. In one `BeginTx`, read the decision, compare actions, update `decision_records` with `WHERE payload_json=?`, insert the pending job for a failed winner using `ON CONFLICT DO NOTHING`, and commit. Reload conflict state through the same transaction so `SetMaxOpenConns(1)` cannot deadlock.
 
-- [ ] **Step 4: Update policy and test stubs for the new argument**
+- [x] **Step 4: Update policy and test stubs for the new argument**
 
 Pass the already validated current snapshot into attachment:
 
@@ -133,7 +133,7 @@ attached, err := s.store.AttachDecisionResult(ctx, result, snapshot)
 
 The stub records both values and preserves first-write-wins behavior.
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Run:
 
@@ -156,7 +156,7 @@ git commit -m "feat(echofarm): enqueue reflection with failed results"
 - Modify: `echofarm-core/internal/memory/sqlite.go`
 - Modify: `echofarm-core/internal/memory/sqlite_test.go`
 
-- [ ] **Step 1: Write failing lease tests**
+- [x] **Step 1: Write failing lease tests**
 
 Use a controllable `store.now` clock and assert:
 
@@ -168,11 +168,11 @@ Use a controllable `store.now` clock and assert:
 - completed jobs cannot be reclaimed;
 - a pending job survives closing and reopening SQLite.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `go test -race ./internal/memory -run 'TestSQLiteReflectionJob' -count=1`; expected FAIL because lease methods are not implemented.
 
-- [ ] **Step 3: Implement claim, complete, and release**
+- [x] **Step 3: Implement claim, complete, and release**
 
 Add `now func() time.Time` to `SQLite`, default it to `time.Now`, and generate lease tokens from 16 bytes of `crypto/rand` encoded with hex. Claim the oldest eligible row and conditionally update it to `processing` with a UTC expiry. Complete/release with `WHERE lease_token=? AND status='processing'`; return `ErrReflectionLeaseLost` when `RowsAffected` is zero.
 
@@ -188,7 +188,7 @@ const (
 
 No provider error text, prompt, or credential is persisted.
 
-- [ ] **Step 4: Verify GREEN, stress the lease race, and commit**
+- [x] **Step 4: Verify GREEN, stress the lease race, and commit**
 
 Run:
 
@@ -205,7 +205,7 @@ Then commit the memory files with `git commit -m "feat(echofarm): lease persiste
 - Modify: `echofarm-core/internal/experience/service.go`
 - Modify: `echofarm-core/internal/experience/service_test.go`
 
-- [ ] **Step 1: Write failing worker tests**
+- [x] **Step 1: Write failing worker tests**
 
 Extend the real behavior tests to prove:
 
@@ -223,15 +223,15 @@ processed, err = service.ProcessPending(ctx, "farm-1")
 
 Also test that a pre-existing canonical experience lets a reclaimed job complete without another model call.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `go test ./internal/experience -run 'TestProcessPending' -count=1`; expected compilation failure because `ProcessPending` does not exist.
 
-- [ ] **Step 3: Implement one-job processing**
+- [x] **Step 3: Implement one-job processing**
 
 Use a 45-second lease. After claiming, call the existing `learn` method with the job's persisted source ID, snapshot, and result. On success call `CompleteReflectionJob`; on failure classify the error as `model_unavailable`, `canceled`, or `reflection_failed`, release the lease, and return the original error joined with any release error.
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
 Run `go test -race ./internal/experience -count=1`, then commit with `git commit -m "feat(echofarm): retry durable reflection work"`.
 
@@ -242,7 +242,7 @@ Run `go test -race ./internal/experience -count=1`, then commit with `git commit
 - Modify: `echofarm-core/internal/policy/service_test.go`
 - Test: `echofarm-core/cmd/echofarm/main_test.go`
 
-- [ ] **Step 1: Write failing policy tests**
+- [x] **Step 1: Write failing policy tests**
 
 Replace the direct learner stub with:
 
@@ -260,11 +260,11 @@ func (s *reflectionProcessorStub) ProcessPending(context.Context, string) (bool,
 
 Assert that `HandleResultDecision` passes the newer snapshot to atomic attachment, invokes the processor before policy preparation, and continues replanning when processing fails. Assert that `NextDecision` invokes the processor before loading experiences, which recovers work after restart. A request processes at most one job.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `go test ./internal/policy -run 'Test(HandleResult|NextDecision).*Reflection' -count=1`; expected FAIL against direct `LearnFromResult` orchestration.
 
-- [ ] **Step 3: Implement opportunistic recovery**
+- [x] **Step 3: Implement opportunistic recovery**
 
 Change the policy dependency to:
 
@@ -276,7 +276,7 @@ type reflectionProcessor interface {
 
 Call it once near the start of `NextDecision` and once after action-result attachment. Ignore its error only at this gameplay boundary; the worker has already returned the lease to durable pending state. Do not loop.
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
 Run:
 
@@ -296,11 +296,11 @@ Then commit with `git commit -m "feat(echofarm): recover reflection jobs during 
 - Modify: `release/nexus/changelog.md`
 - Rebuild ignored outputs: `artifacts/echofarm-core-0.4.0/`
 
-- [ ] **Step 1: Document precise delivery semantics**
+- [x] **Step 1: Document precise delivery semantics**
 
 State that failed results enqueue durable reflection, leases prevent simultaneous processing, transient failures retry on later policy requests, persisted experience is idempotent, and model inference itself is at-least-once across crash boundaries.
 
-- [ ] **Step 2: Run complete verification**
+- [x] **Step 2: Run complete verification**
 
 Run:
 
@@ -319,11 +319,11 @@ cd ..
 
 Expected: every command exits 0 and .NET reports 87 tests unless new bridge-only tests intentionally raise the count.
 
-- [ ] **Step 3: Rebuild and verify artifacts**
+- [x] **Step 3: Rebuild and verify artifacts**
 
 Cross-build linux/amd64, darwin/amd64, darwin/arm64, and windows/amd64 with `CGO_ENABLED=0`, `-trimpath`, and `-ldflags='-s -w -buildid='`. Rebuild a second time into a temporary directory and require `cmp` equality. Recompute `SHA256SUMS.txt`, update `BUILD-EVIDENCE.md`, and require the macOS arm64 binary to return HTTP 200 from `/healthz` in fixture mode.
 
-- [ ] **Step 4: Review and commit locally**
+- [x] **Step 4: Review and commit locally**
 
 Run `git diff --check`, inspect `git diff`, and stage only the files listed above. Preserve `.superpowers/`, do not push, and commit with:
 

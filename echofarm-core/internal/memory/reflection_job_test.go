@@ -134,6 +134,41 @@ func TestSQLiteReflectionJobComparesFractionalLeaseTimesChronologically(t *testi
 	}
 }
 
+func TestSQLiteReflectionJobConcurrentClaimsHaveOneWinner(t *testing.T) {
+	ctx := context.Background()
+	store, record, failed, snapshot := seededFailedDecision(t)
+	if attached, err := store.AttachDecisionResult(ctx, failed, snapshot); err != nil || !attached {
+		t.Fatalf("AttachDecisionResult() = %v, %v", attached, err)
+	}
+	type outcome struct {
+		ok  bool
+		err error
+	}
+	start := make(chan struct{})
+	results := make(chan outcome, 16)
+	for range 16 {
+		go func() {
+			<-start
+			_, ok, err := store.ClaimReflectionJob(ctx, record.SaveID, time.Minute)
+			results <- outcome{ok: ok, err: err}
+		}()
+	}
+	close(start)
+	winners := 0
+	for range 16 {
+		result := <-results
+		if result.err != nil {
+			t.Fatalf("ClaimReflectionJob() error = %v", result.err)
+		}
+		if result.ok {
+			winners++
+		}
+	}
+	if winners != 1 {
+		t.Fatalf("claim winners = %d, want 1", winners)
+	}
+}
+
 func TestSQLiteReflectionJobSurvivesReopen(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "echo.db")

@@ -39,6 +39,8 @@ cd ..
 
 This scenario restarts the real Go process twice while retaining one SQLite database. It proves that a failed full-inventory harvest creates bounded policy experience, that the next session deposits before harvesting, and that an explicit player chest correction overrides the earlier target on a later decision. Responses expose calibrated confidence, safe alternatives, and the exact experience ID applied.
 
+Failed-action reflection is backed by a durable SQLite job. Result attachment and enqueue commit together; one lease holder performs inference, transient failures return the job to pending, and a later policy request can recover it after restart. Experience persistence remains idempotent by source ID. The model call itself is at-least-once across a crash boundary and may be recomputed, but it cannot apply the learned experience twice.
+
 ## Run with a real model
 
 EchoFarm uses Eino's OpenAI-compatible chat-model component. All settings come from environment variables; no credential is stored in the repository.

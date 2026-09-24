@@ -7,7 +7,8 @@
 - Expanded F9 memory with decision confidence, fallback count, and failure/player-correction evidence.
 - Added a five-stage cross-process demo proving proactive failure avoidance and corrected chest selection across restarts.
 - Enforced OpenAI-compatible JSON mode and tightened causal, evidence-bounded proposal/reflection prompts.
-- Made concurrent action-result attachment first-write-wins so retries cannot duplicate reflection or overwrite the canonical outcome.
+- Made concurrent action-result attachment first-write-wins so retries cannot overwrite the canonical outcome.
+- Added leased SQLite reflection jobs so transient model failures and process restarts no longer discard pending failure learning.
 
 # 0.3.0 — Continuum co-player
 
