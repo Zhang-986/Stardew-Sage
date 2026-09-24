@@ -1,6 +1,6 @@
 module github.com/Zhang-986/Stardew-Sage/echofarm-core
 
-go 1.24.0
+go 1.24.1
 
 require (
 	github.com/cloudwego/eino v0.9.20

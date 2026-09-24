@@ -16,11 +16,11 @@
 - Modify: `echofarm-core/go.mod`
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Capture the existing CI failure**
+- [x] **Step 1: Capture the existing CI failure**
 
 Record GitHub run `36013202880` as the red baseline. The expected failure is `github.com/bytedance/sonic/loader: invalid reference to runtime.lastmoduledatap` while `setup-go` resolves the `go 1.24.0` directive. Upstream Sonic issue 771 identifies Go 1.24.0's linker defect and requires Go 1.24.1 or newer.
 
-- [ ] **Step 2: Pin the minimum fixed toolchain**
+- [x] **Step 2: Pin the minimum fixed toolchain**
 
 Change the module directive to:
 
@@ -30,7 +30,7 @@ go 1.24.1
 
 Keep `actions/setup-go` reading `go-version-file` so the local contract and CI runtime cannot drift independently.
 
-- [ ] **Step 3: Extend the required workflow**
+- [x] **Step 3: Extend the required workflow**
 
 Add the missing reflective demo after the Continuum demo:
 
