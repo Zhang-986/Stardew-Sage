@@ -193,11 +193,11 @@ git commit -m "feat(echofarm): add actionable first-run diagnostics"
 - Modify: `release/nexus/README.md`
 - Modify: `release/nexus/PLAYER_README.md`
 
-- [ ] **Step 1: Write failing PowerShell module tests**
+- [x] **Step 1: Write failing PowerShell module tests**
 
 Use temporary directories containing fixture `Stardew Valley.dll`, `StardewModdingAPI.dll`, manifest, Mod DLLs, and sidecar. Verify path discovery, missing-prerequisite issue codes, package allowlist, preservation of an existing `config.json`, atomic directory replacement, and uninstall that leaves the configured data directory untouched.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 On `windows-latest`, run:
 
@@ -207,19 +207,19 @@ pwsh -NoProfile -File scripts/windows/Test-EchoFarmSetup.ps1
 
 Expected: failure because the setup module and commands do not exist.
 
-- [ ] **Step 3: Implement doctor and package staging**
+- [x] **Step 3: Implement doctor and package staging**
 
 `Test-EchoFarmPrerequisites` accepts `-GamePath` or checks the standard Steam location, then returns a structured result without changing disk state. `Build-EchoFarmPackage` invokes `dotnet restore`, a Release Mod build with `GamePath`, and a Windows x64 Go build before validating the staged file allowlist.
 
-- [ ] **Step 4: Implement safe install and uninstall**
+- [x] **Step 4: Implement safe install and uninstall**
 
 `Install-EchoFarm` stages into `Mods/.EchoFarm.installing`, preserves an existing `config.json`, then renames into place. `Uninstall-EchoFarm` removes only `Mods/EchoFarm`; it does not remove `%LOCALAPPDATA%/EchoFarm` unless `-DeleteLocalData` is explicitly supplied.
 
-- [ ] **Step 5: Add Windows CI and documentation**
+- [x] **Step 5: Add Windows CI and documentation**
 
 Run module tests on `windows-latest`. Document one copy-paste path for `-Doctor`, `-Build`, `-Install`, and `-Uninstall`, with fixture mode as the first smoke and environment-only API key configuration for real AI.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run PowerShell tests, package-shape smoke, and source secret scans. Commit:
 

@@ -69,6 +69,11 @@ jobs:
           go vet ./...
           go build -trimpath -ldflags "-s -w -buildid=" -o "$env:RUNNER_TEMP\echofarm-core.exe" ./cmd/echofarm
 
+      - name: Test Windows doctor, package, install, and uninstall
+        shell: pwsh
+        working-directory: .
+        run: pwsh -NoProfile -File scripts/windows/Test-EchoFarmSetup.ps1
+
       - name: Smoke Windows sidecar health
         shell: pwsh
         run: |
