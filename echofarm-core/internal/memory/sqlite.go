@@ -2,7 +2,9 @@ package memory
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -79,10 +81,24 @@ CREATE TABLE IF NOT EXISTS player_corrections (
   payload_json BLOB NOT NULL,
   created_at TEXT NOT NULL,
   PRIMARY KEY (save_id, correction_id)
+);
+CREATE TABLE IF NOT EXISTS reflection_jobs (
+  save_id TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  payload_json BLOB NOT NULL,
+  status TEXT NOT NULL,
+  lease_token TEXT,
+  lease_until TEXT,
+  attempt_count INTEGER NOT NULL,
+  last_error TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, source_id)
 );`
 
 type SQLite struct {
-	db *sql.DB
+	db  *sql.DB
+	now func() time.Time
 }
 
 func OpenSQLite(path string) (*SQLite, error) {
@@ -98,7 +114,7 @@ func OpenSQLite(path string) (*SQLite, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrate SQLite: %w", err)
 	}
-	return &SQLite{db: db}, nil
+	return &SQLite{db: db, now: time.Now}, nil
 }
 
 func (s *SQLite) Close() error {
@@ -278,12 +294,23 @@ WHERE save_id=? AND session_id=? AND snapshot_version=?`, saveID, sessionID, sna
 	return value, err
 }
 
-func (s *SQLite) AttachDecisionResult(ctx context.Context, result domain.ActionResult) (bool, error) {
+func (s *SQLite) AttachDecisionResult(ctx context.Context, result domain.ActionResult, snapshot domain.WorldSnapshot) (bool, error) {
 	if err := result.Validate(); err != nil {
 		return false, fmt.Errorf("validate action result: %w", err)
 	}
+	if err := snapshot.Validate(); err != nil {
+		return false, fmt.Errorf("validate reflection snapshot: %w", err)
+	}
+	if result.SaveID != snapshot.SaveID || result.SessionID != snapshot.SessionID || result.SnapshotVersion >= snapshot.SnapshotVersion {
+		return false, errors.New("action result does not precede reflection snapshot")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("begin action result transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
 	var originalPayload []byte
-	err := s.db.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 SELECT payload_json FROM decision_records
 WHERE save_id=? AND session_id=? AND snapshot_version=?`,
 		result.SaveID, result.SessionID, result.SnapshotVersion).Scan(&originalPayload)
@@ -315,7 +342,7 @@ WHERE save_id=? AND session_id=? AND snapshot_version=?`,
 	if err != nil {
 		return false, fmt.Errorf("marshal decision result: %w", err)
 	}
-	write, err := s.db.ExecContext(ctx, `
+	write, err := tx.ExecContext(ctx, `
 UPDATE decision_records SET payload_json=?
 WHERE save_id=? AND session_id=? AND snapshot_version=? AND payload_json=?`,
 		payload, result.SaveID, result.SessionID, result.SnapshotVersion, originalPayload)
@@ -327,9 +354,33 @@ WHERE save_id=? AND session_id=? AND snapshot_version=? AND payload_json=?`,
 		return false, fmt.Errorf("read attached decision result count: %w", err)
 	}
 	if affected == 1 {
+		if result.Status == domain.ActionFailed {
+			jobPayload, marshalErr := json.Marshal(reflectionJobPayload{Snapshot: snapshot, Result: result})
+			if marshalErr != nil {
+				return false, fmt.Errorf("marshal reflection job: %w", marshalErr)
+			}
+			now := s.now().UTC().Format(time.RFC3339Nano)
+			sourceID := fmt.Sprintf("decision:%s:%d", result.SessionID, result.SnapshotVersion)
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO reflection_jobs(
+  save_id, source_id, payload_json, status, lease_token, lease_until,
+  attempt_count, last_error, created_at, updated_at
+) VALUES (?, ?, ?, ?, NULL, NULL, 0, '', ?, ?)
+ON CONFLICT(save_id, source_id) DO NOTHING`,
+				result.SaveID, sourceID, jobPayload, reflectionJobPending, now, now); err != nil {
+				return false, fmt.Errorf("enqueue reflection job: %w", err)
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			return false, fmt.Errorf("commit action result: %w", err)
+		}
 		return true, nil
 	}
-	canonical, err := s.GetDecision(ctx, result.SaveID, result.SessionID, result.SnapshotVersion)
+	var canonical domain.DecisionRecord
+	err = scanJSON(tx.QueryRowContext(ctx, `
+SELECT payload_json FROM decision_records
+WHERE save_id=? AND session_id=? AND snapshot_version=?`,
+		result.SaveID, result.SessionID, result.SnapshotVersion), &canonical)
 	if err != nil {
 		return false, fmt.Errorf("reload decision after result conflict: %w", err)
 	}
@@ -339,6 +390,129 @@ WHERE save_id=? AND session_id=? AND snapshot_version=? AND payload_json=?`,
 		return false, nil
 	}
 	return false, errors.New("decision result already recorded with different content")
+}
+
+func (s *SQLite) ClaimReflectionJob(ctx context.Context, saveID string, leaseDuration time.Duration) (ReflectionJobLease, bool, error) {
+	if saveID == "" {
+		return ReflectionJobLease{}, false, errors.New("reflection job save ID is required")
+	}
+	if leaseDuration <= 0 {
+		return ReflectionJobLease{}, false, errors.New("reflection job lease duration must be positive")
+	}
+	token, err := newLeaseToken()
+	if err != nil {
+		return ReflectionJobLease{}, false, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return ReflectionJobLease{}, false, fmt.Errorf("begin reflection job claim: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	now := s.now().UTC()
+	var sourceID string
+	var payload []byte
+	var attemptCount int
+	err = tx.QueryRowContext(ctx, `
+SELECT source_id, payload_json, attempt_count FROM reflection_jobs
+WHERE save_id=? AND (
+  status=? OR (status=? AND lease_until IS NOT NULL AND lease_until<=?)
+) ORDER BY created_at, source_id LIMIT 1`,
+		saveID, reflectionJobPending, reflectionJobProcessing, formatReflectionLeaseTime(now)).Scan(&sourceID, &payload, &attemptCount)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ReflectionJobLease{}, false, nil
+	}
+	if err != nil {
+		return ReflectionJobLease{}, false, fmt.Errorf("select reflection job: %w", err)
+	}
+	write, err := tx.ExecContext(ctx, `
+UPDATE reflection_jobs SET status=?, lease_token=?, lease_until=?, updated_at=?
+WHERE save_id=? AND source_id=? AND (
+  status=? OR (status=? AND lease_until IS NOT NULL AND lease_until<=?)
+)`,
+		reflectionJobProcessing, token, formatReflectionLeaseTime(now.Add(leaseDuration)), now.Format(time.RFC3339Nano),
+		saveID, sourceID, reflectionJobPending, reflectionJobProcessing, formatReflectionLeaseTime(now))
+	if err != nil {
+		return ReflectionJobLease{}, false, fmt.Errorf("claim reflection job: %w", err)
+	}
+	affected, err := write.RowsAffected()
+	if err != nil {
+		return ReflectionJobLease{}, false, fmt.Errorf("read reflection claim count: %w", err)
+	}
+	if affected != 1 {
+		return ReflectionJobLease{}, false, nil
+	}
+	var decoded reflectionJobPayload
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return ReflectionJobLease{}, false, fmt.Errorf("decode reflection job: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return ReflectionJobLease{}, false, fmt.Errorf("commit reflection job claim: %w", err)
+	}
+	return ReflectionJobLease{
+		Job: ReflectionJob{
+			SaveID: saveID, SourceID: sourceID, Snapshot: decoded.Snapshot,
+			Result: decoded.Result, AttemptCount: attemptCount,
+		},
+		Token: token,
+	}, true, nil
+}
+
+func (s *SQLite) CompleteReflectionJob(ctx context.Context, lease ReflectionJobLease) error {
+	if err := validateReflectionLease(lease); err != nil {
+		return err
+	}
+	now := s.now().UTC().Format(time.RFC3339Nano)
+	write, err := s.db.ExecContext(ctx, `
+UPDATE reflection_jobs
+SET status=?, lease_token=NULL, lease_until=NULL, updated_at=?
+WHERE save_id=? AND source_id=? AND status=? AND lease_token=?`,
+		reflectionJobCompleted, now, lease.Job.SaveID, lease.Job.SourceID, reflectionJobProcessing, lease.Token)
+	if err != nil {
+		return fmt.Errorf("complete reflection job: %w", err)
+	}
+	affected, err := write.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read completed reflection job count: %w", err)
+	}
+	if affected != 1 {
+		return ErrReflectionLeaseLost
+	}
+	return nil
+}
+
+func (s *SQLite) ReleaseReflectionJob(ctx context.Context, lease ReflectionJobLease, failureCode string) error {
+	if err := validateReflectionLease(lease); err != nil {
+		return err
+	}
+	if !validReflectionFailureCode(failureCode) {
+		return errors.New("unsupported reflection failure code")
+	}
+	now := s.now().UTC().Format(time.RFC3339Nano)
+	write, err := s.db.ExecContext(ctx, `
+UPDATE reflection_jobs
+SET status=?, lease_token=NULL, lease_until=NULL, attempt_count=attempt_count+1,
+    last_error=?, updated_at=?
+WHERE save_id=? AND source_id=? AND status=? AND lease_token=?`,
+		reflectionJobPending, failureCode, now, lease.Job.SaveID, lease.Job.SourceID, reflectionJobProcessing, lease.Token)
+	if err != nil {
+		return fmt.Errorf("release reflection job: %w", err)
+	}
+	affected, err := write.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read released reflection job count: %w", err)
+	}
+	if affected != 1 {
+		return ErrReflectionLeaseLost
+	}
+	return nil
+}
+
+func newLeaseToken() (string, error) {
+	buffer := make([]byte, 16)
+	if _, err := rand.Read(buffer); err != nil {
+		return "", fmt.Errorf("generate reflection lease token: %w", err)
+	}
+	return hex.EncodeToString(buffer), nil
 }
 
 func (s *SQLite) GetLatestDecision(ctx context.Context, saveID string) (domain.DecisionRecord, error) {

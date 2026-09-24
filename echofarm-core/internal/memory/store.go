@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/domain"
 )
@@ -28,7 +29,13 @@ type DecisionStore interface {
 	ListPolicyExperiences(ctx context.Context, saveID string) ([]domain.PolicyExperience, error)
 	SaveDecision(ctx context.Context, record domain.DecisionRecord) error
 	GetDecision(ctx context.Context, saveID, sessionID string, snapshotVersion int64) (domain.DecisionRecord, error)
-	AttachDecisionResult(ctx context.Context, result domain.ActionResult) (bool, error)
+	AttachDecisionResult(ctx context.Context, result domain.ActionResult, snapshot domain.WorldSnapshot) (bool, error)
+}
+
+type ReflectionJobStore interface {
+	ClaimReflectionJob(ctx context.Context, saveID string, leaseDuration time.Duration) (ReflectionJobLease, bool, error)
+	CompleteReflectionJob(ctx context.Context, lease ReflectionJobLease) error
+	ReleaseReflectionJob(ctx context.Context, lease ReflectionJobLease, failureCode string) error
 }
 
 type ExperienceStore interface {

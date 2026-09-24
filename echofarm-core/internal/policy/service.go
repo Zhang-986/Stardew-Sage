@@ -119,7 +119,7 @@ func (s *Service) HandleResultDecision(ctx context.Context, saveID string, snaps
 	if snapshot.SnapshotVersion <= result.SnapshotVersion {
 		return domain.ActionDecision{}, errors.New("current snapshot must be newer than action result")
 	}
-	attached, err := s.store.AttachDecisionResult(ctx, result)
+	attached, err := s.store.AttachDecisionResult(ctx, result, snapshot)
 	if err != nil {
 		return domain.ActionDecision{}, fmt.Errorf("record action result: %w", err)
 	}

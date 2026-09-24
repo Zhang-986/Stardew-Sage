@@ -54,14 +54,15 @@ func (s *actorStub) Replan(_ context.Context, input intelligence.ReplanInput) (d
 }
 
 type policyStoreStub struct {
-	model          domain.PlayerModel
-	skill          domain.SkillProgram
-	priorDecision  domain.DecisionRecord
-	decisionErr    error
-	savedDecisions []domain.DecisionRecord
-	attachedResult *domain.ActionResult
-	saveWinner     *domain.DecisionRecord
-	experiences    []domain.PolicyExperience
+	model            domain.PlayerModel
+	skill            domain.SkillProgram
+	priorDecision    domain.DecisionRecord
+	decisionErr      error
+	savedDecisions   []domain.DecisionRecord
+	attachedResult   *domain.ActionResult
+	attachedSnapshot *domain.WorldSnapshot
+	saveWinner       *domain.DecisionRecord
+	experiences      []domain.PolicyExperience
 }
 
 func (s *policyStoreStub) ListPolicyExperiences(context.Context, string) ([]domain.PolicyExperience, error) {
@@ -98,7 +99,8 @@ func (s *policyStoreStub) GetDecision(context.Context, string, string, int64) (d
 	return s.priorDecision, s.decisionErr
 }
 
-func (s *policyStoreStub) AttachDecisionResult(_ context.Context, result domain.ActionResult) (bool, error) {
+func (s *policyStoreStub) AttachDecisionResult(_ context.Context, result domain.ActionResult, snapshot domain.WorldSnapshot) (bool, error) {
+	s.attachedSnapshot = &snapshot
 	if s.attachedResult == nil {
 		s.attachedResult = &result
 		return true, nil

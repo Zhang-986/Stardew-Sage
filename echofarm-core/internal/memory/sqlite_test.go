@@ -162,11 +162,11 @@ func TestSQLitePersistsDecisionAndAttachesResultIdempotently(t *testing.T) {
 		SaveID: record.SaveID, SessionID: record.SessionID, SnapshotVersion: record.SnapshotVersion,
 		Action: record.FinalAction, Status: domain.ActionSucceeded,
 	}
-	attached, err := store.AttachDecisionResult(ctx, result)
+	attached, err := store.AttachDecisionResult(ctx, result, snapshotAfter(record))
 	if err != nil || !attached {
 		t.Fatalf("AttachDecisionResult() error = %v", err)
 	}
-	attached, err = store.AttachDecisionResult(ctx, result)
+	attached, err = store.AttachDecisionResult(ctx, result, snapshotAfter(record))
 	if err != nil || attached {
 		t.Fatalf("idempotent AttachDecisionResult() error = %v", err)
 	}
@@ -259,7 +259,7 @@ func TestSQLiteRejectsResultForDifferentAction(t *testing.T) {
 		},
 		Status: domain.ActionSucceeded,
 	}
-	if _, err := store.AttachDecisionResult(ctx, mismatched); err == nil {
+	if _, err := store.AttachDecisionResult(ctx, mismatched, snapshotAfter(record)); err == nil {
 		t.Fatal("AttachDecisionResult() error = nil, want action mismatch")
 	}
 }
@@ -296,7 +296,7 @@ func TestSQLiteAttachesOnlyOneCanonicalResultUnderConcurrency(t *testing.T) {
 		}
 		go func() {
 			<-start
-			attached, err := store.AttachDecisionResult(ctx, result)
+			attached, err := store.AttachDecisionResult(ctx, result, snapshotAfter(record))
 			results <- outcome{attached: attached, err: err}
 		}()
 	}
@@ -319,6 +319,17 @@ func TestSQLiteAttachesOnlyOneCanonicalResultUnderConcurrency(t *testing.T) {
 	stored, err := store.GetDecision(ctx, record.SaveID, record.SessionID, record.SnapshotVersion)
 	if err != nil || stored.Result == nil || (stored.Result.Status != domain.ActionSucceeded && stored.Result.Status != domain.ActionFailed) {
 		t.Fatalf("canonical result = %+v, err = %v", stored.Result, err)
+	}
+	var jobCount int
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM reflection_jobs WHERE save_id=?`, record.SaveID).Scan(&jobCount); err != nil {
+		t.Fatal(err)
+	}
+	wantJobs := 0
+	if stored.Result.Status == domain.ActionFailed {
+		wantJobs = 1
+	}
+	if jobCount != wantJobs {
+		t.Fatalf("reflection job count = %d, want %d for canonical status %s", jobCount, wantJobs, stored.Result.Status)
 	}
 }
 
@@ -425,6 +436,13 @@ func decisionRecord(version int64, targetID string) domain.DecisionRecord {
 		Day: 4, ModelRevision: 3, InferredIntent: domain.PlayerIntentWatering,
 		PlayerClaimedTargets: []string{"crop-claimed"}, CandidateAction: action, FinalAction: action,
 	}
+}
+
+func snapshotAfter(record domain.DecisionRecord) domain.WorldSnapshot {
+	snapshot := correctionSnapshot(record.SaveID)
+	snapshot.SessionID = record.SessionID
+	snapshot.SnapshotVersion = record.SnapshotVersion + 1
+	return snapshot
 }
 
 func learningArtifacts(saveID string, revision int) (domain.Demonstration, domain.PlayerModel, domain.SkillProgram) {
