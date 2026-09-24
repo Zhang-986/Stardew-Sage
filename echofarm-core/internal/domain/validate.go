@@ -124,6 +124,13 @@ func (d Demonstration) Validate() error {
 	if d.Weather != "" && !validWeather(d.Weather) {
 		return fmt.Errorf("unsupported demonstration weather %q", d.Weather)
 	}
+	version := d.SchemaVersion
+	if version == 0 {
+		version = 1
+	}
+	if version != 1 && version != 2 {
+		return fmt.Errorf("unsupported demonstration schema version %d", d.SchemaVersion)
+	}
 	seen := make(map[string]struct{}, len(d.Events))
 	for _, event := range d.Events {
 		if event.ID == "" {
@@ -135,6 +142,34 @@ func (d Demonstration) Validate() error {
 		seen[event.ID] = struct{}{}
 		if !validEventKind(event.Kind) {
 			return fmt.Errorf("unsupported event kind %q", event.Kind)
+		}
+		if extendedEventKind(event.Kind) && version < 2 {
+			return fmt.Errorf("event kind %q requires demonstration schema version 2", event.Kind)
+		}
+		if event.TimeOfDay < 0 || event.TimeOfDay > 2600 {
+			return fmt.Errorf("event %q time of day is out of range", event.ID)
+		}
+		if event.DurationTicks < 0 {
+			return fmt.Errorf("event %q duration cannot be negative", event.ID)
+		}
+		if !validTargetKind(event.TargetKind) {
+			return fmt.Errorf("event %q has unsupported target kind %q", event.ID, event.TargetKind)
+		}
+		if len(event.ItemDeltas) > 32 {
+			return fmt.Errorf("event %q item deltas exceed 32 entries", event.ID)
+		}
+		itemIDs := make(map[string]struct{}, len(event.ItemDeltas))
+		for _, item := range event.ItemDeltas {
+			if item.ItemID == "" {
+				return fmt.Errorf("event %q item delta ID is required", event.ID)
+			}
+			if item.Quantity == 0 {
+				return fmt.Errorf("event %q item delta quantity cannot be zero", event.ID)
+			}
+			if _, exists := itemIDs[item.ItemID]; exists {
+				return fmt.Errorf("event %q has duplicate item ID %q", event.ID, item.ItemID)
+			}
+			itemIDs[item.ItemID] = struct{}{}
 		}
 	}
 	return nil
@@ -528,7 +563,26 @@ func validWeather(weather Weather) bool {
 
 func validEventKind(kind EventKind) bool {
 	switch kind {
-	case EventMove, EventEquipTool, EventWater, EventRefill, EventHarvest, EventDeposit:
+	case EventMove, EventEquipTool, EventWater, EventRefill, EventHarvest, EventDeposit,
+		EventChopTree, EventBreakRock, EventEnterMineFloor, EventFishCaught, EventFishEscaped:
+		return true
+	default:
+		return false
+	}
+}
+
+func extendedEventKind(kind EventKind) bool {
+	switch kind {
+	case EventChopTree, EventBreakRock, EventEnterMineFloor, EventFishCaught, EventFishEscaped:
+		return true
+	default:
+		return false
+	}
+}
+
+func validTargetKind(kind string) bool {
+	switch kind {
+	case "", "crop", "water", "chest", "tree", "rock", "mine_floor", "fish":
 		return true
 	default:
 		return false

@@ -21,11 +21,11 @@
 - Modify: `contracts/demonstration.schema.json`
 - Modify: `stardew-echo-mod/src/EchoFarm.Bridge/Recording/TeachingRecorder.cs`
 
-- [ ] **Step 1: Write failing C# and Go contract tests**
+- [x] **Step 1: Write failing C# and Go contract tests**
 
 Add JSON round-trip coverage for schema version 2 and all five new event kinds. Assert that `location`, `timeOfDay`, `targetKind`, `durationTicks`, `healthDelta`, `mineFloorDelta`, and signed item deltas survive serialization. Add Go validation cases that reject a new event in a version-1 demonstration, zero item quantities, duplicate item IDs, more than 32 item deltas, negative duration, and unsupported target kinds.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -38,7 +38,7 @@ go test ./internal/domain -run 'TestDemonstration.*V2|TestDemonstrationRejectsIn
 
 Expected: compile failures because the new event kinds and fields do not exist.
 
-- [ ] **Step 3: Add the strict contracts**
+- [x] **Step 3: Add the strict contracts**
 
 Add these cross-language shapes with the existing camel-case JSON policy:
 
@@ -60,11 +60,11 @@ type StateDelta struct {
 
 Extend `Demonstration` with `SchemaVersion`; treat `0` as legacy version 1 during Go validation. Extend `DemonstrationEvent` with `Location`, `TimeOfDay`, `TargetKind`, `DurationTicks`, and `ItemDeltas`. Add event kinds `chop_tree`, `break_rock`, `enter_mine_floor`, `fish_caught`, and `fish_escaped`. The C# recorder emits `SchemaVersion = 2`.
 
-- [ ] **Step 4: Implement bounded validation and schema rules**
+- [x] **Step 4: Implement bounded validation and schema rules**
 
 Accept only schema versions 1 and 2. Require version 2 for new event kinds, `durationTicks >= 0`, `timeOfDay` in `0..2600` when present, at most 32 item deltas, non-empty unique item IDs, non-zero quantities, and target kinds `crop`, `water`, `chest`, `tree`, `rock`, `mine_floor`, `fish`, or empty for movement. Keep existing version-1 fixtures valid.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run both targeted suites and commit:
 

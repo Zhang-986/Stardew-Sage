@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "required": ["id", "saveId", "sessionId", "startedAt", "endedAt", "events"],
   "properties": {
+    "schemaVersion": { "type": "integer", "enum": [1, 2] },
     "id": { "type": "string", "minLength": 1 },
     "saveId": { "type": "string", "minLength": 1 },
     "sessionId": { "type": "string", "minLength": 1 },
@@ -22,11 +23,15 @@
         "required": ["id", "kind", "tick", "position", "delta", "success"],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
-          "kind": { "enum": ["move", "equip_tool", "water_target", "refill_can", "harvest_target", "deposit_items"] },
+          "kind": { "enum": ["move", "equip_tool", "water_target", "refill_can", "harvest_target", "deposit_items", "chop_tree", "break_rock", "enter_mine_floor", "fish_caught", "fish_escaped"] },
           "tick": { "type": "integer", "minimum": 0 },
           "position": { "$ref": "world-snapshot.schema.json#/$defs/position" },
+          "location": { "type": "string" },
+          "timeOfDay": { "type": "integer", "minimum": 0, "maximum": 2600 },
           "targetId": { "type": "string" },
+          "targetKind": { "enum": ["crop", "water", "chest", "tree", "rock", "mine_floor", "fish"] },
           "tool": { "type": "string" },
+          "durationTicks": { "type": "integer", "minimum": 0 },
           "delta": {
             "type": "object",
             "additionalProperties": false,
@@ -34,7 +39,23 @@
             "properties": {
               "energyDelta": { "type": "integer" },
               "waterDelta": { "type": "integer" },
-              "inventoryDelta": { "type": "integer" }
+              "inventoryDelta": { "type": "integer" },
+              "healthDelta": { "type": "integer" },
+              "mineFloorDelta": { "type": "integer" }
+            }
+          },
+          "itemDeltas": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["itemId", "quantity"],
+              "properties": {
+                "itemId": { "type": "string", "minLength": 1 },
+                "name": { "type": "string" },
+                "quantity": { "type": "integer", "not": { "const": 0 } }
+              }
             }
           },
           "success": { "type": "boolean" },

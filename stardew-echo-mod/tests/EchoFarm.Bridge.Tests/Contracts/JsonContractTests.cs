@@ -6,6 +6,55 @@ namespace EchoFarm.Bridge.Tests.Contracts;
 public sealed class JsonContractTests
 {
     [Fact]
+    public void SemanticActivityV2RoundTripsExtendedEvidence()
+    {
+        var demonstration = new Demonstration
+        {
+            SchemaVersion = 2,
+            Id = "activity-demo",
+            SaveId = "farm-1",
+            SessionId = "teach-2",
+            Day = 8,
+            Weather = Weather.Sunny,
+            StartedAt = 100,
+            EndedAt = 180,
+            Events = new[]
+            {
+                new DemonstrationEvent
+                {
+                    Id = "tree-1",
+                    Kind = EventKind.ChopTree,
+                    Tick = 180,
+                    Position = new Position { X = 12, Y = 8 },
+                    Location = "Farm",
+                    TimeOfDay = 920,
+                    TargetId = "Farm:tree:12:8",
+                    TargetKind = "tree",
+                    Tool = "Axe",
+                    DurationTicks = 80,
+                    Delta = new StateDelta { EnergyDelta = -10, HealthDelta = 0, MineFloorDelta = 0, InventoryDelta = 2 },
+                    ItemDeltas = new[]
+                    {
+                        new ItemDelta { ItemId = "388", Name = "Wood", Quantity = 14 },
+                        new ItemDelta { ItemId = "92", Name = "Sap", Quantity = 2 }
+                    },
+                    Success = true
+                }
+            }
+        };
+
+        string json = EchoJson.Serialize(demonstration);
+        Demonstration roundTrip = EchoJson.Deserialize<Demonstration>(json);
+
+        Assert.Equal(2, roundTrip.SchemaVersion);
+        Assert.Equal(EventKind.ChopTree, roundTrip.Events[0].Kind);
+        Assert.Equal("tree", roundTrip.Events[0].TargetKind);
+        Assert.Equal(80, roundTrip.Events[0].DurationTicks);
+        Assert.Equal(-10, roundTrip.Events[0].Delta.EnergyDelta);
+        Assert.Equal(14, roundTrip.Events[0].ItemDeltas[0].Quantity);
+    }
+
+    [Fact]
     public void DemonstrationFixtureRoundTripsWithGoFieldNames()
     {
         string json = ReadFixture("morning-teaching.json");

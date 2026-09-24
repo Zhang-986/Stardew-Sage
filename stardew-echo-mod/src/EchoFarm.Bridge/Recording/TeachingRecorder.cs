@@ -52,14 +52,21 @@ public sealed class TeachingRecorder
             Kind = observed.Kind,
             Tick = observed.Tick,
             Position = Copy(observed.Position),
+            Location = observed.Location,
+            TimeOfDay = observed.TimeOfDay,
             TargetId = observed.TargetId,
+            TargetKind = observed.TargetKind,
             Tool = observed.Tool,
+            DurationTicks = observed.DurationTicks,
             Delta = new StateDelta
             {
                 EnergyDelta = observed.After.Energy - observed.Before.Energy,
                 WaterDelta = observed.After.Water - observed.Before.Water,
-                InventoryDelta = observed.After.InventoryCount - observed.Before.InventoryCount
+                InventoryDelta = observed.After.InventoryCount - observed.Before.InventoryCount,
+                HealthDelta = observed.After.Health - observed.Before.Health,
+                MineFloorDelta = observed.After.MineFloor - observed.Before.MineFloor
             },
+            ItemDeltas = Array.AsReadOnly(observed.ItemDeltas.ToArray()),
             Success = observed.Success,
             ErrorCode = observed.ErrorCode
         };
@@ -75,6 +82,7 @@ public sealed class TeachingRecorder
 
         var demonstration = new Demonstration
         {
+            SchemaVersion = 2,
             Id = idFactory(),
             SaveId = saveId,
             SessionId = sessionId,

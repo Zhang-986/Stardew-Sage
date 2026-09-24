@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -30,6 +31,72 @@ func TestDemonstrationValidateLearningContext(t *testing.T) {
 	invalidWeather.Weather = "fog"
 	if err := invalidWeather.Validate(); err == nil || !strings.Contains(err.Error(), "weather") {
 		t.Fatalf("Validate() error = %v, want weather error", err)
+	}
+}
+
+func TestDemonstrationValidateV2SemanticActivity(t *testing.T) {
+	valid := Demonstration{
+		SchemaVersion: 2,
+		ID:            "demo-activity", SaveID: "farm-1", SessionID: "teaching-2",
+		Day: 8, Weather: WeatherSunny, StartedAt: 100, EndedAt: 180,
+		Events: []DemonstrationEvent{{
+			ID: "tree-1", Kind: EventChopTree, Tick: 180,
+			Position: Position{X: 12, Y: 8}, Location: "Farm", TimeOfDay: 920,
+			TargetID: "Farm:tree:12:8", TargetKind: "tree", Tool: "Axe", DurationTicks: 80,
+			Delta:      StateDelta{EnergyDelta: -10, InventoryDelta: 2},
+			ItemDeltas: []ItemDelta{{ItemID: "388", Name: "Wood", Quantity: 14}}, Success: true,
+		}},
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	legacy := valid
+	legacy.SchemaVersion = 1
+	if err := legacy.Validate(); err == nil || !strings.Contains(err.Error(), "version 2") {
+		t.Fatalf("Validate() error = %v, want version 2 error", err)
+	}
+}
+
+func TestDemonstrationRejectsInvalidActivityEvidence(t *testing.T) {
+	valid := Demonstration{
+		SchemaVersion: 2,
+		ID:            "demo-activity", SaveID: "farm-1", SessionID: "teaching-2",
+		Day: 8, Weather: WeatherSunny, StartedAt: 100, EndedAt: 180,
+		Events: []DemonstrationEvent{{
+			ID: "fish-1", Kind: EventFishCaught, Tick: 180,
+			Location: "Beach", TimeOfDay: 920, TargetKind: "fish", DurationTicks: 80,
+			ItemDeltas: []ItemDelta{{ItemID: "128", Quantity: 1}}, Success: true,
+		}},
+	}
+	tests := []struct {
+		name   string
+		mutate func(*Demonstration)
+		want   string
+	}{
+		{name: "zero item quantity", mutate: func(d *Demonstration) { d.Events[0].ItemDeltas[0].Quantity = 0 }, want: "quantity"},
+		{name: "duplicate item", mutate: func(d *Demonstration) {
+			d.Events[0].ItemDeltas = append(d.Events[0].ItemDeltas, d.Events[0].ItemDeltas[0])
+		}, want: "duplicate item"},
+		{name: "too many items", mutate: func(d *Demonstration) {
+			d.Events[0].ItemDeltas = make([]ItemDelta, 33)
+			for i := range d.Events[0].ItemDeltas {
+				d.Events[0].ItemDeltas[i] = ItemDelta{ItemID: fmt.Sprintf("item-%d", i), Quantity: 1}
+			}
+		}, want: "item deltas"},
+		{name: "negative duration", mutate: func(d *Demonstration) { d.Events[0].DurationTicks = -1 }, want: "duration"},
+		{name: "unknown target kind", mutate: func(d *Demonstration) { d.Events[0].TargetKind = "monster" }, want: "target kind"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := valid
+			got.Events = append([]DemonstrationEvent(nil), valid.Events...)
+			got.Events[0].ItemDeltas = append([]ItemDelta(nil), valid.Events[0].ItemDeltas...)
+			tt.mutate(&got)
+			if err := got.Validate(); err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("Validate() error = %v, want substring %q", err, tt.want)
+			}
+		})
 	}
 }
 

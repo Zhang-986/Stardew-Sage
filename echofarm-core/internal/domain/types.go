@@ -83,41 +83,60 @@ type WorldSnapshot struct {
 type EventKind string
 
 const (
-	EventMove      EventKind = "move"
-	EventEquipTool EventKind = "equip_tool"
-	EventWater     EventKind = "water_target"
-	EventRefill    EventKind = "refill_can"
-	EventHarvest   EventKind = "harvest_target"
-	EventDeposit   EventKind = "deposit_items"
+	EventMove           EventKind = "move"
+	EventEquipTool      EventKind = "equip_tool"
+	EventWater          EventKind = "water_target"
+	EventRefill         EventKind = "refill_can"
+	EventHarvest        EventKind = "harvest_target"
+	EventDeposit        EventKind = "deposit_items"
+	EventChopTree       EventKind = "chop_tree"
+	EventBreakRock      EventKind = "break_rock"
+	EventEnterMineFloor EventKind = "enter_mine_floor"
+	EventFishCaught     EventKind = "fish_caught"
+	EventFishEscaped    EventKind = "fish_escaped"
 )
 
 type StateDelta struct {
 	EnergyDelta    int `json:"energyDelta"`
 	WaterDelta     int `json:"waterDelta"`
 	InventoryDelta int `json:"inventoryDelta"`
+	HealthDelta    int `json:"healthDelta,omitempty"`
+	MineFloorDelta int `json:"mineFloorDelta,omitempty"`
+}
+
+type ItemDelta struct {
+	ItemID   string `json:"itemId"`
+	Name     string `json:"name,omitempty"`
+	Quantity int    `json:"quantity"`
 }
 
 type DemonstrationEvent struct {
-	ID        string     `json:"id"`
-	Kind      EventKind  `json:"kind"`
-	Tick      int64      `json:"tick"`
-	Position  Position   `json:"position"`
-	TargetID  string     `json:"targetId,omitempty"`
-	Tool      string     `json:"tool,omitempty"`
-	Delta     StateDelta `json:"delta"`
-	Success   bool       `json:"success"`
-	ErrorCode string     `json:"errorCode,omitempty"`
+	ID            string      `json:"id"`
+	Kind          EventKind   `json:"kind"`
+	Tick          int64       `json:"tick"`
+	Position      Position    `json:"position"`
+	Location      string      `json:"location,omitempty"`
+	TimeOfDay     int         `json:"timeOfDay,omitempty"`
+	TargetID      string      `json:"targetId,omitempty"`
+	TargetKind    string      `json:"targetKind,omitempty"`
+	Tool          string      `json:"tool,omitempty"`
+	DurationTicks int64       `json:"durationTicks,omitempty"`
+	Delta         StateDelta  `json:"delta"`
+	ItemDeltas    []ItemDelta `json:"itemDeltas,omitempty"`
+	Success       bool        `json:"success"`
+	ErrorCode     string      `json:"errorCode,omitempty"`
 }
 
 type Demonstration struct {
-	ID        string               `json:"id"`
-	SaveID    string               `json:"saveId"`
-	SessionID string               `json:"sessionId"`
-	Day       int                  `json:"day,omitempty"`
-	Weather   Weather              `json:"weather,omitempty"`
-	StartedAt int64                `json:"startedAt"`
-	EndedAt   int64                `json:"endedAt"`
-	Events    []DemonstrationEvent `json:"events"`
+	SchemaVersion int                  `json:"schemaVersion,omitempty"`
+	ID            string               `json:"id"`
+	SaveID        string               `json:"saveId"`
+	SessionID     string               `json:"sessionId"`
+	Day           int                  `json:"day,omitempty"`
+	Weather       Weather              `json:"weather,omitempty"`
+	StartedAt     int64                `json:"startedAt"`
+	EndedAt       int64                `json:"endedAt"`
+	Events        []DemonstrationEvent `json:"events"`
 }
 
 type BehaviorKind string
