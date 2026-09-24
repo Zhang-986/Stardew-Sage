@@ -4,10 +4,12 @@ Generated on 2026-09-24 from branch `codex/living-valley-director`.
 
 ## Verified locally
 
-- `.NET bridge`: 109 tests passed, 0 failed, including capability gates, setup readiness, endpoint conflict detection, and diagnostic redaction.
+- `.NET bridge`: 114 tests passed, 0 failed, including capability gates, setup readiness, endpoint conflict detection, diagnostic redaction, model-usage contracts, and F9 usage presentation.
 - `Go core`: all packages passed with `-race -count=1`; `go vet ./...` passed.
 - `Windows workflow`: 9 self-tests passed for doctor results, package allowlisting, atomic install, `config.json` preservation, safe uninstall, and evidence redaction.
 - `Action capability boundary`: the Mod emits explicit capabilities; Go skips disabled candidates; C# rejects disabled harvesting again before mutation. Harvesting defaults off.
+- `Model operations`: every generation reserves a durable request ledger row with purpose and safe status; provider token metadata remains explicitly known/unknown; concurrent call limits do not overshoot; exhausted action/intent budgets persist `stop_session`.
+- `Model data boundary`: the usage schema contains no prompt, response, API-key, or provider-error-body column. Only bounded error classes are persisted, and no currency estimate is produced.
 - `Reflective policy`: failures and player corrections produce bounded, evidence-linked experiences; duplicate evidence is idempotent; matching decisions expose calibrated confidence and validated alternatives.
 - `Structured generation`: OpenAI-compatible calls request `json_object` response format; prompts require materially applied experience citations, counterfactual alternatives, and the smallest evidence-supported causal rule.
 - `Durable reflection`: the first canonical failed result atomically enqueues one SQLite job; expiring leases prevent simultaneous processing, transient failures return to pending, and restart recovery preserves once-only experience persistence.
@@ -25,10 +27,10 @@ Generated files are ignored by Git under `artifacts/echofarm-core-0.4.0/`.
 
 | File | Approximate size | SHA-256 |
 | --- | ---: | --- |
-| `echofarm-core-linux-x64` | 24 MB | `81879f5626dc1fef7561336f9f063a220507d2138cb1bc2abc89aa37d7d22c2f` |
-| `echofarm-core-macos-arm64` | 21 MB | `0738be3e00ed00437f4a5956f689bca3c2e7b2ea6ff8ed9725bb0d440fa9c5a9` |
-| `echofarm-core-macos-x64` | 25 MB | `37f13437e9cc74117d1db7957aa50e9a7c4f57a17c57e1c91ac25f6fec2ad370` |
-| `echofarm-core-windows-x64.exe` | 25 MB | `b58be55c904dbf6964ac1c4141b91af31c1987fd52b0f3d4fa79668b6d47ac3c` |
+| `echofarm-core-linux-x64` | 24 MB | `a0f4e6df81983d7d46b9983e96b8d34fb6e3daadb3b9965d8ec88b2aa84570ac` |
+| `echofarm-core-macos-arm64` | 21 MB | `71ffb1178b170c165f8bf4e2033501150288269a465edcd13c74c7a452275bde` |
+| `echofarm-core-macos-x64` | 25 MB | `b499aa98c6b0f042f9101ffce402613057aeae72cfd5d4196649eadfa707b553` |
+| `echofarm-core-windows-x64.exe` | 25 MB | `d29739c15645df59830c53a334c6e8262c3ac446bbce8994df234b3f9d6638a3` |
 
 ## External publication gates
 

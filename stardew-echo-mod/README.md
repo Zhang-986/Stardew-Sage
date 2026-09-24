@@ -82,11 +82,15 @@ Release archives bundle the correct Go service binary and start it automatically
   "CoreStartupTimeoutSeconds": 10,
   "ModelMode": "openai",
   "ModelBaseUrl": "https://your-endpoint/v1",
-  "ModelName": "your-model"
+  "ModelName": "your-model",
+  "MaxModelCallsPerSession": 32,
+  "MaxReportedTokensPerSession": 100000
 }
 ```
 
 Set `ECHOFARM_MODEL_API_KEY` in the environment used to launch SMAPI. EchoFarm intentionally has no API-key field and never writes the key into `config.json`. `DatabasePath` and `CoreExecutablePath` can be overridden; empty values use the OS-local application-data directory and bundled `core/echofarm-core[.exe]` respectively.
+
+F9 shows current-session calls, reported tokens, failures, and recent latency. If the provider omits token metadata it shows `unknown` instead of estimating. Reaching either configured session limit stops Echo before another model call; currency cost is intentionally not calculated from mutable external pricing.
 
 For source development, start the Go service before launching SMAPI:
 

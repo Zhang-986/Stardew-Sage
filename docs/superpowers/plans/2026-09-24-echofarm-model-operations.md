@@ -251,11 +251,11 @@ git commit -m "feat(echofarm): expose bounded AI usage in F9"
 - Modify: `release/nexus/PLAYER_README.md`
 - Modify: `release/nexus/BUILD-EVIDENCE.md`
 
-- [ ] **Step 1: Document budgets and privacy boundary**
+- [x] **Step 1: Document budgets and privacy boundary**
 
 Document defaults, environment/config override mapping, typed exhaustion behavior, unknown provider token metadata, and the explicit decision not to calculate currency cost.
 
-- [ ] **Step 2: Run complete verification**
+- [x] **Step 2: Run complete verification**
 
 Run Go race/vet, the .NET Release suite, PowerShell setup tests, all three demos, package smoke, and the two concurrency tests twenty times. Confirm tracked source contains no provider-token-shaped value.
 

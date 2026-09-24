@@ -11,6 +11,8 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
                                                 |
                       游戏内记忆面板 <- SQLite 决策与执行账本
                                                 |
+          模型调用 -> 用途/延迟/token/失败账本 -> 会话预算 -> 安全停止
+                                                |
 失败/玩家 F10 纠正 -> Eino 反思 -> 结构化经验 -> 下次提前改变策略
                                                 |
 实际执行结果 -> 幂等反馈账本 -> 有效置信度 -> 强化有效经验/冷却反复失效经验
@@ -27,12 +29,13 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
 - 将动作失败先写入可恢复的 SQLite 反思任务，再抽象为可复用策略经验；模型暂时失败或进程重启也不会丢掉待学习内容；
 - 玩家可按 F10 否定当前决策，用下一次成功操作教会 Echo 更好的选择。
 - 只对本次真正采用并执行的经验记录结果反馈，用可审计的成功/矛盾计数调整后续排序；路线变化等环境噪声保持中性，避免错误惩罚 AI 经验。
+- 每次 AI 调用都有本地 request ID、用途、延迟、失败分类和 provider 上报 token；会话预算耗尽时直接返回可审计的安全停止。
 
 模型只决定高层动作。白名单、目标存在性、天气、工具和体力检查由确定性代码把关。项目不使用 RAG，也不依赖 Web 聊天界面。
 
 ## 快速演示
 
-需要 Go 1.24+、`curl` 和 `jq`：
+需要 Go 1.24.1+、`curl` 和 `jq`：
 
 ```bash
 ./demo/run-core-demo.sh
@@ -69,8 +72,12 @@ export ECHOFARM_MODEL_MODE=openai
 export ECHOFARM_MODEL_BASE_URL=https://your-endpoint/v1
 export ECHOFARM_MODEL_API_KEY=your-key
 export ECHOFARM_MODEL_NAME=your-model
+export ECHOFARM_MAX_MODEL_CALLS_PER_SESSION=32
+export ECHOFARM_MAX_REPORTED_TOKENS_PER_SESSION=100000
 go run ./cmd/echofarm
 ```
+
+用量账本只保存请求用途、状态、延迟和 provider 明确返回的 token 数，不保存 prompt、response、API Key 或 provider 错误正文。如果 provider 不返回 token，F9 会显示 `unknown`，不会伪造估算；项目也不计算货币成本，因为模型价格是外部可变配置。
 
 详细配置见 [echofarm-core/README.md](echofarm-core/README.md)，产品设计见 [EchoFarm 设计](docs/superpowers/specs/2026-09-23-echofarm-player-model-design.md)、[Reflective Policy 设计](docs/superpowers/specs/2026-09-24-echofarm-reflective-policy-design.md) 和 [经验有效性反馈设计](docs/superpowers/specs/2026-09-24-echofarm-experience-feedback-design.md)。
 
@@ -130,6 +137,7 @@ stardew-echo-mod/  SMAPI 传感器、受控执行器与游戏内记忆面板
 - [x] 收获默认关闭的跨语言能力门禁与执行前二次校验
 - [x] 首启配置诊断、端口冲突识别与 F9 运行状态面板
 - [x] Windows doctor/build/install/uninstall 工作流与自动证据 JSON
+- [x] SQLite AI 调用账本、provider token 统计、原子会话预算与 F9 用量面板
 - [ ] 在安装 Stardew Valley + SMAPI 的机器上完成编译与游戏内冒烟
 
 ## 安全边界

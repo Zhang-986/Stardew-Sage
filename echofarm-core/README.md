@@ -61,6 +61,10 @@ Optional settings:
 
 - `ECHOFARM_ADDRESS` defaults to `127.0.0.1:18471` and must remain loopback-only.
 - `ECHOFARM_DATABASE_PATH` defaults to `echofarm.db`.
+- `ECHOFARM_MAX_MODEL_CALLS_PER_SESSION` defaults to `32` and must be positive.
+- `ECHOFARM_MAX_REPORTED_TOKENS_PER_SESSION` defaults to `100000` and must be positive.
+
+Every fixture or real-model invocation reserves one durable SQLite ledger row before execution. The ledger stores a random local request ID, purpose (`learning`, `intent`, `action`, `recovery`, or `reflection`), save/session/day identity, status, latency, bounded error class, and provider-reported token counts when present. It never stores prompts, responses, API keys, or provider error bodies. Once either session budget is reached, no new model call starts. Runtime policy requests persist a `stop_session`; learning and correction requests return HTTP 429 with `model_budget_exhausted`.
 
 ## API
 
@@ -72,5 +76,6 @@ Optional settings:
 - `GET /v1/player-model?saveId=...`
 - `GET /v1/skills/morning-farm-routine?saveId=...`
 - `GET /v1/echo/memory?saveId=...`
+- `GET /v1/model-usage?saveId=...&sessionId=...`
 
 All model outputs are validated against the action catalog and current snapshot before they can cross into the game bridge. If the model is unavailable, Echo stops and returns HTTP 503; it does not silently switch to scripted behavior.

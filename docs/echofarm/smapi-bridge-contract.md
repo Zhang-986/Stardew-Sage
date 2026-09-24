@@ -92,6 +92,7 @@ The body follows `contracts/world-snapshot.schema.json` and contains only decisi
   "waterSources": [],
   "chests": [],
   "obstacles": [],
+  "capabilities": {"harvest": false},
   "recentPlayerActions": [
     {"kind": "water_target", "targetId": "crop-north-1", "tick": 3500, "success": true}
   ]
@@ -119,6 +120,15 @@ Before execution, the bridge must rebuild or inspect the newest game state and r
 - rain/tool/energy preconditions still permit the action;
 - all game mutations will occur on the SMAPI game thread.
 - the target is not claimed by the player's recent activity window.
+- the action capability is explicitly enabled; legacy snapshots are accepted only for compatibility tests, while the Mod always sends capabilities.
+
+## Read model usage
+
+```http
+GET /v1/model-usage?saveId=farm-123&sessionId=echo-day-2
+```
+
+The response contains current-session and same-day call counts, success/failure counts, provider-reported token totals, known/unknown token state, recent latency, configured limits, and whether the session is exhausted. It never contains prompts, model responses, API keys, provider bodies, or a derived currency cost. The same bounded summary is embedded in `/v1/echo/memory` for F9.
 
 ## Report an action result
 
