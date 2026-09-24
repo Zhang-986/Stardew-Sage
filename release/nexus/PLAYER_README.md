@@ -37,6 +37,7 @@ xattr -dr com.apple.quarantine "/path/to/Stardew Valley/Contents/MacOS/Mods/Echo
 - Press F7, perform a normal morning farm routine, then press F7 again to teach Echo.
 - Press F8 on a later day to summon the learned Echo.
 - Teach the routine on multiple days so Echo can distinguish stable habits from one-off choices.
+- During teaching, Echo can classify tree chopping, rock breaking, mine-floor changes, and fishing outcomes into lifestyle memory. These categories are visibly `learn-only` and do not grant autonomous game mutations.
 - Press F9 to inspect Echo's evidence-backed memory, confidence, inferred player intent, and current division of work.
 - F9 also shows session call/token budgets, provider-reported usage, model failures, and recent latency. Missing provider token metadata is shown as `unknown`.
 - Press F10 while Echo has a pending decision, then perform one successful farm action within 20 seconds to teach a better choice. Press F10 again to cancel, or retry after a temporary model outage.

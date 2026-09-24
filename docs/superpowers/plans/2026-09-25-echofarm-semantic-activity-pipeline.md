@@ -265,11 +265,11 @@ git commit -m "feat(mod): observe extended Stardew activities"
 - Modify: `README.md`
 - Modify: `release/nexus/BUILD-EVIDENCE.md`
 
-- [ ] **Step 1: Write the failing demo**
+- [x] **Step 1: Write the failing demo**
 
 Teach two version-2 demonstrations containing woodcutting, mine traversal, and fishing evidence. Read `/v1/player-model` and `/v1/echo/memory`; require stable lifestyle traits to cite both days and appear in the memory payload. Assert no unsupported action kind is returned by `/v1/echo/next-action`.
 
-- [ ] **Step 2: Verify RED then make fixtures deterministic**
+- [x] **Step 2: Verify RED then make fixtures deterministic**
 
 Run:
 
@@ -279,11 +279,11 @@ Run:
 
 Expected before Tasks 1–4: schema or trait assertions fail. After implementation: `EchoFarm semantic activity learning demo passed.`
 
-- [ ] **Step 3: Add the demo to CI and document the boundary**
+- [x] **Step 3: Add the demo to CI and document the boundary**
 
 Run the demo in Linux `verify`. Document the actual supported observation categories, the `learn-only` execution boundary, version-2 payload privacy, and the requirement for Windows native signal certification.
 
-- [ ] **Step 4: Run the complete release matrix**
+- [x] **Step 4: Run the complete release matrix**
 
 Run Go race/vet, the .NET Release suite, PowerShell setup tests, all four demos, package smoke, twenty iterations of the existing SQLite concurrency races, deterministic four-platform sidecar rebuild, native macOS health smoke, `git diff --check`, and the tracked-source secret scan.
 

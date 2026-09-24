@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "id": "activity-demo-day-2",
+  "saveId": "activity-farm",
+  "sessionId": "teaching-activity-2",
+  "day": 2,
+  "weather": "sunny",
+  "startedAt": 100,
+  "endedAt": 720,
+  "events": [
+    {"id":"tree-2","kind":"chop_tree","tick":190,"position":{"x":14,"y":8},"location":"Farm","timeOfDay":900,"targetId":"Farm:tree:14:8","targetKind":"tree","tool":"Axe","durationTicks":90,"delta":{"energyDelta":-11,"waterDelta":0,"inventoryDelta":2},"itemDeltas":[{"itemId":"388","name":"Wood","quantity":16},{"itemId":"92","name":"Sap","quantity":1}],"success":true},
+    {"id":"rock-2","kind":"break_rock","tick":270,"position":{"x":7,"y":4},"location":"UndergroundMine30","timeOfDay":1020,"targetId":"UndergroundMine30:rock:7:4","targetKind":"rock","tool":"Pickaxe","durationTicks":20,"delta":{"energyDelta":-2,"waterDelta":0,"inventoryDelta":1},"itemDeltas":[{"itemId":"382","name":"Coal","quantity":3}],"success":true},
+    {"id":"floor-2","kind":"enter_mine_floor","tick":320,"position":{"x":2,"y":2},"location":"UndergroundMine31","timeOfDay":1050,"targetId":"mine-floor-31","targetKind":"mine_floor","durationTicks":10,"delta":{"energyDelta":0,"waterDelta":0,"inventoryDelta":0,"healthDelta":-4,"mineFloorDelta":1},"success":true},
+    {"id":"fish-2","kind":"fish_caught","tick":610,"position":{"x":21,"y":14},"location":"Beach","timeOfDay":1740,"targetId":"Beach:fish:21:14","targetKind":"fish","tool":"Fishing Rod","durationTicks":110,"delta":{"energyDelta":-8,"waterDelta":0,"inventoryDelta":1},"itemDeltas":[{"itemId":"128","name":"Pufferfish","quantity":1}],"success":true},
+    {"id":"water-2","kind":"water_target","tick":720,"position":{"x":7,"y":8},"location":"Farm","timeOfDay":1820,"targetId":"crop-old-2","targetKind":"crop","tool":"Watering Can","durationTicks":10,"delta":{"energyDelta":-2,"waterDelta":-1,"inventoryDelta":0},"success":true}
+  ]
+}

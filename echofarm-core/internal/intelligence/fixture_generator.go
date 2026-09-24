@@ -504,6 +504,7 @@ func hasExtendedActivity(order []domain.BehaviorKind) bool {
 
 func leadingResource(segments []domain.BehaviorSegment) (string, []string) {
 	quantities := make(map[string]int)
+	names := make(map[string]string)
 	evidence := make(map[string][]string)
 	for _, segment := range segments {
 		for _, item := range segment.ItemDeltas {
@@ -511,6 +512,9 @@ func leadingResource(segments []domain.BehaviorSegment) (string, []string) {
 				continue
 			}
 			quantities[item.ItemID] += item.Quantity
+			if names[item.ItemID] == "" {
+				names[item.ItemID] = item.Name
+			}
 			evidence[item.ItemID] = append(evidence[item.ItemID], segment.EventIDs...)
 		}
 	}
@@ -520,7 +524,11 @@ func leadingResource(segments []domain.BehaviorSegment) (string, []string) {
 			selected = itemID
 		}
 	}
-	return selected, append([]string(nil), evidence[selected]...)
+	value := selected
+	if names[selected] != "" {
+		value = names[selected]
+	}
+	return value, append([]string(nil), evidence[selected]...)
 }
 
 func firstSegment(segments []domain.BehaviorSegment, kind domain.BehaviorKind) (domain.BehaviorSegment, bool) {

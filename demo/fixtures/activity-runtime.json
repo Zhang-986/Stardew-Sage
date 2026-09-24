@@ -1,0 +1,21 @@
+{
+  "saveId": "activity-farm",
+  "sessionId": "echo-activity-day-3",
+  "snapshotVersion": 1,
+  "tick": 1000,
+  "day": 3,
+  "timeOfDay": 700,
+  "weather": "sunny",
+  "location": "Farm",
+  "playerPosition": {"x": 5, "y": 5},
+  "energy": 240,
+  "maxEnergy": 270,
+  "inventory": {"freeSlots": 12, "items": []},
+  "wateringCan": {"name": "Watering Can", "level": 1, "water": 20, "capacity": 40},
+  "crops": [{"id":"crop-new-1","position":{"x":8,"y":8},"kind":"parsnip","growthStage":2,"mature":false,"needsWater":true}],
+  "waterSources": [{"id":"pond-new","position":{"x":12,"y":14}}],
+  "chests": [],
+  "obstacles": [],
+  "recentPlayerActions": [],
+  "capabilities": {"harvest": false}
+}

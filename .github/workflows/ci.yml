@@ -45,6 +45,9 @@ jobs:
       - name: Run reflective experience demo
         run: ./demo/run-reflective-demo.sh
 
+      - name: Run semantic activity learning demo
+        run: ./demo/run-activity-learning-demo.sh
+
       - name: Validate Nexus packaging
         run: ./scripts/tests/package-nexus-smoke.sh
 
