@@ -51,7 +51,8 @@
     "crops": { "type": "array", "items": { "$ref": "#/$defs/crop" } },
     "waterSources": { "type": "array", "items": { "$ref": "#/$defs/locatedTarget" } },
     "chests": { "type": "array", "items": { "$ref": "#/$defs/chest" } },
-    "obstacles": { "type": "array", "items": { "$ref": "#/$defs/position" } }
+    "obstacles": { "type": "array", "items": { "$ref": "#/$defs/position" } },
+    "recentPlayerActions": { "type": "array", "items": { "$ref": "#/$defs/playerActivity" } }
   },
   "$defs": {
     "position": {
@@ -90,6 +91,17 @@
         "id": { "type": "string", "minLength": 1 },
         "label": { "type": "string" },
         "position": { "$ref": "#/$defs/position" }
+      }
+    },
+    "playerActivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "targetId", "tick", "success"],
+      "properties": {
+        "kind": { "enum": ["water_target", "refill_can", "harvest_target", "deposit_items"] },
+        "targetId": { "type": "string", "minLength": 1 },
+        "tick": { "type": "integer", "minimum": 0 },
+        "success": { "type": "boolean" }
       }
     }
   }

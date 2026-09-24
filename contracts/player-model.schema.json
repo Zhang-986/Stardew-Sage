@@ -8,6 +8,7 @@
   "properties": {
     "saveId": { "type": "string", "minLength": 1 },
     "revision": { "type": "integer", "minimum": 1 },
+    "learnedThroughDay": { "type": "integer", "minimum": 0 },
     "commonTaskOrder": { "type": "array", "items": { "enum": ["watering", "refilling", "harvesting", "depositing"] } },
     "preferredChestId": { "type": "string" },
     "energyReserve": { "type": "integer", "minimum": 0 },
@@ -24,6 +25,25 @@
           "evidenceEventIds": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
           "observationCount": { "type": "integer", "minimum": 1 },
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "traits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "value", "context", "confidence", "observationCount", "contradictionCount", "firstSeenDay", "lastSeenDay", "evidenceRefs"],
+        "properties": {
+          "key": { "enum": ["task_order", "preferred_chest", "energy_reserve", "route_style"] },
+          "value": { "type": "string", "minLength": 1 },
+          "context": { "enum": ["any", "sunny", "rainy", "storm", "snow"] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "observationCount": { "type": "integer", "minimum": 1 },
+          "contradictionCount": { "type": "integer", "minimum": 0 },
+          "firstSeenDay": { "type": "integer", "minimum": 0 },
+          "lastSeenDay": { "type": "integer", "minimum": 0 },
+          "evidenceRefs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }, "maxItems": 12 }
         }
       }
     }

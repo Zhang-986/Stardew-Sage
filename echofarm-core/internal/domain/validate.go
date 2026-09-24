@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 func (s WorldSnapshot) Validate() error {
@@ -26,6 +27,11 @@ func (s WorldSnapshot) Validate() error {
 	}
 	if !validWeather(s.Weather) {
 		return fmt.Errorf("unsupported weather %q", s.Weather)
+	}
+	for i, activity := range s.RecentPlayerActions {
+		if err := activity.Validate(); err != nil {
+			return fmt.Errorf("recent player action %d: %w", i, err)
+		}
 	}
 
 	ids := make(map[string]struct{}, len(s.Crops)+len(s.WaterSources)+len(s.Chests))
@@ -60,6 +66,12 @@ func (d Demonstration) Validate() error {
 	if d.EndedAt < d.StartedAt {
 		return errors.New("demonstration ended_at precedes started_at")
 	}
+	if d.Day < 0 {
+		return errors.New("demonstration day cannot be negative")
+	}
+	if d.Weather != "" && !validWeather(d.Weather) {
+		return fmt.Errorf("unsupported demonstration weather %q", d.Weather)
+	}
 	seen := make(map[string]struct{}, len(d.Events))
 	for _, event := range d.Events {
 		if event.ID == "" {
@@ -86,6 +98,9 @@ func (m PlayerModel) Validate() error {
 	if m.EnergyReserve < 0 {
 		return errors.New("energy_reserve cannot be negative")
 	}
+	if m.LearnedThroughDay < 0 {
+		return errors.New("learned_through_day cannot be negative")
+	}
 	for i, preference := range m.Preferences {
 		if preference.Key == "" || preference.Value == "" {
 			return fmt.Errorf("preference %d requires key and value", i)
@@ -96,6 +111,69 @@ func (m PlayerModel) Validate() error {
 		if preference.ObservationCount <= 0 || len(preference.EvidenceEventIDs) == 0 {
 			return fmt.Errorf("preference %d requires observations and evidence", i)
 		}
+	}
+	for i, trait := range m.Traits {
+		if err := trait.Validate(); err != nil {
+			return fmt.Errorf("trait %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func (o TraitObservation) Validate(evidence map[string]struct{}) error {
+	if !validPreferenceKey(o.Key) {
+		return fmt.Errorf("unsupported trait key %q", o.Key)
+	}
+	if o.Value == "" {
+		return errors.New("trait value is required")
+	}
+	if !validTraitContext(o.Context) {
+		return fmt.Errorf("unsupported trait context %q", o.Context)
+	}
+	if math.IsNaN(o.Strength) || math.IsInf(o.Strength, 0) || o.Strength < 0 || o.Strength > 1 {
+		return errors.New("trait strength must be between zero and one")
+	}
+	if len(o.SupportingEventIDs) == 0 {
+		return errors.New("trait evidence is required")
+	}
+	for _, id := range o.SupportingEventIDs {
+		if _, ok := evidence[id]; !ok {
+			return fmt.Errorf("trait evidence %q is not in the demonstration", id)
+		}
+	}
+	return nil
+}
+
+func (m TraitMemory) Validate() error {
+	if !validPreferenceKey(m.Key) || m.Value == "" {
+		return errors.New("trait key and value are required")
+	}
+	if !validTraitContext(m.Context) {
+		return fmt.Errorf("unsupported trait context %q", m.Context)
+	}
+	if math.IsNaN(m.Confidence) || math.IsInf(m.Confidence, 0) || m.Confidence < 0 || m.Confidence > 1 {
+		return errors.New("trait confidence must be between zero and one")
+	}
+	if m.ObservationCount <= 0 || len(m.EvidenceRefs) == 0 {
+		return errors.New("trait observations and evidence are required")
+	}
+	if m.ContradictionCount < 0 || m.FirstSeenDay < 0 || m.LastSeenDay < m.FirstSeenDay {
+		return errors.New("trait history is invalid")
+	}
+	return nil
+}
+
+func (a PlayerActivity) Validate() error {
+	switch a.Kind {
+	case EventWater, EventRefill, EventHarvest, EventDeposit:
+	default:
+		return fmt.Errorf("unsupported player activity kind %q", a.Kind)
+	}
+	if a.TargetID == "" {
+		return errors.New("player activity target is required")
+	}
+	if a.Tick < 0 {
+		return errors.New("player activity tick cannot be negative")
 	}
 	return nil
 }
@@ -150,6 +228,24 @@ func validWeather(weather Weather) bool {
 func validEventKind(kind EventKind) bool {
 	switch kind {
 	case EventMove, EventEquipTool, EventWater, EventRefill, EventHarvest, EventDeposit:
+		return true
+	default:
+		return false
+	}
+}
+
+func validPreferenceKey(key PreferenceKey) bool {
+	switch key {
+	case PreferenceTaskOrder, PreferencePreferredChest, PreferenceEnergyReserve, PreferenceRouteStyle:
+		return true
+	default:
+		return false
+	}
+}
+
+func validTraitContext(context TraitContext) bool {
+	switch context {
+	case TraitContextAny, TraitContextSunny, TraitContextRainy, TraitContextStorm, TraitContextSnow:
 		return true
 	default:
 		return false

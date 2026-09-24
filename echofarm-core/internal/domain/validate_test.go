@@ -1,9 +1,94 @@
 package domain
 
 import (
+	"math"
 	"strings"
 	"testing"
 )
+
+func TestDemonstrationValidateLearningContext(t *testing.T) {
+	valid := Demonstration{
+		ID: "demo-day-1", SaveID: "farm-1", SessionID: "teaching-1",
+		Day: 1, Weather: WeatherSunny, StartedAt: 10, EndedAt: 20,
+		Events: []DemonstrationEvent{{
+			ID: "water-1", Kind: EventWater, Tick: 12,
+			Position: Position{X: 4, Y: 5}, TargetID: "crop-1", Success: true,
+		}},
+	}
+
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	invalidDay := valid
+	invalidDay.Day = -1
+	if err := invalidDay.Validate(); err == nil || !strings.Contains(err.Error(), "day") {
+		t.Fatalf("Validate() error = %v, want day error", err)
+	}
+
+	invalidWeather := valid
+	invalidWeather.Weather = "fog"
+	if err := invalidWeather.Validate(); err == nil || !strings.Contains(err.Error(), "weather") {
+		t.Fatalf("Validate() error = %v, want weather error", err)
+	}
+}
+
+func TestTraitObservationValidate(t *testing.T) {
+	evidence := map[string]struct{}{"water-1": {}}
+	valid := TraitObservation{
+		Key: PreferenceTaskOrder, Value: "watering,harvesting",
+		Context: TraitContextSunny, SupportingEventIDs: []string{"water-1"}, Strength: 0.7,
+	}
+	if err := valid.Validate(evidence); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		mutate  func(*TraitObservation)
+		wantErr string
+	}{
+		{name: "unknown key", mutate: func(o *TraitObservation) { o.Key = "favorite_hat" }, wantErr: "key"},
+		{name: "unknown context", mutate: func(o *TraitObservation) { o.Context = "festival" }, wantErr: "context"},
+		{name: "strength above one", mutate: func(o *TraitObservation) { o.Strength = 1.1 }, wantErr: "strength"},
+		{name: "nan strength", mutate: func(o *TraitObservation) { o.Strength = math.NaN() }, wantErr: "strength"},
+		{name: "forged evidence", mutate: func(o *TraitObservation) { o.SupportingEventIDs = []string{"made-up"} }, wantErr: "evidence"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			observation := valid
+			tt.mutate(&observation)
+			if err := observation.Validate(evidence); err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("Validate() error = %v, want substring %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPlayerActivityValidate(t *testing.T) {
+	valid := PlayerActivity{Kind: EventWater, TargetID: "crop-1", Tick: 120, Success: true}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	invalidTarget := valid
+	invalidTarget.TargetID = ""
+	if err := invalidTarget.Validate(); err == nil || !strings.Contains(err.Error(), "target") {
+		t.Fatalf("Validate() error = %v, want target error", err)
+	}
+
+	invalidTick := valid
+	invalidTick.Tick = -1
+	if err := invalidTick.Validate(); err == nil || !strings.Contains(err.Error(), "tick") {
+		t.Fatalf("Validate() error = %v, want tick error", err)
+	}
+
+	unsupported := valid
+	unsupported.Kind = EventMove
+	if err := unsupported.Validate(); err == nil || !strings.Contains(err.Error(), "kind") {
+		t.Fatalf("Validate() error = %v, want kind error", err)
+	}
+}
 
 func TestWorldSnapshotValidate(t *testing.T) {
 	valid := WorldSnapshot{

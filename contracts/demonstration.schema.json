@@ -9,6 +9,8 @@
     "id": { "type": "string", "minLength": 1 },
     "saveId": { "type": "string", "minLength": 1 },
     "sessionId": { "type": "string", "minLength": 1 },
+    "day": { "type": "integer", "minimum": 1 },
+    "weather": { "enum": ["sunny", "rainy", "storm", "snow"] },
     "startedAt": { "type": "integer", "minimum": 0 },
     "endedAt": { "type": "integer", "minimum": 0 },
     "events": {
