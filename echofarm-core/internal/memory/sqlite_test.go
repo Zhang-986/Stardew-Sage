@@ -104,6 +104,42 @@ func TestSQLiteRejectsMismatchedSaveIDsAtomically(t *testing.T) {
 	}
 }
 
+func TestSQLitePersistsLearningOutcomeAcrossReopen(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "echo.db")
+	store, err := OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	demo, model, skill := learningArtifacts("farm-a", 2)
+	outcome := domain.LearningOutcome{
+		Demonstration: demo, PlayerModel: model, Skill: skill,
+		Change: domain.LearningChange{
+			ModelRevision: 2, Kind: domain.LearningChangeStrengthened,
+			Key: domain.PreferenceTaskOrder, Value: "watering", Confidence: 0.8, Summary: "strengthened task order",
+		},
+	}
+	if err := store.SaveLearningOutcome(ctx, outcome); err != nil {
+		t.Fatalf("SaveLearningOutcome() error = %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err = OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	got, err := store.GetLearningOutcome(ctx, demo.SaveID, demo.ID)
+	if err != nil {
+		t.Fatalf("GetLearningOutcome() error = %v", err)
+	}
+	if !reflect.DeepEqual(got, outcome) {
+		t.Fatalf("GetLearningOutcome() = %+v, want %+v", got, outcome)
+	}
+}
+
 func learningArtifacts(saveID string, revision int) (domain.Demonstration, domain.PlayerModel, domain.SkillProgram) {
 	eventID := saveID + "-water"
 	demo := domain.Demonstration{

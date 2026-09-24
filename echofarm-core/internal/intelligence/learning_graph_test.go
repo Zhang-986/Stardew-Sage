@@ -9,7 +9,7 @@ import (
 )
 
 type stubGenerator struct {
-	result LearningResult
+	result LearningInference
 	err    error
 	calls  int
 }
@@ -23,7 +23,7 @@ func (s *stubGenerator) GenerateJSON(_ context.Context, _ string, input any, out
 	if !ok || request.Demonstration.ID == "" {
 		return errors.New("missing learning input")
 	}
-	target, ok := output.(*LearningResult)
+	target, ok := output.(*LearningInference)
 	if !ok {
 		return errors.New("unexpected output type")
 	}
@@ -31,8 +31,8 @@ func (s *stubGenerator) GenerateJSON(_ context.Context, _ string, input any, out
 	return nil
 }
 
-func TestLearningGraphReturnsValidatedEvidenceBackedResult(t *testing.T) {
-	generator := &stubGenerator{result: validLearningResult()}
+func TestLearningGraphReturnsValidatedEvidenceBackedInference(t *testing.T) {
+	generator := &stubGenerator{result: validLearningInference()}
 	graph, err := NewLearningGraph(generator)
 	if err != nil {
 		t.Fatalf("NewLearningGraph() error = %v", err)
@@ -45,8 +45,8 @@ func TestLearningGraphReturnsValidatedEvidenceBackedResult(t *testing.T) {
 	if generator.calls != 1 {
 		t.Fatalf("generator calls = %d, want 1", generator.calls)
 	}
-	if got.PlayerModel.Preferences[0].EvidenceEventIDs[0] != "water-1" {
-		t.Fatalf("evidence was not preserved: %+v", got.PlayerModel.Preferences[0])
+	if got.Observations[0].SupportingEventIDs[0] != "water-1" {
+		t.Fatalf("evidence was not preserved: %+v", got.Observations[0])
 	}
 	if got.Skill.Name != "morning-farm-routine" {
 		t.Fatalf("skill name = %q", got.Skill.Name)
@@ -54,8 +54,8 @@ func TestLearningGraphReturnsValidatedEvidenceBackedResult(t *testing.T) {
 }
 
 func TestLearningGraphRejectsUnknownEvidence(t *testing.T) {
-	result := validLearningResult()
-	result.PlayerModel.Preferences[0].EvidenceEventIDs = []string{"invented-event"}
+	result := validLearningInference()
+	result.Observations[0].SupportingEventIDs = []string{"invented-event"}
 	graph, err := NewLearningGraph(&stubGenerator{result: result})
 	if err != nil {
 		t.Fatalf("NewLearningGraph() error = %v", err)
@@ -68,7 +68,7 @@ func TestLearningGraphRejectsUnknownEvidence(t *testing.T) {
 }
 
 func TestLearningGraphRejectsUnsupportedSkillAction(t *testing.T) {
-	result := validLearningResult()
+	result := validLearningInference()
 	result.Skill.Steps[0].Action = "teleport"
 	graph, err := NewLearningGraph(&stubGenerator{result: result})
 	if err != nil {
@@ -78,6 +78,40 @@ func TestLearningGraphRejectsUnsupportedSkillAction(t *testing.T) {
 	_, err = graph.Learn(context.Background(), learningInput())
 	if !errors.Is(err, ErrInvalidModelOutput) {
 		t.Fatalf("Learn() error = %v, want ErrInvalidModelOutput", err)
+	}
+}
+
+func TestLearningGraphRejectsUnsupportedTraitKey(t *testing.T) {
+	result := validLearningInference()
+	result.Observations[0].Key = "favorite_hat"
+	graph, err := NewLearningGraph(&stubGenerator{result: result})
+	if err != nil {
+		t.Fatalf("NewLearningGraph() error = %v", err)
+	}
+
+	_, err = graph.Learn(context.Background(), learningInput())
+	if !errors.Is(err, ErrInvalidModelOutput) {
+		t.Fatalf("Learn() error = %v, want ErrInvalidModelOutput", err)
+	}
+}
+
+func TestLearningGraphAcceptsWeatherScopedTrait(t *testing.T) {
+	input := learningInput()
+	input.Demonstration.Day = 3
+	input.Demonstration.Weather = domain.WeatherRainy
+	result := validLearningInference()
+	result.Observations[0].Context = domain.TraitContextRainy
+	graph, err := NewLearningGraph(&stubGenerator{result: result})
+	if err != nil {
+		t.Fatalf("NewLearningGraph() error = %v", err)
+	}
+
+	got, err := graph.Learn(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Learn() error = %v", err)
+	}
+	if got.Observations[0].Context != domain.TraitContextRainy {
+		t.Fatalf("context = %q", got.Observations[0].Context)
 	}
 }
 
@@ -110,17 +144,12 @@ func learningInput() LearningInput {
 	}
 }
 
-func validLearningResult() LearningResult {
-	return LearningResult{
-		PlayerModel: domain.PlayerModel{
-			SaveID: "farm-1", Revision: 1, EnergyReserve: 40,
-			CommonTaskOrder:  []domain.BehaviorKind{domain.BehaviorWatering, domain.BehaviorDepositing},
-			PreferredChestID: "chest-1",
-			Preferences: []domain.ObservedPreference{{
-				Key: domain.PreferenceTaskOrder, Value: "water_before_deposit",
-				EvidenceEventIDs: []string{"water-1", "deposit-1"}, ObservationCount: 1, Confidence: 0.7,
-			}},
-		},
+func validLearningInference() LearningInference {
+	return LearningInference{
+		Observations: []domain.TraitObservation{{
+			Key: domain.PreferenceTaskOrder, Value: "watering,depositing", Context: domain.TraitContextAny,
+			SupportingEventIDs: []string{"water-1", "deposit-1"}, Strength: 0.7,
+		}},
 		Skill: domain.SkillProgram{
 			Name: "morning-farm-routine", Revision: 1, Goal: "care for all crops",
 			TargetSelector: "current_actionable_crops",

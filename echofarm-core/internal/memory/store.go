@@ -15,3 +15,9 @@ type Store interface {
 	GetPlayerModel(ctx context.Context, saveID string) (domain.PlayerModel, error)
 	GetSkill(ctx context.Context, saveID, skillName string) (domain.SkillProgram, error)
 }
+
+type LearningStore interface {
+	Store
+	SaveLearningOutcome(ctx context.Context, outcome domain.LearningOutcome) error
+	GetLearningOutcome(ctx context.Context, saveID, demonstrationID string) (domain.LearningOutcome, error)
+}

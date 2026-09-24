@@ -9,7 +9,7 @@ import (
 )
 
 type LearningGraph struct {
-	runnable compose.Runnable[LearningInput, LearningResult]
+	runnable compose.Runnable[LearningInput, LearningInference]
 }
 
 func NewLearningGraph(generator StructuredGenerator) (*LearningGraph, error) {
@@ -17,17 +17,17 @@ func NewLearningGraph(generator StructuredGenerator) (*LearningGraph, error) {
 		return nil, errors.New("structured generator is required")
 	}
 
-	chain := compose.NewChain[LearningInput, LearningResult]()
-	chain.AppendLambda(compose.InvokableLambda(func(ctx context.Context, input LearningInput) (LearningResult, error) {
-		var result LearningResult
+	chain := compose.NewChain[LearningInput, LearningInference]()
+	chain.AppendLambda(compose.InvokableLambda(func(ctx context.Context, input LearningInput) (LearningInference, error) {
+		var result LearningInference
 		if err := generator.GenerateJSON(ctx, learningSystemPrompt, input, &result); err != nil {
 			if errors.Is(err, ErrModelUnavailable) {
-				return LearningResult{}, err
+				return LearningInference{}, err
 			}
-			return LearningResult{}, fmt.Errorf("%w: %v", ErrInvalidModelOutput, err)
+			return LearningInference{}, fmt.Errorf("%w: %v", ErrInvalidModelOutput, err)
 		}
-		if err := validateLearningResult(input, result); err != nil {
-			return LearningResult{}, fmt.Errorf("%w: %v", ErrInvalidModelOutput, err)
+		if err := validateLearningInference(input, result); err != nil {
+			return LearningInference{}, fmt.Errorf("%w: %v", ErrInvalidModelOutput, err)
 		}
 		return result, nil
 	}))
@@ -39,16 +39,13 @@ func NewLearningGraph(generator StructuredGenerator) (*LearningGraph, error) {
 	return &LearningGraph{runnable: runnable}, nil
 }
 
-func (g *LearningGraph) Learn(ctx context.Context, input LearningInput) (LearningResult, error) {
+func (g *LearningGraph) Learn(ctx context.Context, input LearningInput) (LearningInference, error) {
 	return g.runnable.Invoke(ctx, input)
 }
 
-func validateLearningResult(input LearningInput, result LearningResult) error {
-	if err := result.PlayerModel.Validate(); err != nil {
-		return fmt.Errorf("player model: %w", err)
-	}
-	if result.PlayerModel.SaveID != input.Demonstration.SaveID {
-		return errors.New("player model save_id does not match demonstration")
+func validateLearningInference(input LearningInput, result LearningInference) error {
+	if len(result.Observations) == 0 {
+		return errors.New("trait observations are required")
 	}
 	if err := result.Skill.Validate(); err != nil {
 		return fmt.Errorf("skill: %w", err)
@@ -57,6 +54,11 @@ func validateLearningResult(input LearningInput, result LearningResult) error {
 	evidence := make(map[string]struct{}, len(input.Demonstration.Events))
 	for _, event := range input.Demonstration.Events {
 		evidence[event.ID] = struct{}{}
+	}
+	for i, observation := range result.Observations {
+		if err := observation.Validate(evidence); err != nil {
+			return fmt.Errorf("trait observation %d: %w", i, err)
+		}
 	}
 	checkEvidence := func(owner string, ids []string) error {
 		if len(ids) == 0 {
@@ -68,11 +70,6 @@ func validateLearningResult(input LearningInput, result LearningResult) error {
 			}
 		}
 		return nil
-	}
-	for i, preference := range result.PlayerModel.Preferences {
-		if err := checkEvidence(fmt.Sprintf("preference %d", i), preference.EvidenceEventIDs); err != nil {
-			return err
-		}
 	}
 	return checkEvidence("skill", result.Skill.EvidenceEventIDs)
 }

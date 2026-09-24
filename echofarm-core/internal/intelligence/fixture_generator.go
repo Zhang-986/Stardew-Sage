@@ -19,12 +19,12 @@ func NewFixtureGenerator() *FixtureGenerator {
 
 func (g *FixtureGenerator) GenerateJSON(_ context.Context, _ string, input any, output any) error {
 	switch target := output.(type) {
-	case *LearningResult:
+	case *LearningInference:
 		learningInput, ok := input.(LearningInput)
 		if !ok {
 			return errors.New("fixture learning generator received unexpected input")
 		}
-		*target = fixtureLearningResult(learningInput)
+		*target = fixtureLearningInference(learningInput)
 		return nil
 	case *domain.HighLevelAction:
 		switch actionInput := input.(type) {
@@ -42,7 +42,7 @@ func (g *FixtureGenerator) GenerateJSON(_ context.Context, _ string, input any, 
 	}
 }
 
-func fixtureLearningResult(input LearningInput) LearningResult {
+func fixtureLearningInference(input LearningInput) LearningInference {
 	revision := 1
 	if input.ExistingModel != nil {
 		revision = input.ExistingModel.Revision + 1
@@ -72,23 +72,24 @@ func fixtureLearningResult(input LearningInput) LearningResult {
 		steps = []domain.SkillStep{{Action: domain.ActionStopSession}}
 	}
 
-	preferences := []domain.ObservedPreference{{
-		Key: domain.PreferenceTaskOrder, Value: behaviorOrderValue(order),
-		EvidenceEventIDs: evidence, ObservationCount: 1, Confidence: 0.65,
+	context := traitContext(input.Demonstration.Weather)
+	observations := []domain.TraitObservation{{
+		Key: domain.PreferenceTaskOrder, Value: behaviorOrderValue(order), Context: context,
+		SupportingEventIDs: evidence, Strength: 0.7,
 	}}
 	if preferredChest != "" {
-		preferences = append(preferences, domain.ObservedPreference{
-			Key: domain.PreferencePreferredChest, Value: preferredChest,
-			EvidenceEventIDs: depositEvidence(input.Demonstration.Events), ObservationCount: 1, Confidence: 0.8,
+		observations = append(observations, domain.TraitObservation{
+			Key: domain.PreferencePreferredChest, Value: preferredChest, Context: domain.TraitContextAny,
+			SupportingEventIDs: depositEvidence(input.Demonstration.Events), Strength: 0.8,
 		})
 	}
+	observations = append(observations, domain.TraitObservation{
+		Key: domain.PreferenceRouteStyle, Value: "demonstrated_order", Context: domain.TraitContextAny,
+		SupportingEventIDs: evidence, Strength: 0.6,
+	})
 
-	return LearningResult{
-		PlayerModel: domain.PlayerModel{
-			SaveID: input.Demonstration.SaveID, Revision: revision, CommonTaskOrder: order,
-			PreferredChestID: preferredChest, EnergyReserve: 40, RouteStyle: "demonstrated_order",
-			Preferences: preferences,
-		},
+	return LearningInference{
+		Observations: observations,
 		Skill: domain.SkillProgram{
 			Name: "morning-farm-routine", Revision: revision,
 			Goal:          "care for all currently actionable farm crops",
@@ -104,6 +105,21 @@ func fixtureLearningResult(input LearningInput) LearningResult {
 			},
 			EvidenceEventIDs: evidence,
 		},
+	}
+}
+
+func traitContext(weather domain.Weather) domain.TraitContext {
+	switch weather {
+	case domain.WeatherSunny:
+		return domain.TraitContextSunny
+	case domain.WeatherRainy:
+		return domain.TraitContextRainy
+	case domain.WeatherStorm:
+		return domain.TraitContextStorm
+	case domain.WeatherSnow:
+		return domain.TraitContextSnow
+	default:
+		return domain.TraitContextAny
 	}
 }
 

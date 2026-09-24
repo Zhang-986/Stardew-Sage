@@ -18,9 +18,9 @@ type LearningInput struct {
 	ExistingModel *domain.PlayerModel      `json:"existingPlayerModel,omitempty"`
 }
 
-type LearningResult struct {
-	PlayerModel domain.PlayerModel  `json:"playerModel"`
-	Skill       domain.SkillProgram `json:"skill"`
+type LearningInference struct {
+	Observations []domain.TraitObservation `json:"observations"`
+	Skill        domain.SkillProgram       `json:"skill"`
 }
 
 type ActionInput struct {
@@ -35,7 +35,7 @@ type ReplanInput struct {
 }
 
 type Intelligence interface {
-	Learn(ctx context.Context, input LearningInput) (LearningResult, error)
+	Learn(ctx context.Context, input LearningInput) (LearningInference, error)
 	ChooseAction(ctx context.Context, input ActionInput) (domain.HighLevelAction, error)
 	Replan(ctx context.Context, input ReplanInput) (domain.HighLevelAction, error)
 }

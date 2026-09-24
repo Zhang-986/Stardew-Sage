@@ -10,13 +10,13 @@ import (
 func TestFixtureGeneratorBuildsEvidenceBackedLearningResult(t *testing.T) {
 	generator := NewFixtureGenerator()
 	input := learningInput()
-	var output LearningResult
+	var output LearningInference
 
 	if err := generator.GenerateJSON(context.Background(), learningSystemPrompt, input, &output); err != nil {
 		t.Fatalf("GenerateJSON() error = %v", err)
 	}
-	if output.PlayerModel.SaveID != input.Demonstration.SaveID || output.PlayerModel.Revision != 1 {
-		t.Fatalf("player model = %+v", output.PlayerModel)
+	if len(output.Observations) == 0 || output.Observations[0].Key != domain.PreferenceTaskOrder {
+		t.Fatalf("observations = %+v", output.Observations)
 	}
 	if len(output.Skill.EvidenceEventIDs) != len(input.Demonstration.Events) {
 		t.Fatalf("skill evidence = %v", output.Skill.EvidenceEventIDs)
@@ -25,7 +25,7 @@ func TestFixtureGeneratorBuildsEvidenceBackedLearningResult(t *testing.T) {
 
 func TestFixtureLearningResultIncludesInventoryRecoveryStrategies(t *testing.T) {
 	generator := NewFixtureGenerator()
-	var output LearningResult
+	var output LearningInference
 
 	if err := generator.GenerateJSON(context.Background(), learningSystemPrompt, learningInput(), &output); err != nil {
 		t.Fatalf("GenerateJSON() error = %v", err)

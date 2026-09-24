@@ -201,6 +201,13 @@ type LearningChange struct {
 	Summary            string             `json:"summary"`
 }
 
+type LearningOutcome struct {
+	Demonstration Demonstration  `json:"demonstration,omitempty"`
+	PlayerModel   PlayerModel    `json:"playerModel"`
+	Skill         SkillProgram   `json:"skill"`
+	Change        LearningChange `json:"learningChange"`
+}
+
 type PlayerModel struct {
 	SaveID            string               `json:"saveId"`
 	Revision          int                  `json:"revision"`

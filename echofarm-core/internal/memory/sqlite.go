@@ -33,6 +33,14 @@ CREATE TABLE IF NOT EXISTS skills (
   payload_json BLOB NOT NULL,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (save_id, skill_name)
+);
+CREATE TABLE IF NOT EXISTS learning_revisions (
+  save_id TEXT NOT NULL,
+  demonstration_id TEXT NOT NULL,
+  model_revision INTEGER NOT NULL,
+  outcome_json BLOB NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, demonstration_id)
 );`
 
 type SQLite struct {
@@ -60,6 +68,20 @@ func (s *SQLite) Close() error {
 }
 
 func (s *SQLite) SaveLearning(ctx context.Context, demonstration domain.Demonstration, model domain.PlayerModel, skill domain.SkillProgram) error {
+	return s.SaveLearningOutcome(ctx, domain.LearningOutcome{
+		Demonstration: demonstration,
+		PlayerModel:   model,
+		Skill:         skill,
+		Change: domain.LearningChange{
+			ModelRevision: model.Revision,
+			Kind:          domain.LearningChangeUnchanged,
+			Summary:       "legacy learning commit",
+		},
+	})
+}
+
+func (s *SQLite) SaveLearningOutcome(ctx context.Context, outcome domain.LearningOutcome) error {
+	demonstration, model, skill := outcome.Demonstration, outcome.PlayerModel, outcome.Skill
 	if err := demonstration.Validate(); err != nil {
 		return fmt.Errorf("demonstration: %w", err)
 	}
@@ -71,6 +93,9 @@ func (s *SQLite) SaveLearning(ctx context.Context, demonstration domain.Demonstr
 	}
 	if demonstration.SaveID != model.SaveID {
 		return errors.New("demonstration and player model save IDs do not match")
+	}
+	if outcome.Change.ModelRevision != model.Revision {
+		return errors.New("learning change revision does not match player model")
 	}
 
 	demoJSON, err := json.Marshal(demonstration)
@@ -85,12 +110,24 @@ func (s *SQLite) SaveLearning(ctx context.Context, demonstration domain.Demonstr
 	if err != nil {
 		return fmt.Errorf("marshal skill: %w", err)
 	}
+	outcomeJSON, err := json.Marshal(outcome)
+	if err != nil {
+		return fmt.Errorf("marshal learning outcome: %w", err)
+	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin learning transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+	var alreadyStored int
+	err = tx.QueryRowContext(ctx, `SELECT 1 FROM learning_revisions WHERE save_id=? AND demonstration_id=?`, demonstration.SaveID, demonstration.ID).Scan(&alreadyStored)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("check learning revision: %w", err)
+	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO demonstrations(save_id, demonstration_id, payload_json, created_at)
@@ -117,10 +154,22 @@ WHERE excluded.revision > skills.revision`,
 		demonstration.SaveID, skill.Name, skill.Revision, skillJSON, now); err != nil {
 		return fmt.Errorf("save skill: %w", err)
 	}
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO learning_revisions(save_id, demonstration_id, model_revision, outcome_json, created_at)
+VALUES (?, ?, ?, ?, ?)`, demonstration.SaveID, demonstration.ID, model.Revision, outcomeJSON, now); err != nil {
+		return fmt.Errorf("save learning revision: %w", err)
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit learning transaction: %w", err)
 	}
 	return nil
+}
+
+func (s *SQLite) GetLearningOutcome(ctx context.Context, saveID, demonstrationID string) (domain.LearningOutcome, error) {
+	var value domain.LearningOutcome
+	err := scanJSON(s.db.QueryRowContext(ctx,
+		`SELECT outcome_json FROM learning_revisions WHERE save_id=? AND demonstration_id=?`, saveID, demonstrationID), &value)
+	return value, err
 }
 
 func (s *SQLite) GetDemonstration(ctx context.Context, saveID, demonstrationID string) (domain.Demonstration, error) {
