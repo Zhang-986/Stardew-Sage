@@ -352,6 +352,12 @@ func (e PolicyExperience) Validate() error {
 	if math.IsNaN(e.Confidence) || math.IsInf(e.Confidence, 0) || e.Confidence < 0 || e.Confidence > 1 {
 		return errors.New("experience confidence must be between zero and one")
 	}
+	if math.IsNaN(e.EffectiveConfidence) || math.IsInf(e.EffectiveConfidence, 0) || e.EffectiveConfidence < 0 || e.EffectiveConfidence > 1 {
+		return errors.New("experience effective confidence must be between zero and one")
+	}
+	if e.SuccessCount < 0 || e.FailureCount < 0 || e.NeutralCount < 0 {
+		return errors.New("experience feedback counts cannot be negative")
+	}
 	if e.ObservationCount <= 0 || e.ContradictionCount < 0 || e.FirstSeenDay <= 0 || e.LastSeenDay < e.FirstSeenDay || len(e.EvidenceRefs) == 0 {
 		return errors.New("experience history is invalid")
 	}

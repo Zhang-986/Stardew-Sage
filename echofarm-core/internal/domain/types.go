@@ -376,22 +376,26 @@ type ExperienceObservation struct {
 }
 
 type PolicyExperience struct {
-	ID                 string            `json:"id"`
-	SaveID             string            `json:"saveId"`
-	Trigger            ExperienceTrigger `json:"trigger"`
-	Context            TraitContext      `json:"context"`
-	WhenSignals        []SituationSignal `json:"whenSignals"`
-	AvoidAction        ActionKind        `json:"avoidAction,omitempty"`
-	PreferAction       ActionKind        `json:"preferAction"`
-	PreferredTargetID  string            `json:"preferredTargetId,omitempty"`
-	Summary            string            `json:"summary"`
-	Confidence         float64           `json:"confidence"`
-	ObservationCount   int               `json:"observationCount"`
-	ContradictionCount int               `json:"contradictionCount"`
-	FirstSeenDay       int               `json:"firstSeenDay"`
-	LastSeenDay        int               `json:"lastSeenDay"`
-	EvidenceRefs       []string          `json:"evidenceRefs"`
-	Source             ExperienceSource  `json:"source"`
+	ID                  string            `json:"id"`
+	SaveID              string            `json:"saveId"`
+	Trigger             ExperienceTrigger `json:"trigger"`
+	Context             TraitContext      `json:"context"`
+	WhenSignals         []SituationSignal `json:"whenSignals"`
+	AvoidAction         ActionKind        `json:"avoidAction,omitempty"`
+	PreferAction        ActionKind        `json:"preferAction"`
+	PreferredTargetID   string            `json:"preferredTargetId,omitempty"`
+	Summary             string            `json:"summary"`
+	Confidence          float64           `json:"confidence"`
+	EffectiveConfidence float64           `json:"effectiveConfidence,omitempty"`
+	SuccessCount        int               `json:"successCount,omitempty"`
+	FailureCount        int               `json:"failureCount,omitempty"`
+	NeutralCount        int               `json:"neutralCount,omitempty"`
+	ObservationCount    int               `json:"observationCount"`
+	ContradictionCount  int               `json:"contradictionCount"`
+	FirstSeenDay        int               `json:"firstSeenDay"`
+	LastSeenDay         int               `json:"lastSeenDay"`
+	EvidenceRefs        []string          `json:"evidenceRefs"`
+	Source              ExperienceSource  `json:"source"`
 }
 
 type PlayerCorrection struct {
