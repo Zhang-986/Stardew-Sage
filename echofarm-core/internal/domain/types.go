@@ -312,6 +312,107 @@ type ActionResult struct {
 	ErrorCode       string          `json:"errorCode,omitempty"`
 }
 
+type UncertaintyCode string
+
+const (
+	UncertaintyMissingExperience   UncertaintyCode = "missing_experience"
+	UncertaintyConflictingEvidence UncertaintyCode = "conflicting_evidence"
+	UncertaintyNovelContext        UncertaintyCode = "novel_context"
+	UncertaintyAmbiguousTarget     UncertaintyCode = "ambiguous_target"
+)
+
+type ActionProposal struct {
+	Primary              HighLevelAction   `json:"primary"`
+	Alternatives         []HighLevelAction `json:"alternatives,omitempty"`
+	ModelConfidence      float64           `json:"modelConfidence"`
+	UncertaintyCodes     []UncertaintyCode `json:"uncertaintyCodes,omitempty"`
+	AppliedExperienceIDs []string          `json:"appliedExperienceIds,omitempty"`
+}
+
+type ActionDecision struct {
+	Action               HighLevelAction   `json:"action"`
+	Confidence           float64           `json:"confidence"`
+	Alternatives         []HighLevelAction `json:"alternatives,omitempty"`
+	AppliedExperienceIDs []string          `json:"appliedExperienceIds,omitempty"`
+}
+
+type ExperienceTrigger string
+
+const (
+	ExperienceInventoryFull    ExperienceTrigger = "inventory_full"
+	ExperienceOutOfWater       ExperienceTrigger = "out_of_water"
+	ExperiencePathBlocked      ExperienceTrigger = "path_blocked"
+	ExperienceChestFull        ExperienceTrigger = "chest_full"
+	ExperiencePlayerCorrection ExperienceTrigger = "player_correction"
+)
+
+type SituationSignal string
+
+const (
+	SignalInventoryFull     SituationSignal = "inventory_full"
+	SignalInventoryHasItems SituationSignal = "inventory_has_items"
+	SignalCanEmpty          SituationSignal = "can_empty"
+	SignalRaining           SituationSignal = "raining"
+	SignalTargetBlocked     SituationSignal = "target_blocked"
+)
+
+type ExperienceSource string
+
+const (
+	ExperienceSourceFailure    ExperienceSource = "failure"
+	ExperienceSourceCorrection ExperienceSource = "correction"
+)
+
+type ExperienceObservation struct {
+	Trigger           ExperienceTrigger `json:"trigger"`
+	Context           TraitContext      `json:"context"`
+	WhenSignals       []SituationSignal `json:"whenSignals"`
+	AvoidAction       ActionKind        `json:"avoidAction,omitempty"`
+	PreferAction      ActionKind        `json:"preferAction"`
+	PreferredTargetID string            `json:"preferredTargetId,omitempty"`
+	Summary           string            `json:"summary"`
+	EvidenceRef       string            `json:"evidenceRef"`
+	Strength          float64           `json:"strength"`
+}
+
+type PolicyExperience struct {
+	ID                 string            `json:"id"`
+	SaveID             string            `json:"saveId"`
+	Trigger            ExperienceTrigger `json:"trigger"`
+	Context            TraitContext      `json:"context"`
+	WhenSignals        []SituationSignal `json:"whenSignals"`
+	AvoidAction        ActionKind        `json:"avoidAction,omitempty"`
+	PreferAction       ActionKind        `json:"preferAction"`
+	PreferredTargetID  string            `json:"preferredTargetId,omitempty"`
+	Summary            string            `json:"summary"`
+	Confidence         float64           `json:"confidence"`
+	ObservationCount   int               `json:"observationCount"`
+	ContradictionCount int               `json:"contradictionCount"`
+	FirstSeenDay       int               `json:"firstSeenDay"`
+	LastSeenDay        int               `json:"lastSeenDay"`
+	EvidenceRefs       []string          `json:"evidenceRefs"`
+	Source             ExperienceSource  `json:"source"`
+}
+
+type PlayerCorrection struct {
+	ID                              string          `json:"id"`
+	SaveID                          string          `json:"saveId"`
+	SessionID                       string          `json:"sessionId"`
+	RejectedDecisionSnapshotVersion int64           `json:"rejectedDecisionSnapshotVersion"`
+	RejectedAction                  HighLevelAction `json:"rejectedAction"`
+	Snapshot                        WorldSnapshot   `json:"snapshot"`
+	PreferredAction                 HighLevelAction `json:"preferredAction"`
+	ObservedAtTick                  int64           `json:"observedAtTick"`
+}
+
+type ExperienceOutcome struct {
+	SourceID    string                `json:"sourceId"`
+	Source      ExperienceSource      `json:"source"`
+	Observation ExperienceObservation `json:"observation"`
+	Experience  PolicyExperience      `json:"experience"`
+	Correction  *PlayerCorrection     `json:"correction,omitempty"`
+}
+
 type DecisionRecord struct {
 	SaveID               string          `json:"saveId"`
 	SessionID            string          `json:"sessionId"`
@@ -322,6 +423,9 @@ type DecisionRecord struct {
 	PlayerClaimedTargets []string        `json:"playerClaimedTargets,omitempty"`
 	CandidateAction      HighLevelAction `json:"candidateAction"`
 	FinalAction          HighLevelAction `json:"finalAction"`
+	Proposal             *ActionProposal `json:"proposal,omitempty"`
+	PolicyConfidence     float64         `json:"policyConfidence,omitempty"`
+	SelectedCandidate    int             `json:"selectedCandidate,omitempty"`
 	Result               *ActionResult   `json:"result,omitempty"`
 }
 
@@ -339,4 +443,5 @@ type EchoMemoryView struct {
 	RecentLearningChange *LearningChange    `json:"recentLearningChange,omitempty"`
 	ActiveSession        *EchoSessionMemory `json:"activeSession,omitempty"`
 	LastDecision         *DecisionRecord    `json:"lastDecision,omitempty"`
+	Experiences          []PolicyExperience `json:"experiences,omitempty"`
 }

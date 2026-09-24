@@ -245,3 +245,95 @@ func TestActionResultRejectsUnknownStatusAndMismatchedAction(t *testing.T) {
 		t.Fatalf("Validate() error = %v, want identity error", err)
 	}
 }
+
+func TestActionProposalValidatesConfidenceCandidatesAndEvidence(t *testing.T) {
+	snapshot := validReflectiveSnapshot()
+	primary := reflectiveAction(snapshot, ActionHarvestTarget, "crop-1")
+	alternative := reflectiveAction(snapshot, ActionDepositItems, "chest-1")
+	valid := ActionProposal{
+		Primary: primary, Alternatives: []HighLevelAction{alternative}, ModelConfidence: 0.8,
+		UncertaintyCodes: []UncertaintyCode{UncertaintyNovelContext}, AppliedExperienceIDs: []string{"exp-1"},
+	}
+	available := map[string]struct{}{"exp-1": {}}
+	if err := valid.Validate(snapshot, available); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		mutate  func(*ActionProposal)
+		wantErr string
+	}{
+		{name: "confidence", mutate: func(p *ActionProposal) { p.ModelConfidence = 1.1 }, wantErr: "confidence"},
+		{name: "too many alternatives", mutate: func(p *ActionProposal) { p.Alternatives = []HighLevelAction{alternative, primary, alternative} }, wantErr: "two alternatives"},
+		{name: "duplicate candidate", mutate: func(p *ActionProposal) { p.Alternatives = []HighLevelAction{primary} }, wantErr: "duplicate"},
+		{name: "unknown uncertainty", mutate: func(p *ActionProposal) { p.UncertaintyCodes = []UncertaintyCode{"guessing"} }, wantErr: "uncertainty"},
+		{name: "forged experience", mutate: func(p *ActionProposal) { p.AppliedExperienceIDs = []string{"exp-made-up"} }, wantErr: "experience"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proposal := valid
+			proposal.Alternatives = append([]HighLevelAction(nil), valid.Alternatives...)
+			proposal.UncertaintyCodes = append([]UncertaintyCode(nil), valid.UncertaintyCodes...)
+			proposal.AppliedExperienceIDs = append([]string(nil), valid.AppliedExperienceIDs...)
+			tt.mutate(&proposal)
+			if err := proposal.Validate(snapshot, available); err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("Validate() error = %v, want substring %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestExperienceObservationRejectsUnsupportedSignal(t *testing.T) {
+	observation := ExperienceObservation{
+		Trigger: ExperienceInventoryFull, Context: TraitContextSunny,
+		WhenSignals: []SituationSignal{"inventory_almost_full"},
+		AvoidAction: ActionHarvestTarget, PreferAction: ActionDepositItems,
+		PreferredTargetID: "chest-1", Summary: "deposit before harvesting",
+		EvidenceRef: "decision:day-2:7", Strength: 0.7,
+	}
+	if err := observation.Validate(
+		map[string]struct{}{"decision:day-2:7": {}},
+		map[string]struct{}{"chest-1": {}},
+	); err == nil || !strings.Contains(err.Error(), "signal") {
+		t.Fatalf("Validate() error = %v, want signal error", err)
+	}
+}
+
+func TestPlayerCorrectionRequiresCorrelatedActions(t *testing.T) {
+	snapshot := validReflectiveSnapshot()
+	rejected := reflectiveAction(snapshot, ActionHarvestTarget, "crop-1")
+	preferred := reflectiveAction(snapshot, ActionDepositItems, "chest-1")
+	valid := PlayerCorrection{
+		ID: "correction-1", SaveID: snapshot.SaveID, SessionID: snapshot.SessionID,
+		RejectedDecisionSnapshotVersion: snapshot.SnapshotVersion,
+		RejectedAction:                  rejected, Snapshot: snapshot, PreferredAction: preferred, ObservedAtTick: 200,
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	invalid := valid
+	invalid.PreferredAction.SessionID = "another-session"
+	if err := invalid.Validate(); err == nil || !strings.Contains(err.Error(), "identity") {
+		t.Fatalf("Validate() error = %v, want identity error", err)
+	}
+}
+
+func validReflectiveSnapshot() WorldSnapshot {
+	return WorldSnapshot{
+		SaveID: "farm-1", SessionID: "echo-day-2", SnapshotVersion: 7,
+		Day: 2, TimeOfDay: 700, Weather: WeatherSunny, Location: "Farm",
+		Energy: 200, MaxEnergy: 270,
+		Inventory:   InventorySummary{FreeSlots: 0, Items: []InventoryItem{{ItemID: "parsnip", Name: "Parsnip", Quantity: 1}}},
+		WateringCan: ToolState{Name: "Watering Can", Water: 10, Capacity: 40},
+		Crops:       []Crop{{ID: "crop-1", Mature: true}}, Chests: []Chest{{ID: "chest-1"}},
+	}
+}
+
+func reflectiveAction(snapshot WorldSnapshot, kind ActionKind, targetID string) HighLevelAction {
+	return HighLevelAction{
+		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+		Kind: kind, TargetID: targetID, Reason: "reflective policy",
+	}
+}

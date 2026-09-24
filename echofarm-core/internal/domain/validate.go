@@ -236,6 +236,202 @@ func (r ActionResult) Validate() error {
 	return nil
 }
 
+func (p ActionProposal) Validate(snapshot WorldSnapshot, availableExperienceIDs map[string]struct{}) error {
+	if math.IsNaN(p.ModelConfidence) || math.IsInf(p.ModelConfidence, 0) || p.ModelConfidence < 0 || p.ModelConfidence > 1 {
+		return errors.New("model confidence must be between zero and one")
+	}
+	if len(p.Alternatives) > 2 {
+		return errors.New("action proposal allows at most two alternatives")
+	}
+	candidates := append([]HighLevelAction{p.Primary}, p.Alternatives...)
+	seenCandidates := make(map[string]struct{}, len(candidates))
+	for i, candidate := range candidates {
+		if err := candidate.Validate(); err != nil {
+			return fmt.Errorf("candidate %d: %w", i, err)
+		}
+		if candidate.SaveID != snapshot.SaveID || candidate.SessionID != snapshot.SessionID || candidate.SnapshotVersion != snapshot.SnapshotVersion {
+			return fmt.Errorf("candidate %d identity does not match snapshot", i)
+		}
+		identity := fmt.Sprintf("%s\x00%s\x00%v", candidate.Kind, candidate.TargetID, candidate.Destination)
+		if _, duplicate := seenCandidates[identity]; duplicate {
+			return fmt.Errorf("duplicate action candidate %d", i)
+		}
+		seenCandidates[identity] = struct{}{}
+	}
+	seenUncertainty := make(map[UncertaintyCode]struct{}, len(p.UncertaintyCodes))
+	for _, code := range p.UncertaintyCodes {
+		if !validUncertaintyCode(code) {
+			return fmt.Errorf("unsupported uncertainty code %q", code)
+		}
+		if _, duplicate := seenUncertainty[code]; duplicate {
+			return fmt.Errorf("duplicate uncertainty code %q", code)
+		}
+		seenUncertainty[code] = struct{}{}
+	}
+	seenExperience := make(map[string]struct{}, len(p.AppliedExperienceIDs))
+	for _, id := range p.AppliedExperienceIDs {
+		if id == "" {
+			return errors.New("applied experience ID is required")
+		}
+		if _, ok := availableExperienceIDs[id]; !ok {
+			return fmt.Errorf("applied experience %q is not available", id)
+		}
+		if _, duplicate := seenExperience[id]; duplicate {
+			return fmt.Errorf("duplicate applied experience %q", id)
+		}
+		seenExperience[id] = struct{}{}
+	}
+	return nil
+}
+
+func (d ActionDecision) Validate(snapshot WorldSnapshot) error {
+	if err := d.Action.Validate(); err != nil {
+		return err
+	}
+	if d.Action.SaveID != snapshot.SaveID || d.Action.SessionID != snapshot.SessionID || d.Action.SnapshotVersion != snapshot.SnapshotVersion {
+		return errors.New("decision action identity does not match snapshot")
+	}
+	if math.IsNaN(d.Confidence) || math.IsInf(d.Confidence, 0) || d.Confidence < 0 || d.Confidence > 1 {
+		return errors.New("decision confidence must be between zero and one")
+	}
+	return nil
+}
+
+func (o ExperienceObservation) Validate(availableEvidence, availableTargets map[string]struct{}) error {
+	if !validExperienceTrigger(o.Trigger) {
+		return fmt.Errorf("unsupported experience trigger %q", o.Trigger)
+	}
+	if !validTraitContext(o.Context) {
+		return fmt.Errorf("unsupported experience context %q", o.Context)
+	}
+	if len(o.WhenSignals) == 0 {
+		return errors.New("experience requires at least one situation signal")
+	}
+	seenSignals := make(map[SituationSignal]struct{}, len(o.WhenSignals))
+	for _, signal := range o.WhenSignals {
+		if !validSituationSignal(signal) {
+			return fmt.Errorf("unsupported situation signal %q", signal)
+		}
+		if _, duplicate := seenSignals[signal]; duplicate {
+			return fmt.Errorf("duplicate situation signal %q", signal)
+		}
+		seenSignals[signal] = struct{}{}
+	}
+	if o.AvoidAction != "" {
+		if _, ok := AllowedActionKinds[o.AvoidAction]; !ok {
+			return fmt.Errorf("unsupported avoided action %q", o.AvoidAction)
+		}
+	}
+	if _, ok := AllowedActionKinds[o.PreferAction]; !ok || o.PreferAction == ActionStopSession {
+		return fmt.Errorf("unsupported preferred action %q", o.PreferAction)
+	}
+	if o.PreferredTargetID != "" {
+		if _, ok := availableTargets[o.PreferredTargetID]; !ok {
+			return fmt.Errorf("preferred target %q is not available", o.PreferredTargetID)
+		}
+	}
+	if o.Summary == "" {
+		return errors.New("experience summary is required")
+	}
+	if _, ok := availableEvidence[o.EvidenceRef]; !ok || o.EvidenceRef == "" {
+		return fmt.Errorf("experience evidence %q is not available", o.EvidenceRef)
+	}
+	if math.IsNaN(o.Strength) || math.IsInf(o.Strength, 0) || o.Strength <= 0 || o.Strength > 1 {
+		return errors.New("experience strength must be greater than zero and at most one")
+	}
+	return nil
+}
+
+func (e PolicyExperience) Validate() error {
+	if e.ID == "" || e.SaveID == "" {
+		return errors.New("experience ID and save ID are required")
+	}
+	if !validExperienceTrigger(e.Trigger) || !validTraitContext(e.Context) || !validExperienceSource(e.Source) {
+		return errors.New("experience trigger, context, or source is invalid")
+	}
+	if math.IsNaN(e.Confidence) || math.IsInf(e.Confidence, 0) || e.Confidence < 0 || e.Confidence > 1 {
+		return errors.New("experience confidence must be between zero and one")
+	}
+	if e.ObservationCount <= 0 || e.ContradictionCount < 0 || e.FirstSeenDay <= 0 || e.LastSeenDay < e.FirstSeenDay || len(e.EvidenceRefs) == 0 {
+		return errors.New("experience history is invalid")
+	}
+	observation := ExperienceObservation{
+		Trigger: e.Trigger, Context: e.Context, WhenSignals: e.WhenSignals,
+		AvoidAction: e.AvoidAction, PreferAction: e.PreferAction, PreferredTargetID: e.PreferredTargetID,
+		Summary: e.Summary, EvidenceRef: e.EvidenceRefs[len(e.EvidenceRefs)-1], Strength: e.Confidence,
+	}
+	targets := map[string]struct{}{}
+	if e.PreferredTargetID != "" {
+		targets[e.PreferredTargetID] = struct{}{}
+	}
+	return observation.Validate(map[string]struct{}{observation.EvidenceRef: {}}, targets)
+}
+
+func (c PlayerCorrection) Validate() error {
+	if c.ID == "" || c.SaveID == "" || c.SessionID == "" {
+		return errors.New("correction ID, save ID, and session ID are required")
+	}
+	if err := c.Snapshot.Validate(); err != nil {
+		return fmt.Errorf("correction snapshot: %w", err)
+	}
+	if err := c.RejectedAction.Validate(); err != nil {
+		return fmt.Errorf("rejected action: %w", err)
+	}
+	if err := c.PreferredAction.Validate(); err != nil {
+		return fmt.Errorf("preferred action: %w", err)
+	}
+	if c.SaveID != c.Snapshot.SaveID || c.SessionID != c.Snapshot.SessionID ||
+		c.RejectedAction.SaveID != c.SaveID || c.RejectedAction.SessionID != c.SessionID ||
+		c.PreferredAction.SaveID != c.SaveID || c.PreferredAction.SessionID != c.SessionID {
+		return errors.New("correction identity does not match actions and snapshot")
+	}
+	if c.RejectedAction.SnapshotVersion != c.RejectedDecisionSnapshotVersion ||
+		c.Snapshot.SnapshotVersion < c.RejectedDecisionSnapshotVersion ||
+		c.PreferredAction.SnapshotVersion != c.Snapshot.SnapshotVersion {
+		return errors.New("correction snapshot versions are not correlated")
+	}
+	switch c.PreferredAction.Kind {
+	case ActionWaterTarget, ActionRefillCan, ActionHarvestTarget, ActionDepositItems:
+	default:
+		return fmt.Errorf("unsupported preferred correction action %q", c.PreferredAction.Kind)
+	}
+	if c.ObservedAtTick < 0 {
+		return errors.New("correction tick cannot be negative")
+	}
+	return nil
+}
+
+func validUncertaintyCode(code UncertaintyCode) bool {
+	switch code {
+	case UncertaintyMissingExperience, UncertaintyConflictingEvidence, UncertaintyNovelContext, UncertaintyAmbiguousTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+func validExperienceTrigger(trigger ExperienceTrigger) bool {
+	switch trigger {
+	case ExperienceInventoryFull, ExperienceOutOfWater, ExperiencePathBlocked, ExperienceChestFull, ExperiencePlayerCorrection:
+		return true
+	default:
+		return false
+	}
+}
+
+func validSituationSignal(signal SituationSignal) bool {
+	switch signal {
+	case SignalInventoryFull, SignalInventoryHasItems, SignalCanEmpty, SignalRaining, SignalTargetBlocked:
+		return true
+	default:
+		return false
+	}
+}
+
+func validExperienceSource(source ExperienceSource) bool {
+	return source == ExperienceSourceFailure || source == ExperienceSourceCorrection
+}
+
 func validWeather(weather Weather) bool {
 	switch weather {
 	case WeatherSunny, WeatherRainy, WeatherStorm, WeatherSnow:
