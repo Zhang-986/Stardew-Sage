@@ -415,19 +415,20 @@ type ExperienceOutcome struct {
 }
 
 type DecisionRecord struct {
-	SaveID               string          `json:"saveId"`
-	SessionID            string          `json:"sessionId"`
-	SnapshotVersion      int64           `json:"snapshotVersion"`
-	Day                  int             `json:"day"`
-	ModelRevision        int             `json:"modelRevision"`
-	InferredIntent       PlayerIntent    `json:"inferredIntent"`
-	PlayerClaimedTargets []string        `json:"playerClaimedTargets,omitempty"`
-	CandidateAction      HighLevelAction `json:"candidateAction"`
-	FinalAction          HighLevelAction `json:"finalAction"`
-	Proposal             *ActionProposal `json:"proposal,omitempty"`
-	PolicyConfidence     float64         `json:"policyConfidence,omitempty"`
-	SelectedCandidate    int             `json:"selectedCandidate,omitempty"`
-	Result               *ActionResult   `json:"result,omitempty"`
+	SaveID               string            `json:"saveId"`
+	SessionID            string            `json:"sessionId"`
+	SnapshotVersion      int64             `json:"snapshotVersion"`
+	Day                  int               `json:"day"`
+	ModelRevision        int               `json:"modelRevision"`
+	InferredIntent       PlayerIntent      `json:"inferredIntent"`
+	PlayerClaimedTargets []string          `json:"playerClaimedTargets,omitempty"`
+	CandidateAction      HighLevelAction   `json:"candidateAction"`
+	FinalAction          HighLevelAction   `json:"finalAction"`
+	Proposal             *ActionProposal   `json:"proposal,omitempty"`
+	PolicyConfidence     float64           `json:"policyConfidence,omitempty"`
+	SelectedCandidate    int               `json:"selectedCandidate,omitempty"`
+	SafeAlternatives     []HighLevelAction `json:"safeAlternatives"`
+	Result               *ActionResult     `json:"result,omitempty"`
 }
 
 type EchoSessionMemory struct {

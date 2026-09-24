@@ -11,12 +11,32 @@ import (
 )
 
 type actorStub struct {
-	nextAction   domain.HighLevelAction
-	replanAction domain.HighLevelAction
-	chooseCalls  int
-	replanCalls  int
-	lastAction   intelligence.ActionInput
-	lastReplan   intelligence.ReplanInput
+	nextAction     domain.HighLevelAction
+	replanAction   domain.HighLevelAction
+	nextProposal   domain.ActionProposal
+	replanProposal domain.ActionProposal
+	chooseCalls    int
+	replanCalls    int
+	lastAction     intelligence.ActionInput
+	lastReplan     intelligence.ReplanInput
+}
+
+func (s *actorStub) ProposeAction(_ context.Context, input intelligence.ActionInput) (domain.ActionProposal, error) {
+	s.chooseCalls++
+	s.lastAction = input
+	if s.nextProposal.Primary.Kind != "" {
+		return s.nextProposal, nil
+	}
+	return domain.ActionProposal{Primary: s.nextAction, ModelConfidence: 0.8}, nil
+}
+
+func (s *actorStub) ProposeRecovery(_ context.Context, input intelligence.ReplanInput) (domain.ActionProposal, error) {
+	s.replanCalls++
+	s.lastReplan = input
+	if s.replanProposal.Primary.Kind != "" {
+		return s.replanProposal, nil
+	}
+	return domain.ActionProposal{Primary: s.replanAction, ModelConfidence: 0.8}, nil
 }
 
 func (s *actorStub) ChooseAction(_ context.Context, input intelligence.ActionInput) (domain.HighLevelAction, error) {
@@ -39,6 +59,11 @@ type policyStoreStub struct {
 	savedDecisions []domain.DecisionRecord
 	attachedResult *domain.ActionResult
 	saveWinner     *domain.DecisionRecord
+	experiences    []domain.PolicyExperience
+}
+
+func (s *policyStoreStub) ListPolicyExperiences(context.Context, string) ([]domain.PolicyExperience, error) {
+	return append([]domain.PolicyExperience(nil), s.experiences...), nil
 }
 
 func (s *policyStoreStub) SaveLearning(context.Context, domain.Demonstration, domain.PlayerModel, domain.SkillProgram) error {
@@ -79,6 +104,17 @@ func (s *policyStoreStub) AttachDecisionResult(_ context.Context, result domain.
 type coordinatorStub struct {
 	context domain.CoordinationContext
 	calls   int
+}
+
+type experienceLearnerStub struct {
+	calls  int
+	result domain.ActionResult
+}
+
+func (s *experienceLearnerStub) LearnFromResult(_ context.Context, _ domain.WorldSnapshot, result domain.ActionResult) (domain.ExperienceOutcome, error) {
+	s.calls++
+	s.result = result
+	return domain.ExperienceOutcome{}, nil
 }
 
 func (s *coordinatorStub) Prepare(context.Context, domain.WorldSnapshot, domain.PlayerModel) (domain.CoordinationContext, error) {
@@ -158,6 +194,104 @@ func TestNextActionReturnsCanonicalPersistedWinner(t *testing.T) {
 	}
 	if got != winnerAction {
 		t.Fatalf("NextAction() = %+v, want persisted winner %+v", got, winnerAction)
+	}
+}
+
+func TestNextDecisionUsesExperienceAndFallsBackToSafeAlternative(t *testing.T) {
+	snapshot := validSnapshot()
+	experience := validPolicyExperience(snapshot.SaveID, "exp-inventory", 0.8, 2)
+	store := validPolicyStore()
+	store.experiences = []domain.PolicyExperience{experience}
+	store.model.Traits = []domain.TraitMemory{{
+		Key: domain.PreferenceTaskOrder, Value: "watering,harvesting", Context: domain.TraitContextSunny,
+		Confidence: 0.8, ObservationCount: 2, FirstSeenDay: 1, LastSeenDay: 2,
+		EvidenceRefs: []string{"demo-1:water-1"},
+	}}
+	unsafe := actionFor(snapshot, domain.ActionWaterTarget, "missing-crop")
+	fallback := actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature")
+	actor := &actorStub{nextProposal: domain.ActionProposal{
+		Primary: unsafe, Alternatives: []domain.HighLevelAction{fallback}, ModelConfidence: 0.7,
+		AppliedExperienceIDs: []string{experience.ID},
+	}}
+	service, err := NewService(store, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decision, err := service.NextDecision(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Action != fallback || decision.Confidence != 0.95 {
+		t.Fatalf("NextDecision() = %+v", decision)
+	}
+	if len(actor.lastAction.ApplicableExperiences) != 1 || actor.lastAction.ApplicableExperiences[0].ID != experience.ID {
+		t.Fatalf("actor experiences = %+v", actor.lastAction.ApplicableExperiences)
+	}
+
+	replayed, err := service.NextDecision(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replayed.Action != fallback || len(replayed.Alternatives) != 0 {
+		t.Fatalf("replayed decision exposed rejected candidates: %+v", replayed)
+	}
+}
+
+func TestNextDecisionRejectsFabricatedExperienceReference(t *testing.T) {
+	snapshot := validSnapshot()
+	action := actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature")
+	actor := &actorStub{nextProposal: domain.ActionProposal{
+		Primary: action, ModelConfidence: 0.8, AppliedExperienceIDs: []string{"made-up"},
+	}}
+	service := newPolicyService(t, actor)
+
+	if _, err := service.NextDecision(context.Background(), snapshot.SaveID, snapshot); err == nil || !strings.Contains(err.Error(), "experience") {
+		t.Fatalf("NextDecision() error = %v, want experience reference error", err)
+	}
+}
+
+func TestNextDecisionStopsWhenPolicyConfidenceIsLow(t *testing.T) {
+	snapshot := validSnapshot()
+	primary := actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature")
+	actor := &actorStub{nextProposal: domain.ActionProposal{
+		Primary: primary, ModelConfidence: 0.4,
+		UncertaintyCodes: []domain.UncertaintyCode{domain.UncertaintyNovelContext},
+	}}
+	service := newPolicyService(t, actor)
+
+	decision, err := service.NextDecision(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Action.Kind != domain.ActionStopSession || decision.Confidence != 0.2 {
+		t.Fatalf("NextDecision() = %+v", decision)
+	}
+}
+
+func TestHandleResultReflectsFailureBeforeReplanning(t *testing.T) {
+	executed := validSnapshot()
+	current := executed
+	current.SnapshotVersion++
+	failed := actionFor(executed, domain.ActionHarvestTarget, "crop-mature")
+	replanned := actionFor(current, domain.ActionMoveTo, "crop-mature")
+	store := validPolicyStore()
+	reflection := &experienceLearnerStub{}
+	actor := &actorStub{replanAction: replanned}
+	service, err := NewReflectiveService(store, actor, noOpCollaborator{}, reflection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := domain.ActionResult{
+		SaveID: failed.SaveID, SessionID: failed.SessionID, SnapshotVersion: failed.SnapshotVersion,
+		Action: failed, Status: domain.ActionFailed, ErrorCode: "path_blocked",
+	}
+
+	if _, err := service.HandleResult(context.Background(), current.SaveID, current, result); err != nil {
+		t.Fatal(err)
+	}
+	if reflection.calls != 1 || reflection.result.ErrorCode != "path_blocked" {
+		t.Fatalf("reflection calls/result = %d / %+v", reflection.calls, reflection.result)
 	}
 }
 
@@ -282,26 +416,28 @@ func TestNextActionStopsBeforeViolatingEnergyReserve(t *testing.T) {
 	}
 }
 
-func TestNextActionRejectsUnsafeOrInventedTargets(t *testing.T) {
+func TestNextActionRejectsStructurallyInvalidProposal(t *testing.T) {
+	snapshot := validSnapshot()
+	actor := &actorStub{nextAction: actionFor(snapshot, "teleport", "crop-new")}
+	service := newPolicyService(t, actor)
+
+	_, err := service.NextAction(context.Background(), snapshot.SaveID, snapshot)
+	if err == nil || !strings.Contains(err.Error(), "unsupported action") {
+		t.Fatalf("NextAction() error = %v, want unsupported action", err)
+	}
+}
+
+func TestNextActionStopsWhenEveryCandidateIsUnsafe(t *testing.T) {
 	tests := []struct {
 		name   string
 		mutate func(*domain.WorldSnapshot)
 		action func(domain.WorldSnapshot) domain.HighLevelAction
-		want   string
 	}{
-		{
-			name: "invented action",
-			action: func(snapshot domain.WorldSnapshot) domain.HighLevelAction {
-				return actionFor(snapshot, "teleport", "crop-new")
-			},
-			want: "unsupported action",
-		},
 		{
 			name: "stale target",
 			action: func(snapshot domain.WorldSnapshot) domain.HighLevelAction {
 				return actionFor(snapshot, domain.ActionWaterTarget, "crop-yesterday")
 			},
-			want: "not present",
 		},
 		{
 			name:   "watering in rain",
@@ -309,14 +445,12 @@ func TestNextActionRejectsUnsafeOrInventedTargets(t *testing.T) {
 			action: func(snapshot domain.WorldSnapshot) domain.HighLevelAction {
 				return actionFor(snapshot, domain.ActionWaterTarget, "crop-new")
 			},
-			want: "rain",
 		},
 		{
 			name: "depositing an empty inventory",
 			action: func(snapshot domain.WorldSnapshot) domain.HighLevelAction {
 				return actionFor(snapshot, domain.ActionDepositItems, "chest-1")
 			},
-			want: "inventory is empty",
 		},
 	}
 
@@ -328,9 +462,12 @@ func TestNextActionRejectsUnsafeOrInventedTargets(t *testing.T) {
 			}
 			actor := &actorStub{nextAction: tt.action(snapshot)}
 			service := newPolicyService(t, actor)
-			_, err := service.NextAction(context.Background(), snapshot.SaveID, snapshot)
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("NextAction() error = %v, want substring %q", err, tt.want)
+			action, err := service.NextAction(context.Background(), snapshot.SaveID, snapshot)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if action.Kind != domain.ActionStopSession || !strings.Contains(action.Reason, "safety") {
+				t.Fatalf("NextAction() = %+v, want safety stop", action)
 			}
 		})
 	}
@@ -372,6 +509,17 @@ func validPolicyStore() *policyStoreStub {
 			SuccessConditions: []string{"all crops cared for"}, EvidenceEventIDs: []string{"water-1"},
 		},
 		decisionErr: memory.ErrNotFound,
+	}
+}
+
+func validPolicyExperience(saveID, id string, confidence float64, observations int) domain.PolicyExperience {
+	return domain.PolicyExperience{
+		ID: id, SaveID: saveID, Trigger: domain.ExperienceInventoryFull, Context: domain.TraitContextSunny,
+		WhenSignals: []domain.SituationSignal{domain.SignalInventoryFull},
+		AvoidAction: domain.ActionHarvestTarget, PreferAction: domain.ActionDepositItems,
+		PreferredTargetID: "chest-1", Summary: "deposit first", Confidence: confidence,
+		ObservationCount: observations, FirstSeenDay: 1, LastSeenDay: 2,
+		EvidenceRefs: []string{"decision:echo-1:1"}, Source: domain.ExperienceSourceFailure,
 	}
 }
 
