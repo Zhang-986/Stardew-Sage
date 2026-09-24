@@ -28,7 +28,7 @@ type DecisionStore interface {
 	ListPolicyExperiences(ctx context.Context, saveID string) ([]domain.PolicyExperience, error)
 	SaveDecision(ctx context.Context, record domain.DecisionRecord) error
 	GetDecision(ctx context.Context, saveID, sessionID string, snapshotVersion int64) (domain.DecisionRecord, error)
-	AttachDecisionResult(ctx context.Context, result domain.ActionResult) error
+	AttachDecisionResult(ctx context.Context, result domain.ActionResult) (bool, error)
 }
 
 type ExperienceStore interface {

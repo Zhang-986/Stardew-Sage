@@ -43,6 +43,8 @@ This scenario restarts the real Go process twice while retaining one SQLite data
 
 EchoFarm uses Eino's OpenAI-compatible chat-model component. All settings come from environment variables; no credential is stored in the repository.
 
+The configured endpoint must support OpenAI JSON mode. EchoFarm sends `response_format: {"type":"json_object"}` for every structured generation, then applies domain and current-world validation before accepting the response.
+
 ```bash
 export ECHOFARM_MODEL_MODE=openai
 export ECHOFARM_MODEL_BASE_URL=https://your-openai-compatible-endpoint/v1

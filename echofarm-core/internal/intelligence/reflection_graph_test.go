@@ -3,6 +3,7 @@ package intelligence
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/domain"
@@ -46,6 +47,9 @@ func TestReflectionGraphProducesBoundedFailureExperience(t *testing.T) {
 	}
 	if got.EvidenceRef != input.EvidenceRef || got.PreferAction != domain.ActionDepositItems {
 		t.Fatalf("Reflect() = %+v", got)
+	}
+	if !strings.Contains(generator.prompt, "prevented") || !strings.Contains(generator.prompt, "Do not infer player personality") {
+		t.Fatalf("prompt does not require causal, bounded reflection: %q", generator.prompt)
 	}
 }
 

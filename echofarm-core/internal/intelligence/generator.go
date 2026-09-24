@@ -50,6 +50,9 @@ func NewOpenAIGenerator(ctx context.Context, config OpenAIConfig) (*ChatGenerato
 		Model:       config.Model,
 		Timeout:     config.Timeout,
 		Temperature: &temperature,
+		ResponseFormat: &openai.ChatCompletionResponseFormat{
+			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%w: create OpenAI-compatible model: %v", ErrModelUnavailable, err)

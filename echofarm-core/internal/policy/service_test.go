@@ -2,6 +2,8 @@ package policy
 
 import (
 	"context"
+	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -96,9 +98,15 @@ func (s *policyStoreStub) GetDecision(context.Context, string, string, int64) (d
 	return s.priorDecision, s.decisionErr
 }
 
-func (s *policyStoreStub) AttachDecisionResult(_ context.Context, result domain.ActionResult) error {
-	s.attachedResult = &result
-	return nil
+func (s *policyStoreStub) AttachDecisionResult(_ context.Context, result domain.ActionResult) (bool, error) {
+	if s.attachedResult == nil {
+		s.attachedResult = &result
+		return true, nil
+	}
+	if reflect.DeepEqual(*s.attachedResult, result) {
+		return false, nil
+	}
+	return false, errors.New("decision result already recorded with different content")
 }
 
 type coordinatorStub struct {
@@ -294,6 +302,35 @@ func TestHandleResultReflectsFailureBeforeReplanning(t *testing.T) {
 	}
 	if reflection.calls != 1 || reflection.result.ErrorCode != "path_blocked" {
 		t.Fatalf("reflection calls/result = %d / %+v", reflection.calls, reflection.result)
+	}
+}
+
+func TestHandleResultDoesNotReflectDuplicateFailure(t *testing.T) {
+	executed := validSnapshot()
+	current := executed
+	current.SnapshotVersion++
+	failed := actionFor(executed, domain.ActionHarvestTarget, "crop-mature")
+	replanned := actionFor(current, domain.ActionMoveTo, "crop-mature")
+	store := validPolicyStore()
+	reflection := &experienceLearnerStub{}
+	actor := &actorStub{replanAction: replanned}
+	service, err := NewReflectiveService(store, actor, noOpCollaborator{}, reflection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := domain.ActionResult{
+		SaveID: failed.SaveID, SessionID: failed.SessionID, SnapshotVersion: failed.SnapshotVersion,
+		Action: failed, Status: domain.ActionFailed, ErrorCode: "path_blocked",
+	}
+
+	if _, err := service.HandleResult(context.Background(), current.SaveID, current, result); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.HandleResult(context.Background(), current.SaveID, current, result); err != nil {
+		t.Fatal(err)
+	}
+	if reflection.calls != 1 {
+		t.Fatalf("reflection calls = %d, want 1", reflection.calls)
 	}
 }
 

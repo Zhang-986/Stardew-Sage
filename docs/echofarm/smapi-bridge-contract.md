@@ -192,6 +192,7 @@ The memory endpoint projects stable multi-day traits, the latest learning change
 - Reusing a demonstration ID returns the original outcome without another model call.
 - Runtime decisions use `(saveId, sessionId, snapshotVersion)` as their idempotency key.
 - An action result is accepted only when its full action payload matches the recorded final action for that key.
+- Result attachment is an atomic first-write-wins operation. Identical retries return the stored result and do not trigger another reflection; a later result with different content is rejected.
 - Model candidates rejected by player target claims are retained in the ledger beside the deterministic `stop_session` decision for diagnosis.
 
 ## Error contract

@@ -162,10 +162,12 @@ func TestSQLitePersistsDecisionAndAttachesResultIdempotently(t *testing.T) {
 		SaveID: record.SaveID, SessionID: record.SessionID, SnapshotVersion: record.SnapshotVersion,
 		Action: record.FinalAction, Status: domain.ActionSucceeded,
 	}
-	if err := store.AttachDecisionResult(ctx, result); err != nil {
+	attached, err := store.AttachDecisionResult(ctx, result)
+	if err != nil || !attached {
 		t.Fatalf("AttachDecisionResult() error = %v", err)
 	}
-	if err := store.AttachDecisionResult(ctx, result); err != nil {
+	attached, err = store.AttachDecisionResult(ctx, result)
+	if err != nil || attached {
 		t.Fatalf("idempotent AttachDecisionResult() error = %v", err)
 	}
 
@@ -257,8 +259,66 @@ func TestSQLiteRejectsResultForDifferentAction(t *testing.T) {
 		},
 		Status: domain.ActionSucceeded,
 	}
-	if err := store.AttachDecisionResult(ctx, mismatched); err == nil {
+	if _, err := store.AttachDecisionResult(ctx, mismatched); err == nil {
 		t.Fatal("AttachDecisionResult() error = nil, want action mismatch")
+	}
+}
+
+func TestSQLiteAttachesOnlyOneCanonicalResultUnderConcurrency(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenSQLite(filepath.Join(t.TempDir(), "echo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	record := decisionRecord(7, "crop-free")
+	if err := store.SaveDecision(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	succeeded := domain.ActionResult{
+		SaveID: record.SaveID, SessionID: record.SessionID, SnapshotVersion: record.SnapshotVersion,
+		Action: record.FinalAction, Status: domain.ActionSucceeded,
+	}
+	failed := succeeded
+	failed.Status = domain.ActionFailed
+	failed.ErrorCode = "path_blocked"
+
+	type outcome struct {
+		attached bool
+		err      error
+	}
+	start := make(chan struct{})
+	results := make(chan outcome, 16)
+	for index := 0; index < 16; index++ {
+		result := succeeded
+		if index%2 == 1 {
+			result = failed
+		}
+		go func() {
+			<-start
+			attached, err := store.AttachDecisionResult(ctx, result)
+			results <- outcome{attached: attached, err: err}
+		}()
+	}
+	close(start)
+
+	attachedCount := 0
+	acceptedCount := 0
+	for range 16 {
+		result := <-results
+		if result.attached {
+			attachedCount++
+		}
+		if result.err == nil {
+			acceptedCount++
+		}
+	}
+	if attachedCount != 1 || acceptedCount != 8 {
+		t.Fatalf("attached/accepted = %d/%d, want 1/8", attachedCount, acceptedCount)
+	}
+	stored, err := store.GetDecision(ctx, record.SaveID, record.SessionID, record.SnapshotVersion)
+	if err != nil || stored.Result == nil || (stored.Result.Status != domain.ActionSucceeded && stored.Result.Status != domain.ActionFailed) {
+		t.Fatalf("canonical result = %+v, err = %v", stored.Result, err)
 	}
 }
 

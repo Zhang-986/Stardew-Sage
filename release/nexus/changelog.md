@@ -6,6 +6,8 @@
 - Added F10 correction capture: Echo pauses, learns from the next successful farm action, and safely retries temporary model failures.
 - Expanded F9 memory with decision confidence, fallback count, and failure/player-correction evidence.
 - Added a five-stage cross-process demo proving proactive failure avoidance and corrected chest selection across restarts.
+- Enforced OpenAI-compatible JSON mode and tightened causal, evidence-bounded proposal/reflection prompts.
+- Made concurrent action-result attachment first-write-wins so retries cannot duplicate reflection or overwrite the canonical outcome.
 
 # 0.3.0 — Continuum co-player
 

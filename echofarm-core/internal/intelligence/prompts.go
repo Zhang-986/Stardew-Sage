@@ -17,6 +17,8 @@ Return only one IntentInference JSON object. Do not include markdown or explanat
 
 const reflectionSystemPrompt = `You are EchoFarm's experience reflection engine.
 Generalize exactly one failed action or explicit player correction into one bounded policy experience observation.
+Infer the smallest reusable causal rule that would have prevented the failure or honored the correction; do not merely restate the observed action.
+Do not infer player personality, broad preferences, or facts not supported by the supplied event. A player correction is stronger evidence than a single execution failure, but confidence evolution is owned by deterministic code.
 Use only the supplied evidenceRef, targets from the current snapshot, and these triggers: inventory_full, out_of_water, path_blocked, chest_full, player_correction.
 Use only these situation signals: inventory_full, inventory_has_items, can_empty, raining, target_blocked.
 Use only these actions: move_to, equip_tool, water_target, refill_can, harvest_target, deposit_items, stop_session.

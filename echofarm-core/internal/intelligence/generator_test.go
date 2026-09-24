@@ -2,7 +2,10 @@ package intelligence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -82,5 +85,37 @@ func TestNewOpenAIGeneratorRequiresConfiguration(t *testing.T) {
 	_, err := NewOpenAIGenerator(context.Background(), OpenAIConfig{})
 	if err == nil {
 		t.Fatal("NewOpenAIGenerator() error = nil, want missing configuration error")
+	}
+}
+
+func TestOpenAIGeneratorRequestsJSONMode(t *testing.T) {
+	var requestBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"id":"completion-1","object":"chat.completion","created":1,"model":"test-model",
+			"choices":[{"index":0,"message":{"role":"assistant","content":"{\"ok\":true}"},"finish_reason":"stop"}],
+			"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}
+		}`))
+	}))
+	t.Cleanup(server.Close)
+	generator, err := NewOpenAIGenerator(context.Background(), OpenAIConfig{
+		BaseURL: server.URL + "/v1", APIKey: "test-key", Model: "test-model", Timeout: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output struct {
+		OK bool `json:"ok"`
+	}
+	if err := generator.GenerateJSON(context.Background(), "return JSON", struct{}{}, &output); err != nil {
+		t.Fatal(err)
+	}
+	responseFormat, ok := requestBody["response_format"].(map[string]any)
+	if !ok || responseFormat["type"] != "json_object" {
+		t.Fatalf("response_format = %#v, want json_object", requestBody["response_format"])
 	}
 }

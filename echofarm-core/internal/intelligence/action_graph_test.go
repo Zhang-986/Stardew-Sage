@@ -155,6 +155,9 @@ func TestActionGraphProducesRankedProposalWithExperienceEvidence(t *testing.T) {
 	if got.ModelConfidence != want.ModelConfidence || len(got.Alternatives) != 1 || generator.calls != 1 {
 		t.Fatalf("ProposeAction() = %+v, calls = %d", got, generator.calls)
 	}
+	if !strings.Contains(generator.prompt, "player-correction") || !strings.Contains(generator.prompt, "materially affected") {
+		t.Fatalf("prompt does not define experience ranking discipline: %q", generator.prompt)
+	}
 }
 
 func TestActionGraphRejectsFabricatedExperienceReference(t *testing.T) {

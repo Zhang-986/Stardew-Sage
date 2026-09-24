@@ -278,39 +278,67 @@ WHERE save_id=? AND session_id=? AND snapshot_version=?`, saveID, sessionID, sna
 	return value, err
 }
 
-func (s *SQLite) AttachDecisionResult(ctx context.Context, result domain.ActionResult) error {
+func (s *SQLite) AttachDecisionResult(ctx context.Context, result domain.ActionResult) (bool, error) {
 	if err := result.Validate(); err != nil {
-		return fmt.Errorf("validate action result: %w", err)
+		return false, fmt.Errorf("validate action result: %w", err)
 	}
-	record, err := s.GetDecision(ctx, result.SaveID, result.SessionID, result.SnapshotVersion)
+	var originalPayload []byte
+	err := s.db.QueryRowContext(ctx, `
+SELECT payload_json FROM decision_records
+WHERE save_id=? AND session_id=? AND snapshot_version=?`,
+		result.SaveID, result.SessionID, result.SnapshotVersion).Scan(&originalPayload)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrNotFound
+	}
 	if err != nil {
-		return err
+		return false, fmt.Errorf("read decision for result: %w", err)
+	}
+	var record domain.DecisionRecord
+	if err := json.Unmarshal(originalPayload, &record); err != nil {
+		return false, fmt.Errorf("decode decision for result: %w", err)
 	}
 	finalActionJSON, _ := json.Marshal(record.FinalAction)
 	reportedActionJSON, _ := json.Marshal(result.Action)
 	if string(finalActionJSON) != string(reportedActionJSON) {
-		return errors.New("action result does not match the recorded final action")
+		return false, errors.New("action result does not match the recorded final action")
 	}
 	if record.Result != nil {
 		existingJSON, _ := json.Marshal(record.Result)
 		resultJSON, _ := json.Marshal(result)
 		if string(existingJSON) == string(resultJSON) {
-			return nil
+			return false, nil
 		}
-		return errors.New("decision result already recorded with different content")
+		return false, errors.New("decision result already recorded with different content")
 	}
 	record.Result = &result
 	payload, err := json.Marshal(record)
 	if err != nil {
-		return fmt.Errorf("marshal decision result: %w", err)
+		return false, fmt.Errorf("marshal decision result: %w", err)
 	}
-	if _, err := s.db.ExecContext(ctx, `
+	write, err := s.db.ExecContext(ctx, `
 UPDATE decision_records SET payload_json=?
-WHERE save_id=? AND session_id=? AND snapshot_version=?`,
-		payload, result.SaveID, result.SessionID, result.SnapshotVersion); err != nil {
-		return fmt.Errorf("attach decision result: %w", err)
+WHERE save_id=? AND session_id=? AND snapshot_version=? AND payload_json=?`,
+		payload, result.SaveID, result.SessionID, result.SnapshotVersion, originalPayload)
+	if err != nil {
+		return false, fmt.Errorf("attach decision result: %w", err)
 	}
-	return nil
+	affected, err := write.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("read attached decision result count: %w", err)
+	}
+	if affected == 1 {
+		return true, nil
+	}
+	canonical, err := s.GetDecision(ctx, result.SaveID, result.SessionID, result.SnapshotVersion)
+	if err != nil {
+		return false, fmt.Errorf("reload decision after result conflict: %w", err)
+	}
+	existingJSON, _ := json.Marshal(canonical.Result)
+	resultJSON, _ := json.Marshal(result)
+	if canonical.Result != nil && string(existingJSON) == string(resultJSON) {
+		return false, nil
+	}
+	return false, errors.New("decision result already recorded with different content")
 }
 
 func (s *SQLite) GetLatestDecision(ctx context.Context, saveID string) (domain.DecisionRecord, error) {
