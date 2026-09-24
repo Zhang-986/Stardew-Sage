@@ -316,6 +316,7 @@ type DecisionRecord struct {
 	SaveID               string          `json:"saveId"`
 	SessionID            string          `json:"sessionId"`
 	SnapshotVersion      int64           `json:"snapshotVersion"`
+	Day                  int             `json:"day"`
 	ModelRevision        int             `json:"modelRevision"`
 	InferredIntent       PlayerIntent    `json:"inferredIntent"`
 	PlayerClaimedTargets []string        `json:"playerClaimedTargets,omitempty"`

@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -137,6 +138,111 @@ func TestSQLitePersistsLearningOutcomeAcrossReopen(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, outcome) {
 		t.Fatalf("GetLearningOutcome() = %+v, want %+v", got, outcome)
+	}
+}
+
+func TestSQLitePersistsDecisionAndAttachesResultIdempotently(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenSQLite(filepath.Join(t.TempDir(), "echo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	record := decisionRecord(7, "crop-free")
+	if err := store.SaveDecision(ctx, record); err != nil {
+		t.Fatalf("SaveDecision() error = %v", err)
+	}
+	duplicate := record
+	duplicate.FinalAction.TargetID = "should-not-replace"
+	if err := store.SaveDecision(ctx, duplicate); err != nil {
+		t.Fatalf("duplicate SaveDecision() error = %v", err)
+	}
+
+	result := domain.ActionResult{
+		SaveID: record.SaveID, SessionID: record.SessionID, SnapshotVersion: record.SnapshotVersion,
+		Action: record.FinalAction, Status: domain.ActionSucceeded,
+	}
+	if err := store.AttachDecisionResult(ctx, result); err != nil {
+		t.Fatalf("AttachDecisionResult() error = %v", err)
+	}
+	if err := store.AttachDecisionResult(ctx, result); err != nil {
+		t.Fatalf("idempotent AttachDecisionResult() error = %v", err)
+	}
+
+	got, err := store.GetDecision(ctx, record.SaveID, record.SessionID, record.SnapshotVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.FinalAction.TargetID != "crop-free" || got.Result == nil || got.Result.Status != domain.ActionSucceeded {
+		t.Fatalf("decision = %+v", got)
+	}
+	latest, err := store.GetLatestDecision(ctx, record.SaveID)
+	if err != nil || !reflect.DeepEqual(latest, got) {
+		t.Fatalf("GetLatestDecision() = %+v, %v", latest, err)
+	}
+	session, err := store.GetActiveSession(ctx, record.SaveID)
+	if err != nil || session.SessionID != record.SessionID || session.Status != "active" {
+		t.Fatalf("GetActiveSession() = %+v, %v", session, err)
+	}
+}
+
+func TestSQLiteReturnsLatestLearningOutcome(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenSQLite(filepath.Join(t.TempDir(), "echo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	for revision := 1; revision <= 2; revision++ {
+		demo, model, skill := learningArtifacts("farm-a", revision)
+		demo.ID = fmt.Sprintf("demo-%d", revision)
+		outcome := domain.LearningOutcome{
+			Demonstration: demo, PlayerModel: model, Skill: skill,
+			Change: domain.LearningChange{ModelRevision: revision, Kind: domain.LearningChangeAdded, Summary: fmt.Sprintf("revision %d", revision)},
+		}
+		if err := store.SaveLearningOutcome(ctx, outcome); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := store.GetLatestLearningOutcome(ctx, "farm-a")
+	if err != nil || got.PlayerModel.Revision != 2 {
+		t.Fatalf("GetLatestLearningOutcome() = %+v, %v", got, err)
+	}
+}
+
+func TestSQLiteRejectsResultForDifferentAction(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenSQLite(filepath.Join(t.TempDir(), "echo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	record := decisionRecord(7, "crop-free")
+	if err := store.SaveDecision(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	mismatched := domain.ActionResult{
+		SaveID: record.SaveID, SessionID: record.SessionID, SnapshotVersion: record.SnapshotVersion,
+		Action: domain.HighLevelAction{
+			SaveID: record.SaveID, SessionID: record.SessionID, SnapshotVersion: record.SnapshotVersion,
+			Kind: domain.ActionHarvestTarget, TargetID: "crop-other", Reason: "different action",
+		},
+		Status: domain.ActionSucceeded,
+	}
+	if err := store.AttachDecisionResult(ctx, mismatched); err == nil {
+		t.Fatal("AttachDecisionResult() error = nil, want action mismatch")
+	}
+}
+
+func decisionRecord(version int64, targetID string) domain.DecisionRecord {
+	action := domain.HighLevelAction{
+		SaveID: "farm-a", SessionID: "echo-day-4", SnapshotVersion: version,
+		Kind: domain.ActionHarvestTarget, TargetID: targetID, Reason: "complement player work",
+	}
+	return domain.DecisionRecord{
+		SaveID: "farm-a", SessionID: "echo-day-4", SnapshotVersion: version,
+		Day: 4, ModelRevision: 3, InferredIntent: domain.PlayerIntentWatering,
+		PlayerClaimedTargets: []string{"crop-claimed"}, CandidateAction: action, FinalAction: action,
 	}
 }
 

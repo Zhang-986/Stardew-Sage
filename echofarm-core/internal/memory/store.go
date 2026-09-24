@@ -21,3 +21,11 @@ type LearningStore interface {
 	SaveLearningOutcome(ctx context.Context, outcome domain.LearningOutcome) error
 	GetLearningOutcome(ctx context.Context, saveID, demonstrationID string) (domain.LearningOutcome, error)
 }
+
+type DecisionStore interface {
+	GetPlayerModel(ctx context.Context, saveID string) (domain.PlayerModel, error)
+	GetSkill(ctx context.Context, saveID, skillName string) (domain.SkillProgram, error)
+	SaveDecision(ctx context.Context, record domain.DecisionRecord) error
+	GetDecision(ctx context.Context, saveID, sessionID string, snapshotVersion int64) (domain.DecisionRecord, error)
+	AttachDecisionResult(ctx context.Context, result domain.ActionResult) error
+}

@@ -41,6 +41,22 @@ CREATE TABLE IF NOT EXISTS learning_revisions (
   outcome_json BLOB NOT NULL,
   created_at TEXT NOT NULL,
   PRIMARY KEY (save_id, demonstration_id)
+);
+CREATE TABLE IF NOT EXISTS echo_sessions (
+  save_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  day INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, session_id)
+);
+CREATE TABLE IF NOT EXISTS decision_records (
+  save_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  snapshot_version INTEGER NOT NULL,
+  payload_json BLOB NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, session_id, snapshot_version)
 );`
 
 type SQLite struct {
@@ -170,6 +186,121 @@ func (s *SQLite) GetLearningOutcome(ctx context.Context, saveID, demonstrationID
 	err := scanJSON(s.db.QueryRowContext(ctx,
 		`SELECT outcome_json FROM learning_revisions WHERE save_id=? AND demonstration_id=?`, saveID, demonstrationID), &value)
 	return value, err
+}
+
+func (s *SQLite) GetLatestLearningOutcome(ctx context.Context, saveID string) (domain.LearningOutcome, error) {
+	var value domain.LearningOutcome
+	err := scanJSON(s.db.QueryRowContext(ctx, `
+SELECT outcome_json FROM learning_revisions
+WHERE save_id=? ORDER BY model_revision DESC LIMIT 1`, saveID), &value)
+	return value, err
+}
+
+func (s *SQLite) SaveDecision(ctx context.Context, record domain.DecisionRecord) error {
+	if record.SaveID == "" || record.SessionID == "" || record.Day <= 0 || record.SnapshotVersion < 0 {
+		return errors.New("decision identity, day, and snapshot version are required")
+	}
+	if err := record.CandidateAction.Validate(); err != nil {
+		return fmt.Errorf("candidate action: %w", err)
+	}
+	if err := record.FinalAction.Validate(); err != nil {
+		return fmt.Errorf("final action: %w", err)
+	}
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return fmt.Errorf("marshal decision: %w", err)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin decision transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	status := "active"
+	if record.FinalAction.Kind == domain.ActionStopSession {
+		status = "completed"
+	}
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO echo_sessions(save_id, session_id, day, status, updated_at)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(save_id, session_id) DO UPDATE SET
+  day=excluded.day, status=excluded.status, updated_at=excluded.updated_at`,
+		record.SaveID, record.SessionID, record.Day, status, now); err != nil {
+		return fmt.Errorf("save echo session: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO decision_records(save_id, session_id, snapshot_version, payload_json, created_at)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(save_id, session_id, snapshot_version) DO NOTHING`,
+		record.SaveID, record.SessionID, record.SnapshotVersion, payload, now); err != nil {
+		return fmt.Errorf("save decision: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit decision: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLite) GetDecision(ctx context.Context, saveID, sessionID string, snapshotVersion int64) (domain.DecisionRecord, error) {
+	var value domain.DecisionRecord
+	err := scanJSON(s.db.QueryRowContext(ctx, `
+SELECT payload_json FROM decision_records
+WHERE save_id=? AND session_id=? AND snapshot_version=?`, saveID, sessionID, snapshotVersion), &value)
+	return value, err
+}
+
+func (s *SQLite) AttachDecisionResult(ctx context.Context, result domain.ActionResult) error {
+	record, err := s.GetDecision(ctx, result.SaveID, result.SessionID, result.SnapshotVersion)
+	if err != nil {
+		return err
+	}
+	finalActionJSON, _ := json.Marshal(record.FinalAction)
+	reportedActionJSON, _ := json.Marshal(result.Action)
+	if string(finalActionJSON) != string(reportedActionJSON) {
+		return errors.New("action result does not match the recorded final action")
+	}
+	if record.Result != nil {
+		existingJSON, _ := json.Marshal(record.Result)
+		resultJSON, _ := json.Marshal(result)
+		if string(existingJSON) == string(resultJSON) {
+			return nil
+		}
+		return errors.New("decision result already recorded with different content")
+	}
+	record.Result = &result
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return fmt.Errorf("marshal decision result: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `
+UPDATE decision_records SET payload_json=?
+WHERE save_id=? AND session_id=? AND snapshot_version=?`,
+		payload, result.SaveID, result.SessionID, result.SnapshotVersion); err != nil {
+		return fmt.Errorf("attach decision result: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLite) GetLatestDecision(ctx context.Context, saveID string) (domain.DecisionRecord, error) {
+	var value domain.DecisionRecord
+	err := scanJSON(s.db.QueryRowContext(ctx, `
+SELECT payload_json FROM decision_records
+WHERE save_id=? ORDER BY created_at DESC, snapshot_version DESC LIMIT 1`, saveID), &value)
+	return value, err
+}
+
+func (s *SQLite) GetActiveSession(ctx context.Context, saveID string) (domain.EchoSessionMemory, error) {
+	var value domain.EchoSessionMemory
+	err := s.db.QueryRowContext(ctx, `
+SELECT session_id, day, status FROM echo_sessions
+WHERE save_id=? AND status='active' ORDER BY updated_at DESC LIMIT 1`, saveID).Scan(&value.SessionID, &value.Day, &value.Status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.EchoSessionMemory{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.EchoSessionMemory{}, fmt.Errorf("read active echo session: %w", err)
+	}
+	return value, nil
 }
 
 func (s *SQLite) GetDemonstration(ctx context.Context, saveID, demonstrationID string) (domain.Demonstration, error) {

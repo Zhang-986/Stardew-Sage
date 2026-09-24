@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/coordination"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/domain"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/intelligence"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/memory"
@@ -17,37 +18,64 @@ type actor interface {
 	Replan(ctx context.Context, input intelligence.ReplanInput) (domain.HighLevelAction, error)
 }
 
-type Service struct {
-	store memory.Store
-	actor actor
+type collaborator interface {
+	Prepare(context.Context, domain.WorldSnapshot, domain.PlayerModel) (domain.CoordinationContext, error)
 }
 
-func NewService(store memory.Store, actor actor) (*Service, error) {
+type noOpCollaborator struct{}
+
+func (noOpCollaborator) Prepare(_ context.Context, _ domain.WorldSnapshot, model domain.PlayerModel) (domain.CoordinationContext, error) {
+	return domain.CoordinationContext{InferredIntent: domain.PlayerIntentUnknown, ModelRevision: model.Revision}, nil
+}
+
+type Service struct {
+	store        memory.DecisionStore
+	actor        actor
+	collaborator collaborator
+}
+
+func NewService(store memory.DecisionStore, actor actor, collaborators ...collaborator) (*Service, error) {
 	if store == nil {
 		return nil, errors.New("memory store is required")
 	}
 	if actor == nil {
 		return nil, errors.New("actor is required")
 	}
-	return &Service{store: store, actor: actor}, nil
+	if len(collaborators) > 1 || (len(collaborators) == 1 && collaborators[0] == nil) {
+		return nil, errors.New("at most one non-nil collaborator is allowed")
+	}
+	var collaborationService collaborator = noOpCollaborator{}
+	if len(collaborators) == 1 {
+		collaborationService = collaborators[0]
+	}
+	return &Service{store: store, actor: actor, collaborator: collaborationService}, nil
 }
 
 func (s *Service) NextAction(ctx context.Context, saveID string, snapshot domain.WorldSnapshot) (domain.HighLevelAction, error) {
+	if existing, err := s.store.GetDecision(ctx, saveID, snapshot.SessionID, snapshot.SnapshotVersion); err == nil {
+		return existing.FinalAction, nil
+	} else if !errors.Is(err, memory.ErrNotFound) {
+		return domain.HighLevelAction{}, fmt.Errorf("load existing decision: %w", err)
+	}
 	input, stop, err := s.prepare(ctx, saveID, snapshot)
 	if err != nil {
 		return domain.HighLevelAction{}, err
 	}
 	if stop != nil {
-		return *stop, nil
+		return *stop, s.saveDecision(ctx, snapshot, input.Coordination, *stop, *stop)
 	}
-	action, err := s.actor.ChooseAction(ctx, input)
+	candidate, err := s.actor.ChooseAction(ctx, input)
 	if err != nil {
 		return domain.HighLevelAction{}, err
 	}
-	if err := validateActionForSnapshot(action, snapshot); err != nil {
+	if err := validateActionForSnapshot(candidate, snapshot); err != nil {
 		return domain.HighLevelAction{}, fmt.Errorf("reject AI action: %w", err)
 	}
-	return action, nil
+	final := s.resolveClaimConflict(candidate, input.Coordination, snapshot)
+	if err := s.saveDecision(ctx, snapshot, input.Coordination, candidate, final); err != nil {
+		return domain.HighLevelAction{}, err
+	}
+	return final, nil
 }
 
 func (s *Service) HandleResult(ctx context.Context, saveID string, snapshot domain.WorldSnapshot, result domain.ActionResult) (domain.HighLevelAction, error) {
@@ -57,27 +85,39 @@ func (s *Service) HandleResult(ctx context.Context, saveID string, snapshot doma
 	if result.SnapshotVersion > snapshot.SnapshotVersion {
 		return domain.HighLevelAction{}, errors.New("action result is newer than current snapshot")
 	}
+	if err := s.store.AttachDecisionResult(ctx, result); err != nil {
+		return domain.HighLevelAction{}, fmt.Errorf("record action result: %w", err)
+	}
+	if existing, err := s.store.GetDecision(ctx, saveID, snapshot.SessionID, snapshot.SnapshotVersion); err == nil && snapshot.SnapshotVersion != result.SnapshotVersion {
+		return existing.FinalAction, nil
+	} else if err != nil && !errors.Is(err, memory.ErrNotFound) {
+		return domain.HighLevelAction{}, fmt.Errorf("load existing decision: %w", err)
+	}
 	input, stop, err := s.prepare(ctx, saveID, snapshot)
 	if err != nil {
 		return domain.HighLevelAction{}, err
 	}
 	if stop != nil {
-		return *stop, nil
+		return *stop, s.saveDecision(ctx, snapshot, input.Coordination, *stop, *stop)
 	}
 
-	var action domain.HighLevelAction
+	var candidate domain.HighLevelAction
 	if result.Status == domain.ActionFailed {
-		action, err = s.actor.Replan(ctx, intelligence.ReplanInput{ActionInput: input, LastResult: result})
+		candidate, err = s.actor.Replan(ctx, intelligence.ReplanInput{ActionInput: input, LastResult: result})
 	} else {
-		action, err = s.actor.ChooseAction(ctx, input)
+		candidate, err = s.actor.ChooseAction(ctx, input)
 	}
 	if err != nil {
 		return domain.HighLevelAction{}, err
 	}
-	if err := validateActionForSnapshot(action, snapshot); err != nil {
+	if err := validateActionForSnapshot(candidate, snapshot); err != nil {
 		return domain.HighLevelAction{}, fmt.Errorf("reject AI action: %w", err)
 	}
-	return action, nil
+	final := s.resolveClaimConflict(candidate, input.Coordination, snapshot)
+	if err := s.saveDecision(ctx, snapshot, input.Coordination, candidate, final); err != nil {
+		return domain.HighLevelAction{}, err
+	}
+	return final, nil
 }
 
 func (s *Service) prepare(ctx context.Context, saveID string, snapshot domain.WorldSnapshot) (intelligence.ActionInput, *domain.HighLevelAction, error) {
@@ -95,7 +135,11 @@ func (s *Service) prepare(ctx context.Context, saveID string, snapshot domain.Wo
 	if err != nil {
 		return intelligence.ActionInput{}, nil, fmt.Errorf("load morning skill: %w", err)
 	}
-	input := intelligence.ActionInput{Snapshot: snapshot, PlayerModel: model, Skill: skill}
+	collaborationContext, err := s.collaborator.Prepare(ctx, snapshot, model)
+	if err != nil {
+		return intelligence.ActionInput{}, nil, err
+	}
+	input := intelligence.ActionInput{Snapshot: snapshot, PlayerModel: model, Skill: skill, Coordination: collaborationContext}
 	if snapshot.Energy <= model.EnergyReserve {
 		stop := domain.HighLevelAction{
 			SaveID: saveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
@@ -104,6 +148,30 @@ func (s *Service) prepare(ctx context.Context, saveID string, snapshot domain.Wo
 		return input, &stop, nil
 	}
 	return input, nil, nil
+}
+
+func (s *Service) resolveClaimConflict(candidate domain.HighLevelAction, collaborationContext domain.CoordinationContext, snapshot domain.WorldSnapshot) domain.HighLevelAction {
+	if err := coordination.ValidateChoice(collaborationContext, candidate); err == nil {
+		return candidate
+	}
+	return domain.HighLevelAction{
+		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+		Kind: domain.ActionStopSession, Reason: "player is already handling the selected target",
+	}
+}
+
+func (s *Service) saveDecision(ctx context.Context, snapshot domain.WorldSnapshot, collaborationContext domain.CoordinationContext, candidate, final domain.HighLevelAction) error {
+	record := domain.DecisionRecord{
+		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+		Day: snapshot.Day, ModelRevision: collaborationContext.ModelRevision,
+		InferredIntent:       collaborationContext.InferredIntent,
+		PlayerClaimedTargets: append([]string(nil), collaborationContext.PlayerClaimedTargets...),
+		CandidateAction:      candidate, FinalAction: final,
+	}
+	if err := s.store.SaveDecision(ctx, record); err != nil {
+		return fmt.Errorf("persist decision: %w", err)
+	}
+	return nil
 }
 
 func validateActionForSnapshot(action domain.HighLevelAction, snapshot domain.WorldSnapshot) error {

@@ -32,8 +32,12 @@ func (s *actorStub) Replan(_ context.Context, input intelligence.ReplanInput) (d
 }
 
 type policyStoreStub struct {
-	model domain.PlayerModel
-	skill domain.SkillProgram
+	model          domain.PlayerModel
+	skill          domain.SkillProgram
+	priorDecision  domain.DecisionRecord
+	decisionErr    error
+	savedDecisions []domain.DecisionRecord
+	attachedResult *domain.ActionResult
 }
 
 func (s *policyStoreStub) SaveLearning(context.Context, domain.Demonstration, domain.PlayerModel, domain.SkillProgram) error {
@@ -50,6 +54,81 @@ func (s *policyStoreStub) GetPlayerModel(_ context.Context, _ string) (domain.Pl
 
 func (s *policyStoreStub) GetSkill(_ context.Context, _, _ string) (domain.SkillProgram, error) {
 	return s.skill, nil
+}
+
+func (s *policyStoreStub) SaveDecision(_ context.Context, record domain.DecisionRecord) error {
+	s.savedDecisions = append(s.savedDecisions, record)
+	return nil
+}
+
+func (s *policyStoreStub) GetDecision(context.Context, string, string, int64) (domain.DecisionRecord, error) {
+	return s.priorDecision, s.decisionErr
+}
+
+func (s *policyStoreStub) AttachDecisionResult(_ context.Context, result domain.ActionResult) error {
+	s.attachedResult = &result
+	return nil
+}
+
+type coordinatorStub struct {
+	context domain.CoordinationContext
+	calls   int
+}
+
+func (s *coordinatorStub) Prepare(context.Context, domain.WorldSnapshot, domain.PlayerModel) (domain.CoordinationContext, error) {
+	s.calls++
+	return s.context, nil
+}
+
+func TestNextActionRecordsCoordinatedDecisionAndStopsOnClaimConflict(t *testing.T) {
+	snapshot := validSnapshot()
+	actor := &actorStub{nextAction: actionFor(snapshot, domain.ActionWaterTarget, "crop-new")}
+	store := validPolicyStore()
+	coordinator := &coordinatorStub{context: domain.CoordinationContext{
+		InferredIntent: domain.PlayerIntentWatering, PlayerClaimedTargets: []string{"crop-new"}, ModelRevision: 1,
+	}}
+	service, err := NewService(store, actor, coordinator)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	action, err := service.NextAction(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.Kind != domain.ActionStopSession || !strings.Contains(action.Reason, "player") {
+		t.Fatalf("final action = %+v", action)
+	}
+	if len(store.savedDecisions) != 1 || store.savedDecisions[0].CandidateAction.TargetID != "crop-new" || store.savedDecisions[0].FinalAction.Kind != domain.ActionStopSession {
+		t.Fatalf("saved decisions = %+v", store.savedDecisions)
+	}
+	if actor.lastAction.Coordination.InferredIntent != domain.PlayerIntentWatering {
+		t.Fatalf("actor coordination = %+v", actor.lastAction.Coordination)
+	}
+}
+
+func TestNextActionReturnsPersistedDecisionWithoutCallingActor(t *testing.T) {
+	snapshot := validSnapshot()
+	want := actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature")
+	store := validPolicyStore()
+	store.priorDecision = domain.DecisionRecord{
+		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+		CandidateAction: want, FinalAction: want,
+	}
+	store.decisionErr = nil
+	actor := &actorStub{}
+	service, err := NewService(store, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := service.NextAction(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want || actor.chooseCalls != 0 {
+		t.Fatalf("action/calls = %+v/%d", got, actor.chooseCalls)
+	}
 }
 
 func TestNextActionUsesAIToHarvestInsteadOfWateringOnRainyDay(t *testing.T) {
@@ -203,19 +282,24 @@ func TestNewServiceRequiresDependencies(t *testing.T) {
 
 func newPolicyService(t *testing.T, actor *actorStub) *Service {
 	t.Helper()
-	store := &policyStoreStub{
+	store := validPolicyStore()
+	service, err := NewService(store, actor)
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	return service
+}
+
+func validPolicyStore() *policyStoreStub {
+	return &policyStoreStub{
 		model: domain.PlayerModel{SaveID: "farm-1", Revision: 1, EnergyReserve: 40},
 		skill: domain.SkillProgram{
 			Name: "morning-farm-routine", Revision: 1, Goal: "care for crops", TargetSelector: "actionable_crops",
 			Steps:             []domain.SkillStep{{Action: domain.ActionWaterTarget, TargetSelector: "dry_crops"}},
 			SuccessConditions: []string{"all crops cared for"}, EvidenceEventIDs: []string{"water-1"},
 		},
+		decisionErr: memory.ErrNotFound,
 	}
-	service, err := NewService(store, actor)
-	if err != nil {
-		t.Fatalf("NewService() error = %v", err)
-	}
-	return service
 }
 
 func validSnapshot() domain.WorldSnapshot {
