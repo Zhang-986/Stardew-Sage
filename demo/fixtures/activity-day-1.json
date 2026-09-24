@@ -6,12 +6,11 @@
   "day": 1,
   "weather": "sunny",
   "startedAt": 100,
-  "endedAt": 700,
+  "endedAt": 600,
   "events": [
     {"id":"tree-1","kind":"chop_tree","tick":180,"position":{"x":12,"y":8},"location":"Farm","timeOfDay":900,"targetId":"Farm:tree:12:8","targetKind":"tree","tool":"Axe","durationTicks":80,"delta":{"energyDelta":-10,"waterDelta":0,"inventoryDelta":2},"itemDeltas":[{"itemId":"388","name":"Wood","quantity":14},{"itemId":"92","name":"Sap","quantity":2}],"success":true},
     {"id":"rock-1","kind":"break_rock","tick":260,"position":{"x":5,"y":6},"location":"UndergroundMine20","timeOfDay":1020,"targetId":"UndergroundMine20:rock:5:6","targetKind":"rock","tool":"Pickaxe","durationTicks":20,"delta":{"energyDelta":-2,"waterDelta":0,"inventoryDelta":1},"itemDeltas":[{"itemId":"382","name":"Coal","quantity":2}],"success":true},
     {"id":"floor-1","kind":"enter_mine_floor","tick":300,"position":{"x":3,"y":3},"location":"UndergroundMine21","timeOfDay":1040,"targetId":"mine-floor-21","targetKind":"mine_floor","durationTicks":10,"delta":{"energyDelta":0,"waterDelta":0,"inventoryDelta":0,"healthDelta":-5,"mineFloorDelta":1},"success":true},
-    {"id":"fish-1","kind":"fish_caught","tick":600,"position":{"x":20,"y":14},"location":"Beach","timeOfDay":1740,"targetId":"Beach:fish:20:14","targetKind":"fish","tool":"Fishing Rod","durationTicks":120,"delta":{"energyDelta":-8,"waterDelta":0,"inventoryDelta":1},"itemDeltas":[{"itemId":"128","name":"Pufferfish","quantity":1}],"success":true},
-    {"id":"water-1","kind":"water_target","tick":700,"position":{"x":6,"y":8},"location":"Farm","timeOfDay":1820,"targetId":"crop-old-1","targetKind":"crop","tool":"Watering Can","durationTicks":10,"delta":{"energyDelta":-2,"waterDelta":-1,"inventoryDelta":0},"success":true}
+    {"id":"fish-1","kind":"fish_caught","tick":600,"position":{"x":20,"y":14},"location":"Beach","timeOfDay":1740,"targetId":"Beach:fish:20:14","targetKind":"fish","tool":"Fishing Rod","durationTicks":120,"delta":{"energyDelta":-8,"waterDelta":0,"inventoryDelta":1},"itemDeltas":[{"itemId":"128","name":"Pufferfish","quantity":1}],"success":true}
   ]
 }

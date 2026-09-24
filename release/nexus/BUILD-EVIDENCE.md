@@ -4,14 +4,14 @@ Generated on 2026-09-24 from branch `codex/living-valley-director`.
 
 ## Verified locally
 
-- `.NET bridge`: 125 tests passed, 0 failed, including capability gates, setup readiness, endpoint conflict detection, diagnostic redaction, model-usage contracts, semantic activity classification, and F9 usage presentation.
+- `.NET bridge`: 126 tests passed, 0 failed, including capability gates, setup readiness, endpoint conflict detection, diagnostic redaction, model-usage contracts, semantic activity classification, cross-language activity learning, and F9 usage presentation.
 - `Go core`: all packages passed with `-race -count=1`; `go vet ./...` passed.
 - `Windows workflow`: 11 self-tests passed for doctor results, package allowlisting, atomic install, `config.json` preservation, safe uninstall, evidence redaction, and the one-command candidate acceptance contract.
 - `Candidate handoff`: `Install-EchoFarm.ps1 -Prepare` composes the legal-game Mod build, Windows sidecar build, package validation, atomic installation, and owned-process `/healthz` smoke. Its separate acceptance report permits disposable-save testing only after every automated stage passes and keeps public release false while native gameplay remains pending.
 - `Action capability boundary`: the Mod emits explicit capabilities; Go skips disabled candidates; C# rejects disabled harvesting again before mutation. Harvesting defaults off.
 - `Model operations`: every generation reserves a durable request ledger row with purpose and safe status; provider token metadata remains explicitly known/unknown; concurrent call limits do not overshoot; exhausted action/intent budgets persist `stop_session`.
 - `Model data boundary`: the usage schema contains no prompt, response, API-key, or provider-error-body column. Only bounded error classes are persisted, and no currency estimate is produced.
-- `Semantic activity learning`: version-2 events classify multi-tick tree/rock work, mine-floor transitions, and caught/escaped fishing outcomes; fixture-mode cross-process learning produces stable activity-order, resource, mining, and fishing traits while keeping every new category learn-only.
+- `Semantic activity learning`: version-2 events classify multi-tick tree/rock work, destination mine-floor transitions, and caught/escaped fishing outcomes; a C# classifier/recorder/client test sends activity-only demonstrations through a real Go process and produces stable activity-order, resource, mining, and fishing traits while keeping every new category learn-only.
 - `Reflective policy`: failures and player corrections produce bounded, evidence-linked experiences; duplicate evidence is idempotent; matching decisions expose calibrated confidence and validated alternatives.
 - `Structured generation`: OpenAI-compatible calls request `json_object` response format; prompts require materially applied experience citations, counterfactual alternatives, and the smallest evidence-supported causal rule.
 - `Durable reflection`: the first canonical failed result atomically enqueues one SQLite job; expiring leases prevent simultaneous processing, transient failures return to pending, and restart recovery preserves once-only experience persistence.

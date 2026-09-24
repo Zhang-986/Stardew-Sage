@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using EchoFarm.Bridge.Contracts;
+using EchoFarm.Bridge.Recording;
 using EchoFarm.Bridge.Transport;
 
 namespace EchoFarm.Bridge.Tests.Integration;
@@ -57,6 +58,101 @@ public sealed class GoCoreContractTests
             File.Delete(database);
         }
     }
+
+    [Fact]
+    public async Task SemanticClassifierFeedsStableLifestyleMemoryThroughRealGoCore()
+    {
+        string repository = FindRepositoryRoot();
+        int port = ReservePort();
+        string database = Path.Combine(Path.GetTempPath(), $"echofarm-activity-integration-{Guid.NewGuid():N}.db");
+        using Process process = StartCore(repository, port, database);
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitUntilHealthy(http, process, TimeSpan.FromSeconds(45));
+            var client = new EchoFarmClient(http, TimeSpan.FromSeconds(5));
+            var recorder = new TeachingRecorder(() => Guid.NewGuid().ToString("N"));
+            LearnResponse? learned = null;
+
+            foreach (int day in new[] { 1, 2 })
+            {
+                recorder.Start("classified-farm", day * 1000, day, Weather.Sunny);
+                foreach (ObservedGameEvent observed in ClassifiedRoutine(day * 1000))
+                    Assert.True(recorder.Observe(observed));
+                Demonstration demonstration = recorder.Stop(day * 1000 + 500);
+                learned = await client.LearnAsync(demonstration, CancellationToken.None);
+            }
+
+            Assert.NotNull(learned);
+            Assert.All(learned.Skill.Steps, step => Assert.Equal(ActionKind.StopSession, step.Action));
+            EchoMemoryView memory = await client.GetMemoryAsync("classified-farm", CancellationToken.None);
+            Assert.Equal(2, memory.ModelRevision);
+            Assert.Contains(memory.StableTraits, trait => trait.Key == PreferenceKey.ActivityOrder);
+            Assert.Contains(memory.StableTraits, trait => trait.Key == PreferenceKey.ResourcePriority && trait.Value == "Wood");
+            Assert.Contains(memory.StableTraits, trait => trait.Key == PreferenceKey.MineExitPolicy);
+            Assert.Contains(memory.StableTraits, trait => trait.Key == PreferenceKey.FishingContext);
+        }
+        finally
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync();
+            File.Delete(database);
+        }
+    }
+
+    private static IReadOnlyList<ObservedGameEvent> ClassifiedRoutine(long offset)
+    {
+        var tracker = new SemanticActivityTracker();
+        var result = new List<ObservedGameEvent>();
+
+        Assert.True(tracker.TryBegin(SemanticActivityFamily.TreeChopping,
+            Activity(offset + 10, "Farm", "tree-12-8", "tree", true, energy: 100)));
+        result.Add(Assert.IsType<ObservedGameEvent>(tracker.Observe(
+            Activity(offset + 80, "Farm", "tree-12-8", "tree", false, energy: 90,
+                items: new[] { new ItemDelta { ItemId = "388", Name = "Wood", Quantity = 12 } }))));
+
+        Assert.True(tracker.TryBegin(SemanticActivityFamily.RockBreaking,
+            Activity(offset + 100, "UndergroundMine20", "rock-4-6", "rock", true, energy: 90, mineFloor: 20)));
+        result.Add(Assert.IsType<ObservedGameEvent>(tracker.Observe(
+            Activity(offset + 140, "UndergroundMine20", "rock-4-6", "rock", false, energy: 86, mineFloor: 20,
+                items: new[] { new ItemDelta { ItemId = "390", Name = "Stone", Quantity = 2 } }))));
+
+        result.Add(Assert.IsType<ObservedGameEvent>(tracker.RecordMineTransition(
+            Activity(offset + 160, "UndergroundMine20", "mine-floor-20", "mine_floor", true, energy: 86, mineFloor: 20),
+            Activity(offset + 170, "UndergroundMine21", "mine-floor-21", "mine_floor", true, energy: 86, mineFloor: 21),
+            floorDelta: 1)));
+
+        Assert.True(tracker.TryBegin(SemanticActivityFamily.Fishing,
+            Activity(offset + 200, "Beach", "sea", "fish", true, energy: 86)));
+        result.Add(Assert.IsType<ObservedGameEvent>(tracker.CompleteFishing(
+            Activity(offset + 320, "Beach", "sea", "fish", true, energy: 78,
+                items: new[] { new ItemDelta { ItemId = "128", Name = "Pufferfish", Quantity = 1 } }),
+            caught: true)));
+
+        return result;
+    }
+
+    private static ActivitySample Activity(
+        long tick,
+        string location,
+        string targetId,
+        string targetKind,
+        bool targetPresent,
+        int energy,
+        int mineFloor = 0,
+        IReadOnlyList<ItemDelta>? items = null) => new(
+            tick,
+            location,
+            900,
+            new Position { X = 12, Y = 8 },
+            targetId,
+            targetKind,
+            targetKind == "tree" ? "Axe" : targetKind == "rock" ? "Pickaxe" : "Fishing Rod",
+            new GameStateSample { Energy = energy, Health = 100, MineFloor = mineFloor },
+            items ?? Array.Empty<ItemDelta>(),
+            targetPresent
+        );
 
     private static WorldSnapshot WithVersion(WorldSnapshot source, long snapshotVersion) => new()
     {

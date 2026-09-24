@@ -108,6 +108,8 @@ public sealed class SemanticActivityTrackerTests
             Sample(120, "UndergroundMine21", "mine-floor-21", "mine_floor", true, mineFloor: 21),
             floorDelta: 1));
         Assert.Equal(EventKind.EnterMineFloor, transition.Kind);
+        Assert.Equal("mine-floor-21", transition.TargetId);
+        Assert.Equal("UndergroundMine21", transition.Location);
         Assert.Equal(1, transition.After.MineFloor - transition.Before.MineFloor);
 
         tracker.TryBegin(SemanticActivityFamily.RockBreaking,

@@ -229,10 +229,13 @@ func fixtureLearningInference(input LearningInput) LearningInference {
 	}
 
 	context := traitContext(input.Demonstration.Weather)
-	observations := []domain.TraitObservation{{
-		Key: domain.PreferenceTaskOrder, Value: behaviorOrderValue(order), Context: context,
-		SupportingEventIDs: evidence, Strength: 0.7,
-	}}
+	observations := make([]domain.TraitObservation, 0, 6)
+	if len(order) > 0 {
+		observations = append(observations, domain.TraitObservation{
+			Key: domain.PreferenceTaskOrder, Value: behaviorOrderValue(order), Context: context,
+			SupportingEventIDs: evidence, Strength: 0.7,
+		})
+	}
 	if hasExtendedActivity(activityOrder) {
 		observations = append(observations, domain.TraitObservation{
 			Key: domain.PreferenceActivityOrder, Value: behaviorOrderValue(activityOrder), Context: context,

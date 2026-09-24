@@ -85,7 +85,8 @@ public sealed class SemanticActivityTracker
             after,
             success: true,
             errorCode: null,
-            itemDeltas: NormalizeItemDeltas(after.ItemDeltas)
+            itemDeltas: NormalizeItemDeltas(after.ItemDeltas),
+            identitySample: after
         );
     }
 
@@ -128,23 +129,28 @@ public sealed class SemanticActivityTracker
         ActivitySample end,
         bool success,
         string? errorCode,
-        IReadOnlyList<ItemDelta> itemDeltas) => new()
+        IReadOnlyList<ItemDelta> itemDeltas,
+        ActivitySample? identitySample = null)
     {
-        Kind = kind,
-        Tick = end.Tick,
-        Position = new Position { X = start.Position.X, Y = start.Position.Y },
-        Location = end.Location,
-        TimeOfDay = end.TimeOfDay,
-        TargetId = start.TargetId,
-        TargetKind = start.TargetKind,
-        Tool = start.Tool,
-        DurationTicks = end.Tick - start.Tick,
-        ItemDeltas = itemDeltas,
-        Before = start.State,
-        After = end.State,
-        Success = success,
-        ErrorCode = errorCode
-    };
+        ActivitySample identity = identitySample ?? start;
+        return new ObservedGameEvent
+        {
+            Kind = kind,
+            Tick = end.Tick,
+            Position = new Position { X = identity.Position.X, Y = identity.Position.Y },
+            Location = end.Location,
+            TimeOfDay = end.TimeOfDay,
+            TargetId = identity.TargetId,
+            TargetKind = identity.TargetKind,
+            Tool = identity.Tool,
+            DurationTicks = end.Tick - start.Tick,
+            ItemDeltas = itemDeltas,
+            Before = start.State,
+            After = end.State,
+            Success = success,
+            ErrorCode = errorCode
+        };
+    }
 
     private static IReadOnlyList<ItemDelta> NormalizeItemDeltas(IReadOnlyList<ItemDelta> values)
     {

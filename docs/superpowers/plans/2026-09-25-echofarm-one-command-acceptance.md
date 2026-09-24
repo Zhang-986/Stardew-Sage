@@ -82,3 +82,33 @@ Document the resulting acceptance JSON and state explicitly that `readyForDispos
 - [x] **Step 5: Run full verification and commit**
 
 Run the PowerShell suite, full .NET Release suite, Go race/vet, all four cross-process demos, Nexus package smoke, tracked-source secret scan, and `git diff --check`. Commit and push the exact SHA, then require Linux `verify` and Windows `windows-sidecar` to pass.
+
+### Task 3: Prove classifier output across the real C# to Go boundary
+
+**Files:**
+- Modify: `stardew-echo-mod/tests/EchoFarm.Bridge.Tests/Integration/GoCoreContractTests.cs`
+- Modify: `stardew-echo-mod/tests/EchoFarm.Bridge.Tests/Recording/SemanticActivityTrackerTests.cs`
+- Modify: `stardew-echo-mod/src/EchoFarm.Bridge/Recording/SemanticActivityTracker.cs`
+- Modify: `echofarm-core/internal/intelligence/fixture_generator.go`
+- Modify: `demo/fixtures/activity-day-1.json`
+- Modify: `demo/fixtures/activity-day-2.json`
+
+- [x] **Step 1: Add a cross-language classifier integration test**
+
+Generate tree, rock, mine-floor, and fishing events with `SemanticActivityTracker`, record two teaching days with `TeachingRecorder`, send both through `EchoFarmClient` to a real fixture-mode Go process, and require stable lifestyle memory with no executable activity action.
+
+- [x] **Step 2: Reproduce and isolate the activity-only failure**
+
+The new test returned HTTP 422 consistently. Comparison with the working JSON fixture showed that the fixture contained an unrelated watering event; without any farm-care segment, `fixtureLearningInference` emitted an invalid empty `task_order` observation.
+
+- [x] **Step 3: Fix activity-only learning at the source**
+
+Emit `task_order` only when at least one executable farm-care behavior exists. Keep `activity_order`, resource, mine, fishing, and route observations evidence-backed, and keep the compiled skill limited to `stop_session` when every observed activity is learn-only.
+
+- [x] **Step 4: Align mine-floor identity with the entered floor**
+
+Require the classifier's `enter_mine_floor` event to reference the destination floor and destination position while preserving the before/after state delta. Update the event builder through an explicit identity sample rather than mutating state evidence.
+
+- [x] **Step 5: Remove the watering crutch from activity fixtures**
+
+Make both semantic activity fixtures contain only the four advertised activity families. Run the cross-process demo and the targeted C# tests; require stable lifestyle traits and a safe non-activity action catalog.
