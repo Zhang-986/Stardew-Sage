@@ -13,13 +13,17 @@ public sealed class ModEntry : Mod
     private ModConfig config = null!;
     private TeachingRecorder recorder = null!;
     private StardewGamePort gamePort = null!;
-    private EchoSession session = null!;
+    private EchoSession? session;
     private EchoRenderer renderer = null!;
     private EchoMemoryOverlay memoryOverlay = null!;
-    private EchoFarmClient commandClient = null!;
-    private EchoFarmClient readClient = null!;
-    private CoreProcessSupervisor coreHost = null!;
-    private CoreLaunchOptions coreLaunchOptions = null!;
+    private EchoFarmClient? readClient;
+    private CoreProcessSupervisor? coreHost;
+    private CoreLaunchOptions? coreLaunchOptions;
+    private ICoreEndpointInspector? coreEndpointInspector;
+    private SetupReadinessInput setupInput = null!;
+    private SetupReadinessReport setupReadiness = null!;
+    private string databasePath = string.Empty;
+    private string? latestSafeError;
     private Task<bool>? coreStartup;
     private readonly CancellationTokenSource modLifetime = new();
     private CancellationTokenSource saveLifetime = new();
@@ -29,40 +33,65 @@ public sealed class ModEntry : Mod
     public override void Entry(IModHelper helper)
     {
         config = helper.ReadConfig<ModConfig>();
-        if (!Uri.TryCreate(config.CoreUrl, UriKind.Absolute, out Uri? coreUrl) || !coreUrl.IsLoopback)
-            throw new InvalidOperationException("EchoFarm CoreUrl must be an absolute loopback URL.");
-
-        string applicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        if (string.IsNullOrWhiteSpace(applicationData))
-            applicationData = helper.DirectoryPath;
-        coreLaunchOptions = CoreLaunchOptionsFactory.Create(new CoreLaunchSettings(
-            helper.DirectoryPath,
-            applicationData,
-            coreUrl,
-            config.AutoStartCore,
-            config.CoreExecutablePath,
-            TimeSpan.FromSeconds(config.CoreStartupTimeoutSeconds),
-            config.ModelMode,
-            config.ModelBaseUrl,
-            config.ModelName,
-            config.DatabasePath,
-            OperatingSystem.IsWindows()
-        ));
-        coreHost = new CoreProcessSupervisor(
-            new HttpCoreHealthProbe(new HttpClient(), TimeSpan.FromMilliseconds(500)),
-            new SystemCoreProcessLauncher((message, isError) =>
-                Monitor.Log($"[EchoFarm Core] {message}", isError ? LogLevel.Warn : LogLevel.Trace)),
-            new TaskAsyncDelay()
-        );
-
         recorder = new TeachingRecorder();
         gamePort = new StardewGamePort(Monitor, config.EnableExperimentalHarvest);
         renderer = new EchoRenderer(gamePort.Echo);
         memoryOverlay = new EchoMemoryOverlay();
-        EchoFarmClientSet clients = EchoFarmClientFactory.Create(coreUrl);
-        commandClient = clients.Commands;
-        readClient = clients.Reads;
-        session = new EchoSession(recorder, commandClient, gamePort, new ActionSafetyGate());
+
+        string applicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(applicationData))
+            applicationData = helper.DirectoryPath;
+        string workingDirectory = Path.Combine(applicationData, "EchoFarm");
+        string executablePath = ResolveCoreExecutablePath(helper.DirectoryPath);
+        databasePath = ResolveDatabasePath(workingDirectory);
+        setupInput = new SetupReadinessInput(
+            config.CoreUrl,
+            config.ModelMode,
+            config.ModelBaseUrl,
+            config.ModelName,
+            ApiKeyPresent: !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ECHOFARM_MODEL_API_KEY")),
+            config.AutoStartCore,
+            executablePath,
+            File.Exists(executablePath),
+            CoreEndpointStatus.Unknown,
+            config.CoreStartupTimeoutSeconds
+        );
+        setupReadiness = SetupReadiness.Evaluate(setupInput);
+        UpdateOperationalStatus();
+
+        if (setupReadiness.CanAttemptStart && Uri.TryCreate(config.CoreUrl, UriKind.Absolute, out Uri? coreUrl))
+        {
+            coreLaunchOptions = CoreLaunchOptionsFactory.Create(new CoreLaunchSettings(
+                helper.DirectoryPath,
+                applicationData,
+                coreUrl,
+                config.AutoStartCore,
+                config.CoreExecutablePath,
+                TimeSpan.FromSeconds(config.CoreStartupTimeoutSeconds),
+                setupReadiness.ModelMode,
+                config.ModelBaseUrl,
+                config.ModelName,
+                config.DatabasePath,
+                OperatingSystem.IsWindows()
+            ));
+            databasePath = coreLaunchOptions.Environment["ECHOFARM_DATABASE_PATH"];
+            var healthProbe = new HttpCoreHealthProbe(new HttpClient(), TimeSpan.FromMilliseconds(500));
+            coreEndpointInspector = new TcpCoreEndpointInspector(healthProbe, TimeSpan.FromMilliseconds(500));
+            coreHost = new CoreProcessSupervisor(
+                healthProbe,
+                new SystemCoreProcessLauncher((message, isError) =>
+                    Monitor.Log($"[EchoFarm Core] {message}", isError ? LogLevel.Warn : LogLevel.Trace)),
+                new TaskAsyncDelay()
+            );
+            EchoFarmClientSet clients = EchoFarmClientFactory.Create(coreUrl);
+            readClient = clients.Reads;
+            session = new EchoSession(recorder, clients.Commands, gamePort, new ActionSafetyGate());
+            UpdateOperationalStatus();
+        }
+        else
+        {
+            LogSetupIssue();
+        }
 
         helper.Events.GameLoop.GameLaunched += OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
@@ -87,7 +116,7 @@ public sealed class ModEntry : Mod
 
     private async void OnDayStarted(object? sender, DayStartedEventArgs e)
     {
-        if (session.State is EchoSessionState.Acting or EchoSessionState.AwaitingResult or EchoSessionState.Correcting)
+        if (session?.State is EchoSessionState.Acting or EchoSessionState.AwaitingResult or EchoSessionState.Correcting)
             session.Abort();
         ResetSaveLifetime();
         await RestoreLearnedStateAsync();
@@ -105,8 +134,15 @@ public sealed class ModEntry : Mod
         if (e.Button == config.MemoryKey)
         {
             memoryOverlay.Toggle();
+            UpdateOperationalStatus();
             if (memoryOverlay.Visible)
                 await RefreshMemoryAsync();
+            return;
+        }
+
+        if (session is null)
+        {
+            LogSetupIssue();
             return;
         }
 
@@ -190,6 +226,8 @@ public sealed class ModEntry : Mod
             return;
 
         gamePort.Pump();
+        if (session is null)
+            return;
         if (pendingObservation is not null && e.Ticks > (ulong)pendingObservation.Tick)
         {
             ObservedGameEvent observed = gamePort.CompleteObservation(pendingObservation, Game1.ticks);
@@ -234,10 +272,11 @@ public sealed class ModEntry : Mod
     private void StopForWorldChange()
     {
         pendingObservation = null;
-        gamePort?.ResetPlayerActivity();
-        memoryOverlay?.Hide();
+        gamePort.ResetPlayerActivity();
+        memoryOverlay.Hide();
         saveLifetime.Cancel();
         session?.Abort();
+        UpdateOperationalStatus();
     }
 
     private async Task RefreshMemoryAsync()
@@ -247,17 +286,28 @@ public sealed class ModEntry : Mod
         memoryRefreshInFlight = true;
         try
         {
-            if (!await EnsureCoreStartedAsync())
+            UpdateOperationalStatus();
+            if (readClient is null || session is null || !await EnsureCoreStartedAsync())
             {
-                memoryOverlay.ShowError("Core unavailable");
+                memoryOverlay.ShowError($"Setup blocked [{setupReadiness.Code}]. {setupReadiness.Correction}");
                 return;
             }
             EchoFarm.Bridge.Contracts.EchoMemoryView view = await readClient.GetMemoryAsync(SaveId(), saveLifetime.Token);
             memoryOverlay.Update(view);
+            latestSafeError = null;
+            UpdateOperationalStatus();
+        }
+        catch (EchoMemoryNotFoundException)
+        {
+            memoryOverlay.ShowError($"No learned memory yet. Press {config.RecordKey} to teach Echo.");
         }
         catch (Exception error) when (error is EchoFarmException or OperationCanceledException)
         {
-            memoryOverlay.ShowError(error is OperationCanceledException ? "Request cancelled" : "Core unavailable");
+            latestSafeError = error is OperationCanceledException ? "request_cancelled" : "core_request_failed";
+            UpdateOperationalStatus();
+            memoryOverlay.ShowError(error is OperationCanceledException
+                ? "Request cancelled safely."
+                : "Core request failed safely; check the setup action above.");
         }
         finally
         {
@@ -273,12 +323,14 @@ public sealed class ModEntry : Mod
 
     private async Task RestoreLearnedStateAsync()
     {
-        if (!await EnsureCoreStartedAsync())
+        if (readClient is null || session is null || !await EnsureCoreStartedAsync())
             return;
         try
         {
             await readClient.GetPlayerModelAsync(SaveId(), saveLifetime.Token);
             session.MarkReady(SaveId());
+            latestSafeError = null;
+            UpdateOperationalStatus();
             Monitor.Log($"EchoFarm memory loaded. Press {config.SummonKey} to summon Echo.", LogLevel.Info);
         }
         catch (EchoMemoryNotFoundException)
@@ -287,12 +339,19 @@ public sealed class ModEntry : Mod
         }
         catch (Exception error) when (error is EchoFarmException or OperationCanceledException)
         {
-            Monitor.Log($"Echo core is unavailable: {error.Message}", LogLevel.Warn);
+            latestSafeError = error is OperationCanceledException ? "request_cancelled" : "core_request_failed";
+            UpdateOperationalStatus();
+            Monitor.Log($"Echo core is unavailable [{latestSafeError}]. Press {config.MemoryKey} for setup status.", LogLevel.Warn);
         }
     }
 
     private async Task<bool> EnsureCoreStartedAsync()
     {
+        if (!setupReadiness.CanAttemptStart || coreHost is null || coreLaunchOptions is null || coreEndpointInspector is null)
+        {
+            UpdateOperationalStatus();
+            return false;
+        }
         coreStartup ??= StartCoreAsync();
         bool ready = await coreStartup;
         if (!ready)
@@ -304,16 +363,74 @@ public sealed class ModEntry : Mod
     {
         try
         {
+            CoreEndpointStatus endpoint = await coreEndpointInspector!.InspectAsync(
+                coreLaunchOptions!.BaseUri,
+                modLifetime.Token
+            );
+            setupReadiness = SetupReadiness.Evaluate(setupInput with { EndpointStatus = endpoint });
+            UpdateOperationalStatus();
+            if (!setupReadiness.CanAttemptStart)
+            {
+                LogSetupIssue();
+                return false;
+            }
             CoreHostState state = await coreHost.StartAsync(coreLaunchOptions, modLifetime.Token);
             string ownership = state == CoreHostState.Owned ? "bundled process" : "existing process";
+            latestSafeError = null;
+            UpdateOperationalStatus();
             Monitor.Log($"EchoFarm core is ready ({ownership}).", LogLevel.Info);
             return true;
         }
-        catch (Exception error)
+        catch (OperationCanceledException) when (modLifetime.IsCancellationRequested)
         {
-            Monitor.Log($"EchoFarm core could not start: {error.Message}", LogLevel.Error);
+            latestSafeError = "shutdown_cancelled";
+            UpdateOperationalStatus();
             return false;
         }
+        catch (Exception error) when (error is CoreUnavailableException or TimeoutException)
+        {
+            setupReadiness = SetupReadiness.CoreFailure(
+                setupReadiness,
+                $"Run the Windows doctor or stop the process using {coreLaunchOptions!.BaseUri.Authority}, then retry."
+            );
+            latestSafeError = error is TimeoutException ? "core_start_timeout" : "core_start_failed";
+            UpdateOperationalStatus();
+            Monitor.Log($"EchoFarm core could not start [{latestSafeError}]. Press {config.MemoryKey} for the corrective action.", LogLevel.Error);
+            return false;
+        }
+    }
+
+    private void UpdateOperationalStatus()
+    {
+        string sessionState = session?.State.ToString() ?? "Unavailable";
+        string? safeError = latestSafeError ?? session?.LastError?.GetType().Name;
+        memoryOverlay.UpdateStatus(SetupReadiness.BuildStatusLines(new SetupStatusView(
+            setupReadiness,
+            coreHost?.State ?? CoreHostState.Stopped,
+            sessionState,
+            databasePath,
+            config.EnableExperimentalHarvest,
+            safeError
+        )));
+    }
+
+    private void LogSetupIssue() => Monitor.Log(
+        $"EchoFarm setup [{setupReadiness.Code}]: {setupReadiness.Message} {setupReadiness.Correction}",
+        setupReadiness.CanAttemptStart ? LogLevel.Info : LogLevel.Error
+    );
+
+    private string ResolveCoreExecutablePath(string modDirectory)
+    {
+        string configured = string.IsNullOrWhiteSpace(config.CoreExecutablePath)
+            ? Path.Combine("core", OperatingSystem.IsWindows() ? "echofarm-core.exe" : "echofarm-core")
+            : config.CoreExecutablePath;
+        return Path.GetFullPath(Path.IsPathRooted(configured) ? configured : Path.Combine(modDirectory, configured));
+    }
+
+    private string ResolveDatabasePath(string workingDirectory)
+    {
+        string configured = string.IsNullOrWhiteSpace(config.DatabasePath) ? "echofarm.db" : config.DatabasePath;
+        return Path.GetFullPath(Path.IsPathRooted(configured) ? configured : Path.Combine(workingDirectory, configured));
     }
 
     private void OnProcessExit(object? sender, EventArgs e)

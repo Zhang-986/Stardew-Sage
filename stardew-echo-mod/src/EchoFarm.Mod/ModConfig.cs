@@ -8,7 +8,7 @@ internal sealed class ModConfig
     public bool AutoStartCore { get; set; } = true;
     public string? CoreExecutablePath { get; set; }
     public int CoreStartupTimeoutSeconds { get; set; } = 10;
-    public string ModelMode { get; set; } = "openai";
+    public string ModelMode { get; set; } = "fixture";
     public string? ModelBaseUrl { get; set; }
     public string? ModelName { get; set; }
     public string? DatabasePath { get; set; }

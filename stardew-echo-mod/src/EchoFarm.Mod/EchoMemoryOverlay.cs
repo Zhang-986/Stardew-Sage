@@ -9,6 +9,8 @@ namespace EchoFarm.Mod;
 
 internal sealed class EchoMemoryOverlay
 {
+    private IReadOnlyList<string> statusLines = Array.Empty<string>();
+    private IReadOnlyList<string> memoryLines = Array.Empty<string>();
     private IReadOnlyList<string> lines = Array.Empty<string>();
 
     public bool Visible { get; private set; }
@@ -18,12 +20,27 @@ internal sealed class EchoMemoryOverlay
     public void Hide()
     {
         Visible = false;
-        lines = Array.Empty<string>();
     }
 
-    public void Update(EchoMemoryView view) => lines = EchoMemoryPresenter.BuildLines(view);
+    public void UpdateStatus(IReadOnlyList<string> status)
+    {
+        statusLines = status ?? Array.Empty<string>();
+        Rebuild();
+    }
 
-    public void ShowError(string message) => lines = new[] { "Echo memory offline", message };
+    public void Update(EchoMemoryView view)
+    {
+        memoryLines = EchoMemoryPresenter.BuildLines(view);
+        Rebuild();
+    }
+
+    public void ShowError(string message)
+    {
+        memoryLines = new[] { "Echo memory offline", message };
+        Rebuild();
+    }
+
+    private void Rebuild() => lines = Array.AsReadOnly(statusLines.Concat(memoryLines).Take(14).ToArray());
 
     public void Draw(SpriteBatch spriteBatch)
     {

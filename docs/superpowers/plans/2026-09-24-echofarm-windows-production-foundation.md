@@ -150,11 +150,11 @@ git commit -m "feat(echofarm): gate uncertified game actions"
 - Modify: `stardew-echo-mod/src/EchoFarm.Mod/ModEntry.cs`
 - Modify: `stardew-echo-mod/src/EchoFarm.Mod/EchoMemoryOverlay.cs`
 
-- [ ] **Step 1: Write failing readiness tests**
+- [x] **Step 1: Write failing readiness tests**
 
 Cover fixture-ready, OpenAI-ready, missing endpoint, missing model, missing API key, missing bundled executable, invalid loopback URL, and an occupied/unhealthy endpoint. Require stable issue codes and redacted messages that never contain the key value.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -165,17 +165,17 @@ cd stardew-echo-mod
 
 Expected: compilation failure because `SetupReadiness` does not exist.
 
-- [ ] **Step 3: Implement readiness evaluation**
+- [x] **Step 3: Implement readiness evaluation**
 
 Introduce a pure bridge component returning one of `ready`, `demo_mode`, `missing_model_url`, `missing_model_name`, `missing_api_key`, `missing_core`, or `invalid_core_url`. It accepts only an `ApiKeyPresent` boolean and therefore cannot log the key.
 
 Change the initial Mod configuration to `ModelMode = "fixture"`. Before process startup, evaluate readiness; refuse invalid OpenAI configuration without spawning a process. Keep fixture behavior explicit and expose a `DEMO` marker.
 
-- [ ] **Step 4: Expose status through F9 and player messages**
+- [x] **Step 4: Expose status through F9 and player messages**
 
 F9 must open even when no memory exists. The overlay starts with setup mode, core health, session state, database location, harvesting capability, and the latest safe error. Startup failures include a corrective instruction rather than only `Core unavailable`.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run the full .NET suite and commit:
 
