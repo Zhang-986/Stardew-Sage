@@ -20,8 +20,8 @@ type actor interface {
 	ProposeRecovery(ctx context.Context, input intelligence.ReplanInput) (domain.ActionProposal, error)
 }
 
-type experienceLearner interface {
-	LearnFromResult(context.Context, domain.WorldSnapshot, domain.ActionResult) (domain.ExperienceOutcome, error)
+type reflectionProcessor interface {
+	ProcessPending(context.Context, string) (bool, error)
 }
 
 type collaborator interface {
@@ -38,7 +38,7 @@ type Service struct {
 	store        memory.DecisionStore
 	actor        actor
 	collaborator collaborator
-	reflection   experienceLearner
+	reflection   reflectionProcessor
 }
 
 func NewService(store memory.DecisionStore, actor actor, collaborators ...collaborator) (*Service, error) {
@@ -58,7 +58,7 @@ func NewService(store memory.DecisionStore, actor actor, collaborators ...collab
 	return &Service{store: store, actor: actor, collaborator: collaborationService}, nil
 }
 
-func NewReflectiveService(store memory.DecisionStore, actor actor, collaborator collaborator, reflection experienceLearner) (*Service, error) {
+func NewReflectiveService(store memory.DecisionStore, actor actor, collaborator collaborator, reflection reflectionProcessor) (*Service, error) {
 	if collaborator == nil {
 		return nil, errors.New("collaborator is required")
 	}
@@ -79,6 +79,12 @@ func (s *Service) NextAction(ctx context.Context, saveID string, snapshot domain
 }
 
 func (s *Service) NextDecision(ctx context.Context, saveID string, snapshot domain.WorldSnapshot) (domain.ActionDecision, error) {
+	if err := validateSnapshotForSave(saveID, snapshot); err != nil {
+		return domain.ActionDecision{}, err
+	}
+	if s.reflection != nil {
+		_, _ = s.reflection.ProcessPending(ctx, saveID)
+	}
 	if existing, err := s.store.GetDecision(ctx, saveID, snapshot.SessionID, snapshot.SnapshotVersion); err == nil {
 		return decisionFromRecord(existing), nil
 	} else if !errors.Is(err, memory.ErrNotFound) {
@@ -113,18 +119,21 @@ func (s *Service) HandleResultDecision(ctx context.Context, saveID string, snaps
 	if err := result.Validate(); err != nil {
 		return domain.ActionDecision{}, fmt.Errorf("validate action result: %w", err)
 	}
-	if result.SaveID != saveID || result.SaveID != snapshot.SaveID || result.SessionID != snapshot.SessionID {
+	if err := validateSnapshotForSave(saveID, snapshot); err != nil {
+		return domain.ActionDecision{}, err
+	}
+	if result.SaveID != saveID || result.SessionID != snapshot.SessionID {
 		return domain.ActionDecision{}, errors.New("action result identity does not match current snapshot")
 	}
 	if snapshot.SnapshotVersion <= result.SnapshotVersion {
 		return domain.ActionDecision{}, errors.New("current snapshot must be newer than action result")
 	}
-	attached, err := s.store.AttachDecisionResult(ctx, result, snapshot)
+	_, err := s.store.AttachDecisionResult(ctx, result, snapshot)
 	if err != nil {
 		return domain.ActionDecision{}, fmt.Errorf("record action result: %w", err)
 	}
-	if attached && result.Status == domain.ActionFailed && s.reflection != nil {
-		_, _ = s.reflection.LearnFromResult(ctx, snapshot, result)
+	if s.reflection != nil {
+		_, _ = s.reflection.ProcessPending(ctx, saveID)
 	}
 	if existing, err := s.store.GetDecision(ctx, saveID, snapshot.SessionID, snapshot.SnapshotVersion); err == nil && snapshot.SnapshotVersion != result.SnapshotVersion {
 		return decisionFromRecord(existing), nil
@@ -158,11 +167,8 @@ func (s *Service) HandleResultDecision(ctx context.Context, saveID string, snaps
 }
 
 func (s *Service) prepare(ctx context.Context, saveID string, snapshot domain.WorldSnapshot) (intelligence.ActionInput, *domain.HighLevelAction, error) {
-	if saveID == "" || saveID != snapshot.SaveID {
-		return intelligence.ActionInput{}, nil, errors.New("save ID does not match snapshot")
-	}
-	if err := snapshot.Validate(); err != nil {
-		return intelligence.ActionInput{}, nil, fmt.Errorf("validate world snapshot: %w", err)
+	if err := validateSnapshotForSave(saveID, snapshot); err != nil {
+		return intelligence.ActionInput{}, nil, err
 	}
 	model, err := s.store.GetPlayerModel(ctx, saveID)
 	if err != nil {
@@ -193,6 +199,16 @@ func (s *Service) prepare(ctx context.Context, saveID string, snapshot domain.Wo
 		return input, &stop, nil
 	}
 	return input, nil, nil
+}
+
+func validateSnapshotForSave(saveID string, snapshot domain.WorldSnapshot) error {
+	if saveID == "" || saveID != snapshot.SaveID {
+		return errors.New("save ID does not match snapshot")
+	}
+	if err := snapshot.Validate(); err != nil {
+		return fmt.Errorf("validate world snapshot: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) resolveClaimConflict(candidate domain.HighLevelAction, collaborationContext domain.CoordinationContext, snapshot domain.WorldSnapshot) domain.HighLevelAction {

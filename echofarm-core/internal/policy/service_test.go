@@ -117,14 +117,16 @@ type coordinatorStub struct {
 }
 
 type experienceLearnerStub struct {
-	calls  int
-	result domain.ActionResult
+	processCalls  int
+	processSaveID string
+	processResult bool
+	processErr    error
 }
 
-func (s *experienceLearnerStub) LearnFromResult(_ context.Context, _ domain.WorldSnapshot, result domain.ActionResult) (domain.ExperienceOutcome, error) {
-	s.calls++
-	s.result = result
-	return domain.ExperienceOutcome{}, nil
+func (s *experienceLearnerStub) ProcessPending(_ context.Context, saveID string) (bool, error) {
+	s.processCalls++
+	s.processSaveID = saveID
+	return s.processResult, s.processErr
 }
 
 func (s *coordinatorStub) Prepare(context.Context, domain.WorldSnapshot, domain.PlayerModel) (domain.CoordinationContext, error) {
@@ -281,14 +283,14 @@ func TestNextDecisionStopsWhenPolicyConfidenceIsLow(t *testing.T) {
 	}
 }
 
-func TestHandleResultReflectsFailureBeforeReplanning(t *testing.T) {
+func TestHandleResultProcessesPendingReflectionBeforeReplanning(t *testing.T) {
 	executed := validSnapshot()
 	current := executed
 	current.SnapshotVersion++
 	failed := actionFor(executed, domain.ActionHarvestTarget, "crop-mature")
 	replanned := actionFor(current, domain.ActionMoveTo, "crop-mature")
 	store := validPolicyStore()
-	reflection := &experienceLearnerStub{}
+	reflection := &experienceLearnerStub{processResult: true}
 	actor := &actorStub{replanAction: replanned}
 	service, err := NewReflectiveService(store, actor, noOpCollaborator{}, reflection)
 	if err != nil {
@@ -302,12 +304,15 @@ func TestHandleResultReflectsFailureBeforeReplanning(t *testing.T) {
 	if _, err := service.HandleResult(context.Background(), current.SaveID, current, result); err != nil {
 		t.Fatal(err)
 	}
-	if reflection.calls != 1 || reflection.result.ErrorCode != "path_blocked" {
-		t.Fatalf("reflection calls/result = %d / %+v", reflection.calls, reflection.result)
+	if reflection.processCalls != 1 || reflection.processSaveID != current.SaveID {
+		t.Fatalf("process calls/save = %d/%q", reflection.processCalls, reflection.processSaveID)
+	}
+	if store.attachedSnapshot == nil || !reflect.DeepEqual(*store.attachedSnapshot, current) {
+		t.Fatalf("attached snapshot = %+v, want %+v", store.attachedSnapshot, current)
 	}
 }
 
-func TestHandleResultDoesNotReflectDuplicateFailure(t *testing.T) {
+func TestHandleResultChecksDurableReflectionOnDuplicateFailure(t *testing.T) {
 	executed := validSnapshot()
 	current := executed
 	current.SnapshotVersion++
@@ -331,8 +336,47 @@ func TestHandleResultDoesNotReflectDuplicateFailure(t *testing.T) {
 	if _, err := service.HandleResult(context.Background(), current.SaveID, current, result); err != nil {
 		t.Fatal(err)
 	}
-	if reflection.calls != 1 {
-		t.Fatalf("reflection calls = %d, want 1", reflection.calls)
+	if reflection.processCalls != 2 {
+		t.Fatalf("process calls = %d, want 2", reflection.processCalls)
+	}
+}
+
+func TestNextDecisionRetriesPendingReflectionWithoutBlockingOnFailure(t *testing.T) {
+	snapshot := validSnapshot()
+	store := validPolicyStore()
+	reflection := &experienceLearnerStub{processResult: true, processErr: intelligence.ErrModelUnavailable}
+	actor := &actorStub{nextProposal: domain.ActionProposal{
+		Primary: actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature"), ModelConfidence: 0.8,
+	}}
+	service, err := NewReflectiveService(store, actor, noOpCollaborator{}, reflection)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decision, err := service.NextDecision(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatalf("NextDecision() error = %v", err)
+	}
+	if reflection.processCalls != 1 || decision.Action.Kind != domain.ActionHarvestTarget {
+		t.Fatalf("process calls/decision = %d/%+v", reflection.processCalls, decision)
+	}
+}
+
+func TestNextDecisionDoesNotProcessReflectionForMismatchedSave(t *testing.T) {
+	snapshot := validSnapshot()
+	store := validPolicyStore()
+	reflection := &experienceLearnerStub{processResult: true}
+	actor := &actorStub{nextAction: actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature")}
+	service, err := NewReflectiveService(store, actor, noOpCollaborator{}, reflection)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := service.NextDecision(context.Background(), "another-farm", snapshot); err == nil {
+		t.Fatal("NextDecision() error = nil, want save mismatch")
+	}
+	if reflection.processCalls != 0 {
+		t.Fatalf("reflection process calls = %d, want 0", reflection.processCalls)
 	}
 }
 

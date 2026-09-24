@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/domain"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/intelligence"
@@ -22,6 +23,9 @@ type experienceStore interface {
 	SaveExperienceOutcome(context.Context, domain.ExperienceOutcome) error
 	ListPolicyExperiences(context.Context, string) ([]domain.PolicyExperience, error)
 	GetLatestDecision(context.Context, string) (domain.DecisionRecord, error)
+	ClaimReflectionJob(context.Context, string, time.Duration) (memory.ReflectionJobLease, bool, error)
+	CompleteReflectionJob(context.Context, memory.ReflectionJobLease) error
+	ReleaseReflectionJob(context.Context, memory.ReflectionJobLease, string) error
 }
 
 type Service struct {
@@ -45,6 +49,33 @@ func FailureSourceID(result domain.ActionResult) string {
 
 func CorrectionSourceID(correction domain.PlayerCorrection) string {
 	return correction.ID
+}
+
+func (s *Service) ProcessPending(ctx context.Context, saveID string) (bool, error) {
+	lease, ok, err := s.store.ClaimReflectionJob(ctx, saveID, 45*time.Second)
+	if err != nil || !ok {
+		return false, err
+	}
+	if FailureSourceID(lease.Job.Result) != lease.Job.SourceID {
+		err := errors.New("reflection job source does not match its action result")
+		releaseErr := s.store.ReleaseReflectionJob(context.WithoutCancel(ctx), lease, memory.ReflectionFailureInternal)
+		return true, errors.Join(err, releaseErr)
+	}
+	_, err = s.LearnFromResult(ctx, lease.Job.Snapshot, lease.Job.Result)
+	if err != nil {
+		failureCode := memory.ReflectionFailureInternal
+		if ctx.Err() != nil {
+			failureCode = memory.ReflectionFailureCanceled
+		} else if errors.Is(err, intelligence.ErrModelUnavailable) {
+			failureCode = memory.ReflectionFailureModelUnavailable
+		}
+		releaseErr := s.store.ReleaseReflectionJob(context.WithoutCancel(ctx), lease, failureCode)
+		return true, errors.Join(err, releaseErr)
+	}
+	if err := s.store.CompleteReflectionJob(context.WithoutCancel(ctx), lease); err != nil {
+		return true, err
+	}
+	return true, nil
 }
 
 func (s *Service) LearnFromResult(ctx context.Context, snapshot domain.WorldSnapshot, result domain.ActionResult) (domain.ExperienceOutcome, error) {

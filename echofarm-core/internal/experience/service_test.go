@@ -3,7 +3,9 @@ package experience
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/domain"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/intelligence"
@@ -31,6 +33,10 @@ type experienceStoreStub struct {
 	canonicalWinner *domain.ExperienceOutcome
 	latestDecision  domain.DecisionRecord
 	latestErr       error
+	pendingJob      *memory.ReflectionJob
+	leaseActive     bool
+	jobCompleted    bool
+	releaseCodes    []string
 }
 
 func (s *experienceStoreStub) GetPlayerModel(context.Context, string) (domain.PlayerModel, error) {
@@ -72,6 +78,48 @@ func (s *experienceStoreStub) GetLatestDecision(context.Context, string) (domain
 		return domain.DecisionRecord{}, memory.ErrNotFound
 	}
 	return s.latestDecision, nil
+}
+
+func (s *experienceStoreStub) ClaimReflectionJob(_ context.Context, saveID string, _ time.Duration) (memory.ReflectionJobLease, bool, error) {
+	if s.pendingJob == nil || s.pendingJob.SaveID != saveID || s.leaseActive || s.jobCompleted {
+		return memory.ReflectionJobLease{}, false, nil
+	}
+	s.leaseActive = true
+	return memory.ReflectionJobLease{Job: *s.pendingJob, Token: "lease-token"}, true, nil
+}
+
+func (s *experienceStoreStub) CompleteReflectionJob(_ context.Context, lease memory.ReflectionJobLease) error {
+	if !s.leaseActive || lease.Token != "lease-token" {
+		return memory.ErrReflectionLeaseLost
+	}
+	s.leaseActive = false
+	s.jobCompleted = true
+	return nil
+}
+
+func (s *experienceStoreStub) ReleaseReflectionJob(_ context.Context, lease memory.ReflectionJobLease, failureCode string) error {
+	if !s.leaseActive || lease.Token != "lease-token" {
+		return memory.ErrReflectionLeaseLost
+	}
+	s.leaseActive = false
+	s.pendingJob.AttemptCount++
+	s.releaseCodes = append(s.releaseCodes, failureCode)
+	return nil
+}
+
+type sequenceReflectorStub struct {
+	observation domain.ExperienceObservation
+	errors      []error
+	calls       int
+}
+
+func (s *sequenceReflectorStub) Reflect(context.Context, intelligence.ReflectionInput) (domain.ExperienceObservation, error) {
+	index := s.calls
+	s.calls++
+	if index < len(s.errors) && s.errors[index] != nil {
+		return domain.ExperienceObservation{}, s.errors[index]
+	}
+	return s.observation, nil
 }
 
 func TestLearnFromResultPersistsGeneralizedExperience(t *testing.T) {
@@ -201,6 +249,124 @@ func TestLearnFromResultDoesNotWriteWhenModelUnavailable(t *testing.T) {
 	}
 }
 
+func TestProcessPendingReleasesModelFailureAndRetries(t *testing.T) {
+	snapshot, result := reflectiveFailure()
+	sourceID := FailureSourceID(result)
+	store := &experienceStoreStub{
+		model: domain.PlayerModel{SaveID: snapshot.SaveID, Revision: 2, EnergyReserve: 40},
+		pendingJob: &memory.ReflectionJob{
+			SaveID: snapshot.SaveID, SourceID: sourceID, Snapshot: snapshot, Result: result,
+		},
+	}
+	reflector := &sequenceReflectorStub{
+		observation: experienceObservation("chest-east", sourceID),
+		errors:      []error{intelligence.ErrModelUnavailable},
+	}
+	service, err := NewService(store, reflector)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	processed, err := service.ProcessPending(context.Background(), snapshot.SaveID)
+	if !processed || !errors.Is(err, intelligence.ErrModelUnavailable) {
+		t.Fatalf("first ProcessPending() = %v, %v", processed, err)
+	}
+	if store.leaseActive || store.pendingJob.AttemptCount != 1 || len(store.releaseCodes) != 1 || store.releaseCodes[0] != memory.ReflectionFailureModelUnavailable {
+		t.Fatalf("released job = %+v, active=%v, codes=%v", store.pendingJob, store.leaseActive, store.releaseCodes)
+	}
+
+	processed, err = service.ProcessPending(context.Background(), snapshot.SaveID)
+	if err != nil || !processed || !store.jobCompleted {
+		t.Fatalf("retry ProcessPending() = %v, %v; completed=%v", processed, err, store.jobCompleted)
+	}
+	if reflector.calls != 2 || store.saveCalls != 1 {
+		t.Fatalf("reflect/save calls = %d/%d, want 2/1", reflector.calls, store.saveCalls)
+	}
+	processed, err = service.ProcessPending(context.Background(), snapshot.SaveID)
+	if err != nil || processed || reflector.calls != 2 {
+		t.Fatalf("completed ProcessPending() = %v, %v; reflection calls=%d", processed, err, reflector.calls)
+	}
+}
+
+func TestProcessPendingCompletesFromCanonicalOutcomeWithoutModelCall(t *testing.T) {
+	snapshot, result := reflectiveFailure()
+	sourceID := FailureSourceID(result)
+	want := domain.ExperienceOutcome{
+		SourceID: sourceID, Source: domain.ExperienceSourceFailure,
+		Experience: policyExperience("exp-existing", domain.TraitContextSunny, "chest-east", 0.7, 1),
+	}
+	store := &experienceStoreStub{
+		model:    domain.PlayerModel{SaveID: snapshot.SaveID, Revision: 2, EnergyReserve: 40},
+		outcomes: map[string]domain.ExperienceOutcome{sourceID: want},
+		pendingJob: &memory.ReflectionJob{
+			SaveID: snapshot.SaveID, SourceID: sourceID, Snapshot: snapshot, Result: result,
+		},
+	}
+	reflector := &reflectorStub{}
+	service, err := NewService(store, reflector)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	processed, err := service.ProcessPending(context.Background(), snapshot.SaveID)
+	if err != nil || !processed || !store.jobCompleted {
+		t.Fatalf("ProcessPending() = %v, %v; completed=%v", processed, err, store.jobCompleted)
+	}
+	if reflector.calls != 0 {
+		t.Fatalf("reflector calls = %d, want 0", reflector.calls)
+	}
+}
+
+func TestProcessPendingRecoversPersistedJobAfterSQLiteReopen(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "echo.db")
+	store, err := memory.OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, result := reflectiveFailure()
+	demonstration, model, skill := reflectionLearningArtifacts(snapshot.SaveID)
+	if err := store.SaveLearning(ctx, demonstration, model, skill); err != nil {
+		t.Fatal(err)
+	}
+	record := domain.DecisionRecord{
+		SaveID: result.SaveID, SessionID: result.SessionID, SnapshotVersion: result.SnapshotVersion,
+		Day: snapshot.Day, ModelRevision: model.Revision,
+		CandidateAction: result.Action, FinalAction: result.Action,
+	}
+	if err := store.SaveDecision(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	if attached, err := store.AttachDecisionResult(ctx, result, snapshot); err != nil || !attached {
+		t.Fatalf("AttachDecisionResult() = %v, %v", attached, err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err = memory.OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	sourceID := FailureSourceID(result)
+	reflector := &reflectorStub{observation: experienceObservation("chest-east", sourceID)}
+	service, err := NewService(store, reflector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	processed, err := service.ProcessPending(ctx, snapshot.SaveID)
+	if err != nil || !processed {
+		t.Fatalf("ProcessPending() = %v, %v", processed, err)
+	}
+	if _, err := store.GetExperienceOutcome(ctx, snapshot.SaveID, sourceID); err != nil {
+		t.Fatalf("GetExperienceOutcome() error = %v", err)
+	}
+	if _, ok, err := store.ClaimReflectionJob(ctx, snapshot.SaveID, time.Minute); err != nil || ok {
+		t.Fatalf("completed persisted job claim = %v, %v; want false, nil", ok, err)
+	}
+}
+
 func reflectiveFailure() (domain.WorldSnapshot, domain.ActionResult) {
 	snapshot := domain.WorldSnapshot{
 		SaveID: "farm-1", SessionID: "echo-day-4", SnapshotVersion: 2,
@@ -232,4 +398,22 @@ func reflectiveCorrection() domain.PlayerCorrection {
 		},
 		ObservedAtTick: 200,
 	}
+}
+
+func reflectionLearningArtifacts(saveID string) (domain.Demonstration, domain.PlayerModel, domain.SkillProgram) {
+	eventID := "reflection-demo:harvest"
+	demonstration := domain.Demonstration{
+		ID: "reflection-demo", SaveID: saveID, SessionID: "teaching", Day: 3,
+		Weather: domain.WeatherSunny, StartedAt: 1, EndedAt: 2,
+		Events: []domain.DemonstrationEvent{{
+			ID: eventID, Kind: domain.EventHarvest, Tick: 1, TargetID: "crop-1", Success: true,
+		}},
+	}
+	model := domain.PlayerModel{SaveID: saveID, Revision: 1, LearnedThroughDay: 3, EnergyReserve: 40}
+	skill := domain.SkillProgram{
+		Name: "morning-farm-routine", Revision: 1, Goal: "care for crops", TargetSelector: "actionable_crops",
+		Steps:             []domain.SkillStep{{Action: domain.ActionHarvestTarget, TargetSelector: "mature_crops"}},
+		SuccessConditions: []string{"all crops cared for"}, EvidenceEventIDs: []string{eventID},
+	}
+	return demonstration, model, skill
 }
