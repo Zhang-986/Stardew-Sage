@@ -17,10 +17,10 @@ Generated files are ignored by Git under `artifacts/echofarm-core-0.3.0/`.
 
 | File | Approximate size | SHA-256 |
 | --- | ---: | --- |
-| `echofarm-core-linux-x64` | 24 MB | `70ede390ee308c7d127b1a8cff355a4375bc05957ac83407f8eefbcd0693790a` |
-| `echofarm-core-macos-arm64` | 21 MB | `18b7150b8d135390f37330d5b31cfb2f7710f8659799a5f056284990e3075f9c` |
-| `echofarm-core-macos-x64` | 25 MB | `bc2001e791753a3fd002a1b4d14aa37c4b583d911f3a1da2f7e1c753ac2eafaa` |
-| `echofarm-core-windows-x64.exe` | 25 MB | `6bd3e831cb6a964c15d03541ec732ad40556e5329e9b5d7477651d253feac053` |
+| `echofarm-core-linux-x64` | 24 MB | `c220dbafc72727a9acce3c6bb4b6ff5739be855f0f351477adc43f2a3f373dfd` |
+| `echofarm-core-macos-arm64` | 21 MB | `95c2aad061426e5ad7ca56ec8f6a2d3439faf7f021cba755b8c6f87a2fcb8db7` |
+| `echofarm-core-macos-x64` | 25 MB | `2610b0df286ab2a31d22bd86b7c3cecef4f777079634629c8853bce274f3c2b5` |
+| `echofarm-core-windows-x64.exe` | 25 MB | `eb0afd58e6564eff25aa8cfce6e12c38cfa44e73abcaf199844a2ba0d26754f5` |
 
 ## External publication gates
 
