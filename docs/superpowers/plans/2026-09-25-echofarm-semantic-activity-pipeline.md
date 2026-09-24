@@ -189,11 +189,11 @@ git commit -m "feat(ai): learn evidence-backed lifestyle activities"
 - Modify: `stardew-echo-mod/tests/EchoFarm.Bridge.Tests/Runtime/EchoMemoryPresenterTests.cs`
 - Modify: `stardew-echo-mod/tests/EchoFarm.Bridge.Tests/Contracts/JsonContractTests.cs`
 
-- [ ] **Step 1: Write failing presenter tests**
+- [x] **Step 1: Write failing presenter tests**
 
 Create a memory view containing stable `activity_order`, `resource_priority`, `mine_exit_policy`, and `fishing_context` traits. Assert F9 renders compact Chinese labels, confidence, and no raw evidence IDs, item IDs, prompt text, or provider content. Keep the ten-line panel bound.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -204,11 +204,11 @@ dotnet test EchoFarm.sln --filter 'FullyQualifiedName~EchoMemoryPresenterTests|F
 
 Expected: enum deserialization or label assertions fail.
 
-- [ ] **Step 3: Add the C# trait contracts and labels**
+- [x] **Step 3: Add the C# trait contracts and labels**
 
 Map the new keys to `活动顺序`, `资源偏好`, `下矿退出习惯`, and `钓鱼场景`. Continue to show only the two strongest stable traits so the overlay remains bounded.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 Run the full .NET suite and commit:
 

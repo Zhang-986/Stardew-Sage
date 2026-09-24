@@ -124,6 +124,25 @@ public sealed class JsonContractTests
     }
 
     [Fact]
+    public void LifestyleEnumsUseCrossLanguageSnakeCaseValues()
+    {
+        const string json = """
+            {
+              "saveId":"farm-1","modelRevision":2,"learnedThroughDay":2,
+              "stableTraits":[{
+                "key":"resource_priority","value":"388","context":"any",
+                "confidence":0.8,"observationCount":2,"contradictionCount":0,
+                "firstSeenDay":1,"lastSeenDay":2,"evidenceRefs":["tree-1"]
+              }]
+            }
+            """;
+
+        EchoMemoryView view = EchoJson.Deserialize<EchoMemoryView>(json);
+        Assert.Equal(PreferenceKey.ResourcePriority, view.StableTraits[0].Key);
+        Assert.Contains("resource_priority", EchoJson.Serialize(view), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReflectiveDecisionAndCorrectionContractsMatchGoFields()
     {
         const string responseJson = """

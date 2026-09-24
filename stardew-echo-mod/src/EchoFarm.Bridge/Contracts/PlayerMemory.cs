@@ -5,7 +5,11 @@ public enum BehaviorKind
     Watering,
     Refilling,
     Harvesting,
-    Depositing
+    Depositing,
+    Woodcutting,
+    Mining,
+    MineTraversal,
+    Fishing
 }
 
 public enum PreferenceKey
@@ -13,7 +17,11 @@ public enum PreferenceKey
     TaskOrder,
     PreferredChest,
     EnergyReserve,
-    RouteStyle
+    RouteStyle,
+    ActivityOrder,
+    ResourcePriority,
+    MineExitPolicy,
+    FishingContext
 }
 
 public sealed class ObservedPreference : StrictContract

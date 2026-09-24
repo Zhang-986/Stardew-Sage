@@ -57,6 +57,10 @@ public static class EchoMemoryPresenter
         PreferenceKey.PreferredChest => "常用箱子",
         PreferenceKey.EnergyReserve => "体力保留",
         PreferenceKey.RouteStyle => "行动风格",
+        PreferenceKey.ActivityOrder => "活动顺序",
+        PreferenceKey.ResourcePriority => "资源偏好",
+        PreferenceKey.MineExitPolicy => "下矿退出习惯",
+        PreferenceKey.FishingContext => "钓鱼场景",
         _ => key.ToString()
     };
 

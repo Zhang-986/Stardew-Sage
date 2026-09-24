@@ -101,4 +101,37 @@ public sealed class EchoMemoryPresenterTests
         Assert.Single(lines);
         Assert.Contains("Echo v1", lines[0], StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void BuildLinesExplainsLifestyleTraitsWithoutRawEvidence()
+    {
+        var view = new EchoMemoryView
+        {
+            SaveId = "farm-1",
+            ModelRevision = 4,
+            LearnedThroughDay = 4,
+            StableTraits = new[]
+            {
+                new TraitMemory
+                {
+                    Key = PreferenceKey.ActivityOrder, Value = "woodcutting,mining,fishing",
+                    Context = TraitContext.Any, Confidence = 0.84, ObservationCount = 3,
+                    EvidenceRefs = new[] { "secret-event-id" }
+                },
+                new TraitMemory
+                {
+                    Key = PreferenceKey.MineExitPolicy, Value = "leave_before_low_health",
+                    Context = TraitContext.Any, Confidence = 0.78, ObservationCount = 2,
+                    EvidenceRefs = new[] { "mine-event-id" }
+                }
+            }
+        };
+
+        IReadOnlyList<string> lines = EchoMemoryPresenter.BuildLines(view);
+
+        Assert.Contains(lines, line => line.Contains("活动顺序", StringComparison.Ordinal) && line.Contains("84%", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("下矿退出习惯", StringComparison.Ordinal) && line.Contains("78%", StringComparison.Ordinal));
+        Assert.DoesNotContain(lines, line => line.Contains("secret-event-id", StringComparison.Ordinal) || line.Contains("mine-event-id", StringComparison.Ordinal));
+        Assert.True(lines.Count <= 10);
+    }
 }
