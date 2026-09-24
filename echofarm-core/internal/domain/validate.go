@@ -591,7 +591,8 @@ func validTargetKind(kind string) bool {
 
 func validPreferenceKey(key PreferenceKey) bool {
 	switch key {
-	case PreferenceTaskOrder, PreferencePreferredChest, PreferenceEnergyReserve, PreferenceRouteStyle:
+	case PreferenceTaskOrder, PreferencePreferredChest, PreferenceEnergyReserve, PreferenceRouteStyle,
+		PreferenceActivityOrder, PreferenceResourcePriority, PreferenceMineExitPolicy, PreferenceFishingContext:
 		return true
 	default:
 		return false

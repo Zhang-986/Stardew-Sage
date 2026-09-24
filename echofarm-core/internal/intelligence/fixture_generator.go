@@ -203,14 +203,20 @@ func fixtureLearningInference(input LearningInput) LearningInference {
 	}
 
 	order := make([]domain.BehaviorKind, 0, len(input.Segments))
+	activityOrder := make([]domain.BehaviorKind, 0, len(input.Segments))
 	steps := make([]domain.SkillStep, 0, len(input.Segments))
 	seen := make(map[domain.BehaviorKind]struct{})
+	seenActivity := make(map[domain.BehaviorKind]struct{})
 	preferredChest := ""
 	for _, segment := range input.Segments {
-		if _, exists := seen[segment.Kind]; !exists {
-			seen[segment.Kind] = struct{}{}
-			order = append(order, segment.Kind)
-			if step, ok := fixtureStep(segment.Kind); ok {
+		if _, exists := seenActivity[segment.Kind]; !exists {
+			seenActivity[segment.Kind] = struct{}{}
+			activityOrder = append(activityOrder, segment.Kind)
+		}
+		if step, ok := fixtureStep(segment.Kind); ok {
+			if _, exists := seen[segment.Kind]; !exists {
+				seen[segment.Kind] = struct{}{}
+				order = append(order, segment.Kind)
 				steps = append(steps, step)
 			}
 		}
@@ -227,6 +233,30 @@ func fixtureLearningInference(input LearningInput) LearningInference {
 		Key: domain.PreferenceTaskOrder, Value: behaviorOrderValue(order), Context: context,
 		SupportingEventIDs: evidence, Strength: 0.7,
 	}}
+	if hasExtendedActivity(activityOrder) {
+		observations = append(observations, domain.TraitObservation{
+			Key: domain.PreferenceActivityOrder, Value: behaviorOrderValue(activityOrder), Context: context,
+			SupportingEventIDs: evidence, Strength: 0.7,
+		})
+	}
+	if itemID, itemEvidence := leadingResource(input.Segments); itemID != "" {
+		observations = append(observations, domain.TraitObservation{
+			Key: domain.PreferenceResourcePriority, Value: itemID, Context: domain.TraitContextAny,
+			SupportingEventIDs: itemEvidence, Strength: 0.65,
+		})
+	}
+	if segment, ok := firstSegment(input.Segments, domain.BehaviorMineTraversal); ok {
+		observations = append(observations, domain.TraitObservation{
+			Key: domain.PreferenceMineExitPolicy, Value: "observed_mine_progression", Context: domain.TraitContextAny,
+			SupportingEventIDs: append([]string(nil), segment.EventIDs...), Strength: 0.55,
+		})
+	}
+	if segment, ok := firstSegment(input.Segments, domain.BehaviorFishing); ok {
+		observations = append(observations, domain.TraitObservation{
+			Key: domain.PreferenceFishingContext, Value: string(context), Context: context,
+			SupportingEventIDs: append([]string(nil), segment.EventIDs...), Strength: 0.6,
+		})
+	}
 	if preferredChest != "" {
 		observations = append(observations, domain.TraitObservation{
 			Key: domain.PreferencePreferredChest, Value: preferredChest, Context: domain.TraitContextAny,
@@ -460,6 +490,46 @@ func behaviorOrderValue(order []domain.BehaviorKind) string {
 		values = append(values, string(kind))
 	}
 	return strings.Join(values, ",")
+}
+
+func hasExtendedActivity(order []domain.BehaviorKind) bool {
+	for _, kind := range order {
+		switch kind {
+		case domain.BehaviorWoodcutting, domain.BehaviorMining, domain.BehaviorMineTraversal, domain.BehaviorFishing:
+			return true
+		}
+	}
+	return false
+}
+
+func leadingResource(segments []domain.BehaviorSegment) (string, []string) {
+	quantities := make(map[string]int)
+	evidence := make(map[string][]string)
+	for _, segment := range segments {
+		for _, item := range segment.ItemDeltas {
+			if item.Quantity <= 0 {
+				continue
+			}
+			quantities[item.ItemID] += item.Quantity
+			evidence[item.ItemID] = append(evidence[item.ItemID], segment.EventIDs...)
+		}
+	}
+	selected := ""
+	for itemID, quantity := range quantities {
+		if selected == "" || quantity > quantities[selected] || (quantity == quantities[selected] && itemID < selected) {
+			selected = itemID
+		}
+	}
+	return selected, append([]string(nil), evidence[selected]...)
+}
+
+func firstSegment(segments []domain.BehaviorSegment, kind domain.BehaviorKind) (domain.BehaviorSegment, bool) {
+	for _, segment := range segments {
+		if segment.Kind == kind {
+			return segment, true
+		}
+	}
+	return domain.BehaviorSegment{}, false
 }
 
 func depositEvidence(events []domain.DemonstrationEvent) []string {

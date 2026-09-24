@@ -152,6 +152,35 @@ func demonstration(id string, day int, weather domain.Weather, eventID string) d
 	}
 }
 
+func TestMergeStrengthensLifestyleTraitAcrossDays(t *testing.T) {
+	firstDemo := demonstration("activity-1", 1, domain.WeatherSunny, "tree-1")
+	firstDemo.SchemaVersion = 2
+	firstDemo.Events[0].Kind = domain.EventChopTree
+	firstDemo.Events[0].TargetKind = "tree"
+	first := domain.TraitObservation{
+		Key: domain.PreferenceResourcePriority, Value: "wood", Context: domain.TraitContextAny,
+		SupportingEventIDs: []string{"tree-1"}, Strength: 0.7,
+	}
+	model, _, err := Merge(nil, firstDemo, []domain.TraitObservation{first})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondDemo := demonstration("activity-2", 2, domain.WeatherSunny, "tree-2")
+	secondDemo.SchemaVersion = 2
+	secondDemo.Events[0].Kind = domain.EventChopTree
+	secondDemo.Events[0].TargetKind = "tree"
+	second := first
+	second.SupportingEventIDs = []string{"tree-2"}
+	merged, _, err := Merge(&model, secondDemo, []domain.TraitObservation{second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trait := findTrait(t, merged.Traits, domain.PreferenceResourcePriority, "wood", domain.TraitContextAny)
+	if trait.ObservationCount != 2 || trait.Confidence <= model.Traits[0].Confidence {
+		t.Fatalf("merged lifestyle trait = %+v", trait)
+	}
+}
+
 func findTrait(t *testing.T, traits []domain.TraitMemory, key domain.PreferenceKey, value string, context domain.TraitContext) domain.TraitMemory {
 	t.Helper()
 	for _, trait := range traits {

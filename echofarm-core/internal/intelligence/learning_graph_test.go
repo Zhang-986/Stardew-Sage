@@ -115,6 +115,34 @@ func TestLearningGraphAcceptsWeatherScopedTrait(t *testing.T) {
 	}
 }
 
+func TestLearningGraphAcceptsEvidenceBackedLifestyleTraits(t *testing.T) {
+	input := learningInput()
+	input.Demonstration.SchemaVersion = 2
+	input.Demonstration.Events = append(input.Demonstration.Events, domain.DemonstrationEvent{
+		ID: "tree-1", Kind: domain.EventChopTree, Tick: 3, TargetID: "tree-1", TargetKind: "tree", Success: true,
+	})
+	input.Segments = append(input.Segments, domain.BehaviorSegment{
+		Kind: domain.BehaviorWoodcutting, EventIDs: []string{"tree-1"}, TargetIDs: []string{"tree-1"},
+	})
+	result := validLearningInference()
+	result.Observations = append(result.Observations, domain.TraitObservation{
+		Key: domain.PreferenceActivityOrder, Value: "watering,woodcutting", Context: domain.TraitContextSunny,
+		SupportingEventIDs: []string{"water-1", "tree-1"}, Strength: 0.7,
+	})
+	graph, err := NewLearningGraph(&stubGenerator{result: result})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := graph.Learn(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Learn() error = %v", err)
+	}
+	if got.Observations[1].Key != domain.PreferenceActivityOrder {
+		t.Fatalf("lifestyle observation = %+v", got.Observations[1])
+	}
+}
+
 func TestLearningGraphWrapsGeneratorFailure(t *testing.T) {
 	graph, err := NewLearningGraph(&stubGenerator{err: errors.New("bad json")})
 	if err != nil {

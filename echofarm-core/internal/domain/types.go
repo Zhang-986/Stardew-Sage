@@ -142,10 +142,14 @@ type Demonstration struct {
 type BehaviorKind string
 
 const (
-	BehaviorWatering   BehaviorKind = "watering"
-	BehaviorRefilling  BehaviorKind = "refilling"
-	BehaviorHarvesting BehaviorKind = "harvesting"
-	BehaviorDepositing BehaviorKind = "depositing"
+	BehaviorWatering      BehaviorKind = "watering"
+	BehaviorRefilling     BehaviorKind = "refilling"
+	BehaviorHarvesting    BehaviorKind = "harvesting"
+	BehaviorDepositing    BehaviorKind = "depositing"
+	BehaviorWoodcutting   BehaviorKind = "woodcutting"
+	BehaviorMining        BehaviorKind = "mining"
+	BehaviorMineTraversal BehaviorKind = "mine_traversal"
+	BehaviorFishing       BehaviorKind = "fishing"
 )
 
 type BehaviorSegment struct {
@@ -159,16 +163,24 @@ type BehaviorSegment struct {
 	EnergyDelta     int          `json:"energyDelta"`
 	WaterDelta      int          `json:"waterDelta"`
 	InventoryDelta  int          `json:"inventoryDelta"`
+	HealthDelta     int          `json:"healthDelta,omitempty"`
+	MineFloorDelta  int          `json:"mineFloorDelta,omitempty"`
+	DurationTicks   int64        `json:"durationTicks,omitempty"`
+	ItemDeltas      []ItemDelta  `json:"itemDeltas,omitempty"`
 	FailureEventIDs []string     `json:"failureEventIds,omitempty"`
 }
 
 type PreferenceKey string
 
 const (
-	PreferenceTaskOrder      PreferenceKey = "task_order"
-	PreferencePreferredChest PreferenceKey = "preferred_chest"
-	PreferenceEnergyReserve  PreferenceKey = "energy_reserve"
-	PreferenceRouteStyle     PreferenceKey = "route_style"
+	PreferenceTaskOrder        PreferenceKey = "task_order"
+	PreferencePreferredChest   PreferenceKey = "preferred_chest"
+	PreferenceEnergyReserve    PreferenceKey = "energy_reserve"
+	PreferenceRouteStyle       PreferenceKey = "route_style"
+	PreferenceActivityOrder    PreferenceKey = "activity_order"
+	PreferenceResourcePriority PreferenceKey = "resource_priority"
+	PreferenceMineExitPolicy   PreferenceKey = "mine_exit_policy"
+	PreferenceFishingContext   PreferenceKey = "fishing_context"
 )
 
 type ObservedPreference struct {

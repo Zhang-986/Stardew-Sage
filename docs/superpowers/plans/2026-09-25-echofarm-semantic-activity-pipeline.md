@@ -149,11 +149,11 @@ git commit -m "feat(mod): classify multi-tick player activities"
 - Modify: `echofarm-core/internal/modeling/merger.go`
 - Modify: `echofarm-core/internal/modeling/merger_test.go`
 
-- [ ] **Step 1: Write failing segment and trait tests**
+- [x] **Step 1: Write failing segment and trait tests**
 
 Prove `chop_tree` maps to one `woodcutting` segment, `break_rock` plus mine transitions map to `mining` and `mine_traversal`, and caught/escaped outcomes map to `fishing`. Assert segment totals preserve health, floor, duration, and normalized item deltas. Add trait-validation and deterministic merge cases for `activity_order`, `resource_priority`, `mine_exit_policy`, and `fishing_context` with real evidence IDs.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -165,15 +165,15 @@ go test ./internal/trace ./internal/modeling ./internal/intelligence \
 
 Expected: compile failures for missing behavior and preference kinds.
 
-- [ ] **Step 3: Extend deterministic segmentation**
+- [x] **Step 3: Extend deterministic segmentation**
 
 Add behavior kinds `woodcutting`, `mining`, `mine_traversal`, and `fishing`. Extend `BehaviorSegment` with `DurationTicks`, `HealthDelta`, `MineFloorDelta`, and normalized `ItemDeltas`. Movement remains route context; adjacent events merge only when their behavior kind matches, and item quantities merge by stable item ID in lexical order.
 
-- [ ] **Step 4: Extend bounded AI learning**
+- [x] **Step 4: Extend bounded AI learning**
 
 Add the four preference keys and update the learning prompt to describe their allowed meaning. The prompt must require evidence IDs and forbid conclusions from movement alone. Update the fixture generator to emit activity order, repeated resource priority, mine exit policy, and fishing context only when corresponding segments exist; it must not add unsupported executable skill steps.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run Go race tests for the affected packages and commit:
 

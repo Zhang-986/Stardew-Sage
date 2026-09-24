@@ -58,6 +58,41 @@ func TestSegmentReturnsNoSegmentsForMovementOnly(t *testing.T) {
 	}
 }
 
+func TestSegmentAggregatesExtendedActivitiesAndItemEvidence(t *testing.T) {
+	events := []domain.DemonstrationEvent{
+		{ID: "tree-1", Kind: domain.EventChopTree, Tick: 80, Position: domain.Position{X: 1, Y: 1},
+			DurationTicks: 80, Delta: domain.StateDelta{EnergyDelta: -10},
+			ItemDeltas: []domain.ItemDelta{{ItemID: "388", Name: "Wood", Quantity: 10}}, Success: true},
+		{ID: "tree-2", Kind: domain.EventChopTree, Tick: 150, Position: domain.Position{X: 2, Y: 1},
+			DurationTicks: 70, Delta: domain.StateDelta{EnergyDelta: -8},
+			ItemDeltas: []domain.ItemDelta{{ItemID: "92", Name: "Sap", Quantity: 2}, {ItemID: "388", Name: "Wood", Quantity: 4}}, Success: true},
+		{ID: "rock-1", Kind: domain.EventBreakRock, Tick: 170, Position: domain.Position{X: 3, Y: 1},
+			DurationTicks: 20, Delta: domain.StateDelta{EnergyDelta: -2},
+			ItemDeltas: []domain.ItemDelta{{ItemID: "382", Name: "Coal", Quantity: 1}}, Success: true},
+		{ID: "floor-1", Kind: domain.EventEnterMineFloor, Tick: 180, Position: domain.Position{X: 4, Y: 1},
+			DurationTicks: 10, Delta: domain.StateDelta{HealthDelta: -5, MineFloorDelta: 1}, Success: true},
+		{ID: "fish-1", Kind: domain.EventFishCaught, Tick: 260, Position: domain.Position{X: 5, Y: 1},
+			DurationTicks: 80, ItemDeltas: []domain.ItemDelta{{ItemID: "128", Name: "Pufferfish", Quantity: 1}}, Success: true},
+	}
+
+	segments := Segment(events)
+
+	if got, want := segmentKinds(segments), []domain.BehaviorKind{
+		domain.BehaviorWoodcutting, domain.BehaviorMining, domain.BehaviorMineTraversal, domain.BehaviorFishing,
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("segment kinds = %v, want %v", got, want)
+	}
+	if segments[0].DurationTicks != 150 || segments[0].EnergyDelta != -18 {
+		t.Fatalf("woodcutting totals = %+v", segments[0])
+	}
+	if got := segments[0].ItemDeltas; len(got) != 2 || got[0].ItemID != "388" || got[0].Quantity != 14 || got[1].ItemID != "92" {
+		t.Fatalf("woodcutting item deltas = %+v", got)
+	}
+	if segments[2].MineFloorDelta != 1 || segments[2].HealthDelta != -5 {
+		t.Fatalf("mine traversal totals = %+v", segments[2])
+	}
+}
+
 func segmentKinds(segments []domain.BehaviorSegment) []domain.BehaviorKind {
 	result := make([]domain.BehaviorKind, 0, len(segments))
 	for _, segment := range segments {
