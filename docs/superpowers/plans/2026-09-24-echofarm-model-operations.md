@@ -70,11 +70,11 @@ git commit -m "feat(ai): expose provider-reported model usage"
 - Create: `echofarm-core/internal/intelligence/tracked_generator.go`
 - Create: `echofarm-core/internal/intelligence/tracked_generator_test.go`
 
-- [ ] **Step 1: Write failing SQLite ledger tests**
+- [x] **Step 1: Write failing SQLite ledger tests**
 
 Cover one atomic reservation per request ID, exact call-budget enforcement under concurrency, completion with reported tokens, unknown-token persistence, session/day aggregation, and restart persistence. Records contain only request ID, purpose, save/session/day, timestamps, status, optional token counts, latency, and a bounded error class.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -85,7 +85,7 @@ go test ./internal/memory -run 'TestSQLiteModelUsage|TestSQLiteConcurrentModelBu
 
 Expected: compile failure because the model usage store methods do not exist.
 
-- [ ] **Step 3: Implement schema and store methods**
+- [x] **Step 3: Implement schema and store methods**
 
 Add a `model_usage` table keyed by `request_id`. `ReserveModelCall` uses one transaction to count already-started/completed calls and sum only provider-reported tokens for the same save/session before insertion. `CompleteModelCall` changes exactly one `started` row to `succeeded` or `failed`. `GetModelUsageSummary` returns both current-session and same-day totals; unknown token metadata remains explicitly unknown.
 
@@ -111,11 +111,11 @@ type ModelUsageStore interface {
 }
 ```
 
-- [ ] **Step 4: Write failing tracked-generator tests**
+- [x] **Step 4: Write failing tracked-generator tests**
 
 Test purpose inference for `learning`, `intent`, `action`, `recovery`, and `reflection`; success/failure recording; redacted error classes; no delegate invocation after a call or reported-token limit is exhausted; and a typed `ErrModelBudgetExceeded`.
 
-- [ ] **Step 5: Implement the decorator**
+- [x] **Step 5: Implement the decorator**
 
 Create `TrackingGenerator` around any `StructuredGenerator`. Generate a cryptographically random local request ID, reserve before the delegate call, use `UsageReportingGenerator` when available, measure elapsed time from an injectable clock, map errors to the closed set `model_unavailable`, `invalid_model_output`, `deadline_exceeded`, `cancelled`, or `internal`, and complete the ledger even when generation fails.
 
@@ -131,7 +131,7 @@ func NewTrackingGenerator(
 ) (*TrackingGenerator, error)
 ```
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run:
 

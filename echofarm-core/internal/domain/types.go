@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 type Weather string
 
 const (
@@ -455,4 +457,78 @@ type EchoMemoryView struct {
 	ActiveSession        *EchoSessionMemory `json:"activeSession,omitempty"`
 	LastDecision         *DecisionRecord    `json:"lastDecision,omitempty"`
 	Experiences          []PolicyExperience `json:"experiences,omitempty"`
+	ModelUsage           *ModelUsageSummary `json:"modelUsage,omitempty"`
+}
+
+type ModelCallPurpose string
+
+const (
+	ModelCallLearning   ModelCallPurpose = "learning"
+	ModelCallIntent     ModelCallPurpose = "intent"
+	ModelCallAction     ModelCallPurpose = "action"
+	ModelCallRecovery   ModelCallPurpose = "recovery"
+	ModelCallReflection ModelCallPurpose = "reflection"
+)
+
+type ModelCallStatus string
+
+const (
+	ModelCallStarted   ModelCallStatus = "started"
+	ModelCallSucceeded ModelCallStatus = "succeeded"
+	ModelCallFailed    ModelCallStatus = "failed"
+)
+
+const (
+	ModelErrorUnavailable   = "model_unavailable"
+	ModelErrorInvalidOutput = "invalid_model_output"
+	ModelErrorDeadline      = "deadline_exceeded"
+	ModelErrorCanceled      = "cancelled"
+	ModelErrorInternal      = "internal"
+)
+
+type ModelBudgetLimits struct {
+	MaxCallsPerSession          int `json:"maxCallsPerSession"`
+	MaxReportedTokensPerSession int `json:"maxReportedTokensPerSession"`
+}
+
+type ModelCallRecord struct {
+	RequestID        string           `json:"requestId"`
+	SaveID           string           `json:"saveId"`
+	SessionID        string           `json:"sessionId"`
+	Day              int              `json:"day"`
+	Purpose          ModelCallPurpose `json:"purpose"`
+	StartedAt        time.Time        `json:"startedAt"`
+	FinishedAt       time.Time        `json:"finishedAt,omitempty"`
+	Status           ModelCallStatus  `json:"status"`
+	PromptTokens     *int             `json:"promptTokens,omitempty"`
+	CompletionTokens *int             `json:"completionTokens,omitempty"`
+	TotalTokens      *int             `json:"totalTokens,omitempty"`
+	LatencyMS        int64            `json:"latencyMs,omitempty"`
+	ErrorClass       string           `json:"errorClass,omitempty"`
+	CallBudget       int              `json:"callBudget"`
+	TokenBudget      int              `json:"tokenBudget"`
+}
+
+type ModelUsageTotals struct {
+	Calls              int   `json:"calls"`
+	Succeeded          int   `json:"succeeded"`
+	Failed             int   `json:"failed"`
+	ReportedTokenCalls int   `json:"reportedTokenCalls"`
+	PromptTokens       int   `json:"promptTokens"`
+	CompletionTokens   int   `json:"completionTokens"`
+	TotalTokens        int   `json:"totalTokens"`
+	TokensKnown        bool  `json:"tokensKnown"`
+	LastLatencyMS      int64 `json:"lastLatencyMs"`
+	AverageLatencyMS   int64 `json:"averageLatencyMs"`
+}
+
+type ModelUsageSummary struct {
+	SaveID          string           `json:"saveId"`
+	SessionID       string           `json:"sessionId"`
+	Day             int              `json:"day"`
+	Session         ModelUsageTotals `json:"session"`
+	DayTotals       ModelUsageTotals `json:"dayTotals"`
+	CallBudget      int              `json:"callBudget"`
+	TokenBudget     int              `json:"tokenBudget"`
+	BudgetExhausted bool             `json:"budgetExhausted"`
 }

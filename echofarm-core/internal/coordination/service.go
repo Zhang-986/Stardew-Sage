@@ -43,7 +43,7 @@ func (s *Service) Prepare(ctx context.Context, snapshot domain.WorldSnapshot, mo
 		return coordination, nil
 	}
 	intent, err := s.inferer.InferIntent(ctx, intelligence.IntentInput{
-		SaveID: snapshot.SaveID, Day: snapshot.Day, TimeOfDay: snapshot.TimeOfDay,
+		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, Day: snapshot.Day, TimeOfDay: snapshot.TimeOfDay,
 		Activities: activities, PlayerModel: model,
 	})
 	if err != nil {

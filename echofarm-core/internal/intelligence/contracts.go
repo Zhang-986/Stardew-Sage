@@ -33,6 +33,7 @@ type ActionInput struct {
 
 type IntentInput struct {
 	SaveID      string                  `json:"saveId"`
+	SessionID   string                  `json:"sessionId"`
 	Day         int                     `json:"day"`
 	TimeOfDay   int                     `json:"timeOfDay"`
 	Activities  []domain.PlayerActivity `json:"activities"`

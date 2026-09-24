@@ -10,6 +10,8 @@ import (
 
 var ErrNotFound = errors.New("memory not found")
 
+var ErrModelBudgetExceeded = errors.New("model budget exceeded")
+
 type Store interface {
 	SaveLearning(ctx context.Context, demonstration domain.Demonstration, model domain.PlayerModel, skill domain.SkillProgram) error
 	GetDemonstration(ctx context.Context, saveID, demonstrationID string) (domain.Demonstration, error)
@@ -44,4 +46,10 @@ type ExperienceStore interface {
 	GetExperienceOutcome(ctx context.Context, saveID, sourceID string) (domain.ExperienceOutcome, error)
 	ListPolicyExperiences(ctx context.Context, saveID string) ([]domain.PolicyExperience, error)
 	GetPlayerCorrection(ctx context.Context, saveID, correctionID string) (domain.PlayerCorrection, error)
+}
+
+type ModelUsageStore interface {
+	ReserveModelCall(context.Context, domain.ModelCallRecord) error
+	CompleteModelCall(context.Context, domain.ModelCallRecord) error
+	GetModelUsageSummary(context.Context, string, string, int) (domain.ModelUsageSummary, error)
 }

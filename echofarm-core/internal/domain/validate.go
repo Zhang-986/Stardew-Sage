@@ -63,6 +63,51 @@ func (s WorldSnapshot) Validate() error {
 	return nil
 }
 
+func (r ModelCallRecord) Validate() error {
+	if r.RequestID == "" || r.SaveID == "" || r.SessionID == "" {
+		return errors.New("model call request, save, and session IDs are required")
+	}
+	if r.Day < 0 || r.StartedAt.IsZero() {
+		return errors.New("model call day cannot be negative and start time is required")
+	}
+	switch r.Purpose {
+	case ModelCallLearning, ModelCallIntent, ModelCallAction, ModelCallRecovery, ModelCallReflection:
+	default:
+		return fmt.Errorf("unsupported model call purpose %q", r.Purpose)
+	}
+	if r.CallBudget <= 0 || r.TokenBudget <= 0 {
+		return errors.New("model call budgets must be positive")
+	}
+	if (r.PromptTokens == nil) != (r.CompletionTokens == nil) || (r.PromptTokens == nil) != (r.TotalTokens == nil) {
+		return errors.New("model token counts must be all known or all unknown")
+	}
+	for _, tokens := range []*int{r.PromptTokens, r.CompletionTokens, r.TotalTokens} {
+		if tokens != nil && *tokens < 0 {
+			return errors.New("model token counts cannot be negative")
+		}
+	}
+	switch r.Status {
+	case ModelCallStarted:
+		if !r.FinishedAt.IsZero() || r.LatencyMS != 0 || r.ErrorClass != "" || r.TotalTokens != nil {
+			return errors.New("started model call cannot contain completion data")
+		}
+	case ModelCallSucceeded:
+		if r.FinishedAt.Before(r.StartedAt) || r.ErrorClass != "" {
+			return errors.New("successful model call completion is invalid")
+		}
+	case ModelCallFailed:
+		if r.FinishedAt.Before(r.StartedAt) || !validModelErrorClass(r.ErrorClass) {
+			return errors.New("failed model call completion is invalid")
+		}
+	default:
+		return fmt.Errorf("unsupported model call status %q", r.Status)
+	}
+	if r.LatencyMS < 0 {
+		return errors.New("model call latency cannot be negative")
+	}
+	return nil
+}
+
 func (d Demonstration) Validate() error {
 	if d.ID == "" || d.SaveID == "" || d.SessionID == "" {
 		return errors.New("demonstration id, save_id, and session_id are required")
@@ -461,6 +506,15 @@ func validSituationSignal(signal SituationSignal) bool {
 
 func validExperienceSource(source ExperienceSource) bool {
 	return source == ExperienceSourceFailure || source == ExperienceSourceCorrection
+}
+
+func validModelErrorClass(class string) bool {
+	switch class {
+	case ModelErrorUnavailable, ModelErrorInvalidOutput, ModelErrorDeadline, ModelErrorCanceled, ModelErrorInternal:
+		return true
+	default:
+		return false
+	}
 }
 
 func validWeather(weather Weather) bool {

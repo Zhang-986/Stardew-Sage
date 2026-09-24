@@ -104,7 +104,29 @@ CREATE TABLE IF NOT EXISTS experience_feedback (
   error_code TEXT NOT NULL,
   created_at TEXT NOT NULL,
   PRIMARY KEY (save_id, session_id, snapshot_version, experience_id)
-);`
+);
+CREATE TABLE IF NOT EXISTS model_usage (
+  request_id TEXT PRIMARY KEY,
+  save_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  day INTEGER NOT NULL,
+  purpose TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  status TEXT NOT NULL,
+  prompt_tokens INTEGER,
+  completion_tokens INTEGER,
+  total_tokens INTEGER,
+  latency_ms INTEGER NOT NULL,
+  error_class TEXT NOT NULL,
+  call_budget INTEGER NOT NULL,
+  token_budget INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS model_usage_session_idx
+  ON model_usage(save_id, session_id, started_at);
+CREATE INDEX IF NOT EXISTS model_usage_day_idx
+  ON model_usage(save_id, day, started_at);
+`
 
 type SQLite struct {
 	db  *sql.DB
@@ -129,6 +151,157 @@ func OpenSQLite(path string) (*SQLite, error) {
 
 func (s *SQLite) Close() error {
 	return s.db.Close()
+}
+
+func (s *SQLite) ReserveModelCall(ctx context.Context, record domain.ModelCallRecord) error {
+	if err := record.Validate(); err != nil {
+		return fmt.Errorf("model call reservation: %w", err)
+	}
+	if record.Status != domain.ModelCallStarted {
+		return errors.New("model call reservation must have started status")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin model call reservation: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	var calls, reportedTokens int
+	if err := tx.QueryRowContext(ctx, `
+SELECT COUNT(*), COALESCE(SUM(total_tokens), 0)
+FROM model_usage WHERE save_id=? AND session_id=?`, record.SaveID, record.SessionID).Scan(&calls, &reportedTokens); err != nil {
+		return fmt.Errorf("read model budget: %w", err)
+	}
+	if calls >= record.CallBudget {
+		return fmt.Errorf("%w: session call limit %d reached", ErrModelBudgetExceeded, record.CallBudget)
+	}
+	if reportedTokens >= record.TokenBudget {
+		return fmt.Errorf("%w: session reported-token limit %d reached", ErrModelBudgetExceeded, record.TokenBudget)
+	}
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO model_usage(
+  request_id, save_id, session_id, day, purpose, started_at, finished_at, status,
+  prompt_tokens, completion_tokens, total_tokens, latency_ms, error_class, call_budget, token_budget
+) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, NULL, NULL, 0, '', ?, ?)`,
+		record.RequestID, record.SaveID, record.SessionID, record.Day, record.Purpose,
+		record.StartedAt.UTC().Format(time.RFC3339Nano), record.Status, record.CallBudget, record.TokenBudget); err != nil {
+		return fmt.Errorf("reserve model call: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit model call reservation: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLite) CompleteModelCall(ctx context.Context, record domain.ModelCallRecord) error {
+	if err := record.Validate(); err != nil {
+		return fmt.Errorf("model call completion: %w", err)
+	}
+	if record.Status != domain.ModelCallSucceeded && record.Status != domain.ModelCallFailed {
+		return errors.New("model call completion must have a terminal status")
+	}
+	write, err := s.db.ExecContext(ctx, `
+UPDATE model_usage SET
+  finished_at=?, status=?, prompt_tokens=?, completion_tokens=?, total_tokens=?, latency_ms=?, error_class=?
+WHERE request_id=? AND save_id=? AND session_id=? AND status=?`,
+		record.FinishedAt.UTC().Format(time.RFC3339Nano), record.Status,
+		nullableModelTokens(record.PromptTokens), nullableModelTokens(record.CompletionTokens), nullableModelTokens(record.TotalTokens),
+		record.LatencyMS, record.ErrorClass, record.RequestID, record.SaveID, record.SessionID, domain.ModelCallStarted)
+	if err != nil {
+		return fmt.Errorf("complete model call: %w", err)
+	}
+	affected, err := write.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read completed model call count: %w", err)
+	}
+	if affected != 1 {
+		return errors.New("model call reservation was not found or already completed")
+	}
+	return nil
+}
+
+func (s *SQLite) GetModelUsageSummary(ctx context.Context, saveID, sessionID string, day int) (domain.ModelUsageSummary, error) {
+	if saveID == "" || sessionID == "" || day < 0 {
+		return domain.ModelUsageSummary{}, errors.New("model usage save, session, and day are required")
+	}
+	var callBudget, tokenBudget int
+	err := s.db.QueryRowContext(ctx, `
+SELECT call_budget, token_budget FROM model_usage
+WHERE save_id=? AND session_id=? ORDER BY started_at DESC, request_id DESC LIMIT 1`, saveID, sessionID).Scan(&callBudget, &tokenBudget)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.ModelUsageSummary{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.ModelUsageSummary{}, fmt.Errorf("read model usage limits: %w", err)
+	}
+	session, err := s.modelUsageTotals(ctx, `save_id=? AND session_id=?`, saveID, sessionID)
+	if err != nil {
+		return domain.ModelUsageSummary{}, err
+	}
+	dayTotals, err := s.modelUsageTotals(ctx, `save_id=? AND day=?`, saveID, day)
+	if err != nil {
+		return domain.ModelUsageSummary{}, err
+	}
+	return domain.ModelUsageSummary{
+		SaveID: saveID, SessionID: sessionID, Day: day,
+		Session: session, DayTotals: dayTotals,
+		CallBudget: callBudget, TokenBudget: tokenBudget,
+		BudgetExhausted: session.Calls >= callBudget || session.TotalTokens >= tokenBudget,
+	}, nil
+}
+
+func (s *SQLite) modelUsageTotals(ctx context.Context, where string, arguments ...any) (domain.ModelUsageTotals, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT status, prompt_tokens, completion_tokens, total_tokens, latency_ms, finished_at
+FROM model_usage WHERE `+where+` ORDER BY started_at, request_id`, arguments...)
+	if err != nil {
+		return domain.ModelUsageTotals{}, fmt.Errorf("read model usage totals: %w", err)
+	}
+	defer rows.Close()
+	var totals domain.ModelUsageTotals
+	var completed int64
+	var latencyTotal int64
+	for rows.Next() {
+		var status domain.ModelCallStatus
+		var prompt, completion, total sql.NullInt64
+		var latency int64
+		var finished sql.NullString
+		if err := rows.Scan(&status, &prompt, &completion, &total, &latency, &finished); err != nil {
+			return domain.ModelUsageTotals{}, fmt.Errorf("scan model usage totals: %w", err)
+		}
+		totals.Calls++
+		switch status {
+		case domain.ModelCallSucceeded:
+			totals.Succeeded++
+		case domain.ModelCallFailed:
+			totals.Failed++
+		}
+		if total.Valid {
+			totals.ReportedTokenCalls++
+			totals.PromptTokens += int(prompt.Int64)
+			totals.CompletionTokens += int(completion.Int64)
+			totals.TotalTokens += int(total.Int64)
+		}
+		if finished.Valid {
+			completed++
+			latencyTotal += latency
+			totals.LastLatencyMS = latency
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return domain.ModelUsageTotals{}, fmt.Errorf("iterate model usage totals: %w", err)
+	}
+	totals.TokensKnown = totals.Calls > 0 && totals.ReportedTokenCalls == totals.Calls
+	if completed > 0 {
+		totals.AverageLatencyMS = latencyTotal / completed
+	}
+	return totals, nil
+}
+
+func nullableModelTokens(value *int) any {
+	if value == nil {
+		return nil
+	}
+	return *value
 }
 
 func (s *SQLite) SaveLearning(ctx context.Context, demonstration domain.Demonstration, model domain.PlayerModel, skill domain.SkillProgram) error {
