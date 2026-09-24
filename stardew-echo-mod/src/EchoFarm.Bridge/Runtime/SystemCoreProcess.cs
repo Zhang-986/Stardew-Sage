@@ -53,6 +53,8 @@ public sealed class SystemCoreProcessLauncher : ICoreProcessLauncher
             throw new CoreUnavailableException($"Bundled EchoFarm core was not found at '{startInfo.ExecutablePath}'.");
         if (!Directory.Exists(startInfo.WorkingDirectory))
             Directory.CreateDirectory(startInfo.WorkingDirectory);
+        if (!OperatingSystem.IsWindows())
+            EnsureUnixExecutable(startInfo.ExecutablePath);
 
         var process = new Process
         {
@@ -71,20 +73,50 @@ public sealed class SystemCoreProcessLauncher : ICoreProcessLauncher
         process.OutputDataReceived += (_, args) => WriteLog(args.Data, isError: false);
         process.ErrorDataReceived += (_, args) => WriteLog(args.Data, isError: true);
 
-        if (!process.Start())
+        try
+        {
+            if (!process.Start())
+                throw new CoreUnavailableException("The bundled EchoFarm core process could not be started.");
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            return new SystemCoreProcess(process);
+        }
+        catch (CoreUnavailableException)
         {
             process.Dispose();
-            throw new CoreUnavailableException("The bundled EchoFarm core process could not be started.");
+            throw;
         }
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        return new SystemCoreProcess(process);
+        catch (Exception error)
+        {
+            process.Dispose();
+            throw new CoreUnavailableException("The bundled EchoFarm core process could not be started.", error);
+        }
     }
 
     private void WriteLog(string? message, bool isError)
     {
         if (!string.IsNullOrWhiteSpace(message))
             log?.Invoke(message, isError);
+    }
+
+    private static void EnsureUnixExecutable(string executablePath)
+    {
+        using var chmod = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "/bin/chmod",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
+        chmod.StartInfo.ArgumentList.Add("u+x");
+        chmod.StartInfo.ArgumentList.Add(executablePath);
+        if (!chmod.Start())
+            throw new CoreUnavailableException("Could not set execute permission on the bundled EchoFarm core.");
+        chmod.WaitForExit();
+        if (chmod.ExitCode != 0)
+            throw new CoreUnavailableException("Could not set execute permission on the bundled EchoFarm core.");
     }
 }
 

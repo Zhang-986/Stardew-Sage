@@ -25,6 +25,8 @@ Install Stardew Valley 1.6 and SMAPI 4.1+, then download the file matching your 
 
 This is an early technical preview. Use a disposable save until the listed live-game smoke checks have been completed for your platform.
 
+The bundled native sidecar is not currently code-signed. macOS Gatekeeper or Windows security software may require explicit approval; verify the published SHA-256 checksum before allowing it.
+
 ## Generative AI disclosure
 
 This project intentionally uses a generative language model at runtime to infer player intent and choose constrained gameplay actions. It contains no AI-generated visual or audio assets. Fixture mode is deterministic and is identified as a non-learning demo mode.

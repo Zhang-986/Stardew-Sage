@@ -49,6 +49,7 @@ public interface IAsyncDelay
 public sealed class CoreUnavailableException : Exception
 {
     public CoreUnavailableException(string message) : base(message) { }
+    public CoreUnavailableException(string message, Exception innerException) : base(message, innerException) { }
 }
 
 public sealed class CoreProcessSupervisor : IDisposable

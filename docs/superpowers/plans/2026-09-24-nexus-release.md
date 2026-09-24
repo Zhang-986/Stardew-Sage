@@ -134,11 +134,11 @@ Run the complete local verification matrix and commit with `docs(echofarm): prep
 **Files:**
 - Modify: `docs/superpowers/plans/2026-09-24-nexus-release.md`
 
-- [ ] **Step 1: Build local Go release binaries**
+- [x] **Step 1: Build local Go release binaries**
 
 Cross-compile all four supported targets into a temporary artifact directory and record sizes and SHA-256 hashes. Do not commit generated binaries.
 
-- [ ] **Step 2: Re-run release gates**
+- [x] **Step 2: Re-run release gates**
 
 Run:
 
@@ -151,6 +151,6 @@ bash scripts/tests/package-nexus-smoke.sh
 
 Attempt the real SMAPI build and record the exact external failure if no game path is available.
 
-- [ ] **Step 3: Audit publication blockers**
+- [x] **Step 3: Audit publication blockers**
 
 Confirm whether a Nexus API key/mod ID and legal game installation exist. If absent, leave the validated archives unuploaded and provide the exact one-command continuation; never publish a fixture or source-only archive as a playable release.

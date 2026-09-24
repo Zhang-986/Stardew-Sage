@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <AssemblyName>EchoFarm.Mod</AssemblyName>
     <RootNamespace>EchoFarm.Mod</RootNamespace>
     <EnableModDeploy>false</EnableModDeploy>

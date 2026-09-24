@@ -219,7 +219,8 @@ public sealed class ModEntry : Mod
     private void OnProcessExit(object? sender, EventArgs e)
     {
         modLifetime.Cancel();
-        coreHost?.Dispose();
+        if (coreHost?.State is CoreHostState.Owned or CoreHostState.External)
+            coreHost.Stop();
     }
 
     private static string SaveId() => Game1.uniqueIDForThisGame.ToString(CultureInfo.InvariantCulture);
