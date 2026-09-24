@@ -167,3 +167,24 @@ func TestFixtureGeneratorAvoidsPlayerClaimedCrop(t *testing.T) {
 		t.Fatalf("action = %+v, want unclaimed crop", output)
 	}
 }
+
+func TestFixtureGeneratorProducesProposalAndFailureReflection(t *testing.T) {
+	generator := NewFixtureGenerator()
+	input := validActionInput()
+	var proposal domain.ActionProposal
+	if err := generator.GenerateJSON(context.Background(), actionSystemPrompt, input, &proposal); err != nil {
+		t.Fatalf("GenerateJSON(proposal) error = %v", err)
+	}
+	if proposal.Primary.Kind == "" || len(proposal.Alternatives) == 0 || proposal.ModelConfidence <= 0 {
+		t.Fatalf("proposal = %+v", proposal)
+	}
+
+	reflectionInput := failureReflectionInput()
+	var observation domain.ExperienceObservation
+	if err := generator.GenerateJSON(context.Background(), reflectionSystemPrompt, reflectionInput, &observation); err != nil {
+		t.Fatalf("GenerateJSON(reflection) error = %v", err)
+	}
+	if observation.Trigger != domain.ExperienceInventoryFull || observation.PreferAction != domain.ActionDepositItems {
+		t.Fatalf("observation = %+v", observation)
+	}
+}

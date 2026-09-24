@@ -16,15 +16,37 @@ type actionGeneratorStub struct {
 	calls  int
 }
 
+type proposalGeneratorStub struct {
+	proposal domain.ActionProposal
+	prompt   string
+	input    any
+	calls    int
+}
+
+func (s *proposalGeneratorStub) GenerateJSON(_ context.Context, prompt string, input any, output any) error {
+	s.calls++
+	s.prompt = prompt
+	s.input = input
+	target, ok := output.(*domain.ActionProposal)
+	if !ok {
+		return errors.New("unexpected output type")
+	}
+	*target = s.proposal
+	return nil
+}
+
 func (s *actionGeneratorStub) GenerateJSON(_ context.Context, prompt string, input any, output any) error {
 	s.calls++
 	s.prompt = prompt
 	s.input = input
-	target, ok := output.(*domain.HighLevelAction)
-	if !ok {
+	switch target := output.(type) {
+	case *domain.HighLevelAction:
+		*target = s.action
+	case *domain.ActionProposal:
+		*target = domain.ActionProposal{Primary: s.action, ModelConfidence: 0.8}
+	default:
 		return errors.New("unexpected output type")
 	}
-	*target = s.action
 	return nil
 }
 
@@ -95,6 +117,61 @@ func TestActionGraphRejectsMalformedAction(t *testing.T) {
 	_, err = graph.ChooseAction(context.Background(), validActionInput())
 	if !errors.Is(err, ErrInvalidModelOutput) {
 		t.Fatalf("ChooseAction() error = %v, want ErrInvalidModelOutput", err)
+	}
+}
+
+func TestActionGraphProducesRankedProposalWithExperienceEvidence(t *testing.T) {
+	input := validActionInput()
+	input.ApplicableExperiences = []domain.PolicyExperience{{
+		ID: "exp-inventory", SaveID: input.Snapshot.SaveID,
+		Trigger: domain.ExperienceInventoryFull, Context: domain.TraitContextSunny,
+		WhenSignals: []domain.SituationSignal{domain.SignalInventoryFull},
+		AvoidAction: domain.ActionHarvestTarget, PreferAction: domain.ActionDepositItems,
+		Confidence: 0.8, ObservationCount: 2, FirstSeenDay: 1, LastSeenDay: 2,
+		EvidenceRefs: []string{"decision:day-1:1"}, Source: domain.ExperienceSourceFailure,
+	}}
+	primary := domain.HighLevelAction{
+		SaveID: input.Snapshot.SaveID, SessionID: input.Snapshot.SessionID, SnapshotVersion: input.Snapshot.SnapshotVersion,
+		Kind: domain.ActionWaterTarget, TargetID: "crop-new", Reason: "water current crop",
+	}
+	alternative := domain.HighLevelAction{
+		SaveID: input.Snapshot.SaveID, SessionID: input.Snapshot.SessionID, SnapshotVersion: input.Snapshot.SnapshotVersion,
+		Kind: domain.ActionStopSession, Reason: "safe fallback",
+	}
+	want := domain.ActionProposal{
+		Primary: primary, Alternatives: []domain.HighLevelAction{alternative}, ModelConfidence: 0.76,
+		AppliedExperienceIDs: []string{"exp-inventory"},
+	}
+	generator := &proposalGeneratorStub{proposal: want}
+	graph, err := NewActionGraph(generator)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := graph.ProposeAction(context.Background(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ModelConfidence != want.ModelConfidence || len(got.Alternatives) != 1 || generator.calls != 1 {
+		t.Fatalf("ProposeAction() = %+v, calls = %d", got, generator.calls)
+	}
+}
+
+func TestActionGraphRejectsFabricatedExperienceReference(t *testing.T) {
+	input := validActionInput()
+	action := domain.HighLevelAction{
+		SaveID: input.Snapshot.SaveID, SessionID: input.Snapshot.SessionID, SnapshotVersion: input.Snapshot.SnapshotVersion,
+		Kind: domain.ActionWaterTarget, TargetID: "crop-new", Reason: "water current crop",
+	}
+	graph, err := NewActionGraph(&proposalGeneratorStub{proposal: domain.ActionProposal{
+		Primary: action, ModelConfidence: 0.8, AppliedExperienceIDs: []string{"made-up"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := graph.ProposeAction(context.Background(), input); !errors.Is(err, ErrInvalidModelOutput) {
+		t.Fatalf("ProposeAction() error = %v, want ErrInvalidModelOutput", err)
 	}
 }
 

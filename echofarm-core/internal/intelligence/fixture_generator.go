@@ -37,6 +37,28 @@ func (g *FixtureGenerator) GenerateJSON(_ context.Context, _ string, input any, 
 		default:
 			return errors.New("fixture action generator received unexpected input")
 		}
+	case *domain.ActionProposal:
+		switch actionInput := input.(type) {
+		case ActionInput:
+			*target = fixtureProposal(actionInput, fixtureAction(actionInput))
+			return nil
+		case ReplanInput:
+			*target = fixtureProposal(actionInput.ActionInput, fixtureReplan(actionInput))
+			return nil
+		default:
+			return errors.New("fixture proposal generator received unexpected input")
+		}
+	case *domain.ExperienceObservation:
+		reflectionInput, ok := input.(ReflectionInput)
+		if !ok {
+			return errors.New("fixture reflection generator received unexpected input")
+		}
+		observation, err := fixtureReflection(reflectionInput)
+		if err != nil {
+			return err
+		}
+		*target = observation
+		return nil
 	case *IntentInference:
 		intentInput, ok := input.(IntentInput)
 		if !ok {
@@ -47,6 +69,111 @@ func (g *FixtureGenerator) GenerateJSON(_ context.Context, _ string, input any, 
 	default:
 		return fmt.Errorf("fixture generator cannot populate %T", output)
 	}
+}
+
+func fixtureProposal(input ActionInput, primary domain.HighLevelAction) domain.ActionProposal {
+	proposal := domain.ActionProposal{Primary: primary, ModelConfidence: 0.78}
+	for _, experience := range input.ApplicableExperiences {
+		proposal.AppliedExperienceIDs = append(proposal.AppliedExperienceIDs, experience.ID)
+	}
+	if len(proposal.AppliedExperienceIDs) == 0 {
+		proposal.UncertaintyCodes = []domain.UncertaintyCode{domain.UncertaintyMissingExperience}
+	}
+	if primary.Kind != domain.ActionStopSession {
+		proposal.Alternatives = []domain.HighLevelAction{{
+			SaveID: input.Snapshot.SaveID, SessionID: input.Snapshot.SessionID,
+			SnapshotVersion: input.Snapshot.SnapshotVersion,
+			Kind:            domain.ActionStopSession, Reason: "safe fallback if the primary action becomes invalid",
+		}}
+	}
+	return proposal
+}
+
+func fixtureReflection(input ReflectionInput) (domain.ExperienceObservation, error) {
+	context := traitContext(input.Snapshot.Weather)
+	if input.Correction != nil {
+		return domain.ExperienceObservation{
+			Trigger: domain.ExperiencePlayerCorrection, Context: context,
+			WhenSignals: situationSignals(input.Snapshot),
+			AvoidAction: input.Correction.RejectedAction.Kind, PreferAction: input.Correction.PreferredAction.Kind,
+			PreferredTargetID: input.Correction.PreferredAction.TargetID,
+			Summary:           "follow the player's explicit correction in this situation",
+			EvidenceRef:       input.EvidenceRef, Strength: 0.9,
+		}, nil
+	}
+	if input.Result == nil {
+		return domain.ExperienceObservation{}, errors.New("fixture reflection requires result or correction")
+	}
+	observation := domain.ExperienceObservation{
+		Trigger: domain.ExperienceTrigger(input.Result.ErrorCode), Context: context,
+		WhenSignals: situationSignals(input.Snapshot), AvoidAction: input.Result.Action.Kind,
+		EvidenceRef: input.EvidenceRef, Strength: 0.7,
+	}
+	switch input.Result.ErrorCode {
+	case string(domain.ExperienceInventoryFull):
+		observation.WhenSignals = []domain.SituationSignal{domain.SignalInventoryFull, domain.SignalInventoryHasItems}
+		observation.PreferAction = domain.ActionDepositItems
+		observation.PreferredTargetID = preferredChest(input)
+		observation.Summary = "deposit carried items before attempting another harvest"
+	case string(domain.ExperienceOutOfWater):
+		observation.WhenSignals = []domain.SituationSignal{domain.SignalCanEmpty}
+		observation.PreferAction = domain.ActionRefillCan
+		if len(input.Snapshot.WaterSources) > 0 {
+			observation.PreferredTargetID = input.Snapshot.WaterSources[0].ID
+		}
+		observation.Summary = "refill the watering can before watering another crop"
+	case string(domain.ExperiencePathBlocked):
+		observation.WhenSignals = []domain.SituationSignal{domain.SignalTargetBlocked}
+		observation.PreferAction = domain.ActionMoveTo
+		observation.PreferredTargetID = input.Result.Action.TargetID
+		observation.Summary = "move around the obstruction before retrying the task"
+	case string(domain.ExperienceChestFull):
+		observation.WhenSignals = []domain.SituationSignal{domain.SignalInventoryHasItems}
+		observation.PreferAction = domain.ActionDepositItems
+		observation.PreferredTargetID = anotherChest(input.Snapshot.Chests, input.Result.Action.TargetID)
+		observation.Summary = "use another available chest when the selected chest is full"
+	default:
+		return domain.ExperienceObservation{}, fmt.Errorf("fixture cannot reflect failure %q", input.Result.ErrorCode)
+	}
+	return observation, nil
+}
+
+func situationSignals(snapshot domain.WorldSnapshot) []domain.SituationSignal {
+	result := make([]domain.SituationSignal, 0, 4)
+	if snapshot.Inventory.FreeSlots == 0 {
+		result = append(result, domain.SignalInventoryFull)
+	}
+	if len(snapshot.Inventory.Items) > 0 {
+		result = append(result, domain.SignalInventoryHasItems)
+	}
+	if snapshot.WateringCan.Water == 0 {
+		result = append(result, domain.SignalCanEmpty)
+	}
+	if snapshot.Weather == domain.WeatherRainy || snapshot.Weather == domain.WeatherStorm {
+		result = append(result, domain.SignalRaining)
+	}
+	return result
+}
+
+func preferredChest(input ReflectionInput) string {
+	for _, chest := range input.Snapshot.Chests {
+		if chest.ID == input.PlayerModel.PreferredChestID {
+			return chest.ID
+		}
+	}
+	if len(input.Snapshot.Chests) > 0 {
+		return input.Snapshot.Chests[0].ID
+	}
+	return ""
+}
+
+func anotherChest(chests []domain.Chest, rejected string) string {
+	for _, chest := range chests {
+		if chest.ID != rejected {
+			return chest.ID
+		}
+	}
+	return ""
 }
 
 func fixtureLearningInference(input LearningInput) LearningInference {

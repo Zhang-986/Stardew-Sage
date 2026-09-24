@@ -24,10 +24,11 @@ type LearningInference struct {
 }
 
 type ActionInput struct {
-	Snapshot     domain.WorldSnapshot       `json:"snapshot"`
-	PlayerModel  domain.PlayerModel         `json:"playerModel"`
-	Skill        domain.SkillProgram        `json:"skill"`
-	Coordination domain.CoordinationContext `json:"coordination"`
+	Snapshot              domain.WorldSnapshot       `json:"snapshot"`
+	PlayerModel           domain.PlayerModel         `json:"playerModel"`
+	Skill                 domain.SkillProgram        `json:"skill"`
+	Coordination          domain.CoordinationContext `json:"coordination"`
+	ApplicableExperiences []domain.PolicyExperience  `json:"applicableExperiences,omitempty"`
 }
 
 type IntentInput struct {
@@ -50,6 +51,15 @@ type IntentInferer interface {
 type ReplanInput struct {
 	ActionInput ActionInput         `json:"actionInput"`
 	LastResult  domain.ActionResult `json:"lastResult"`
+}
+
+type ReflectionInput struct {
+	Snapshot            domain.WorldSnapshot      `json:"snapshot"`
+	PlayerModel         domain.PlayerModel        `json:"playerModel"`
+	ExistingExperiences []domain.PolicyExperience `json:"existingExperiences,omitempty"`
+	Result              *domain.ActionResult      `json:"result,omitempty"`
+	Correction          *domain.PlayerCorrection  `json:"correction,omitempty"`
+	EvidenceRef         string                    `json:"evidenceRef"`
 }
 
 type Intelligence interface {
