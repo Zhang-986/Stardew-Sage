@@ -56,7 +56,7 @@ public sealed class ModEntry : Mod
         );
 
         recorder = new TeachingRecorder();
-        gamePort = new StardewGamePort(Monitor);
+        gamePort = new StardewGamePort(Monitor, config.EnableExperimentalHarvest);
         renderer = new EchoRenderer(gamePort.Echo);
         memoryOverlay = new EchoMemoryOverlay();
         EchoFarmClientSet clients = EchoFarmClientFactory.Create(coreUrl);

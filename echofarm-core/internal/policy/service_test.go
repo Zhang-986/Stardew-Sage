@@ -250,6 +250,45 @@ func TestNextDecisionUsesExperienceAndFallsBackToSafeAlternative(t *testing.T) {
 	}
 }
 
+func TestNextDecisionSkipsDisabledHarvestForSafeAlternative(t *testing.T) {
+	snapshot := validSnapshot()
+	snapshot.Capabilities = &domain.ActionCapabilities{Harvest: false}
+	harvest := actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature")
+	water := actionFor(snapshot, domain.ActionWaterTarget, "crop-new")
+	actor := &actorStub{nextProposal: domain.ActionProposal{
+		Primary: harvest, Alternatives: []domain.HighLevelAction{water}, ModelConfidence: 0.8,
+	}}
+	store := validPolicyStore()
+	service, err := NewService(store, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decision, err := service.NextDecision(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Action != water || len(store.savedDecisions) != 1 || store.savedDecisions[0].SelectedCandidate != 1 {
+		t.Fatalf("NextDecision() = %+v, saved = %+v", decision, store.savedDecisions)
+	}
+}
+
+func TestNextDecisionStopsWhenOnlyCandidateIsDisabled(t *testing.T) {
+	snapshot := validSnapshot()
+	snapshot.Capabilities = &domain.ActionCapabilities{Harvest: false}
+	harvest := actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature")
+	actor := &actorStub{nextProposal: domain.ActionProposal{Primary: harvest, ModelConfidence: 0.8}}
+	service := newPolicyService(t, actor)
+
+	decision, err := service.NextDecision(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Action.Kind != domain.ActionStopSession || !strings.Contains(decision.Action.Reason, "safety") {
+		t.Fatalf("NextDecision() = %+v, want safe stop", decision)
+	}
+}
+
 func TestNextDecisionRejectsFabricatedExperienceReference(t *testing.T) {
 	snapshot := validSnapshot()
 	action := actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature")

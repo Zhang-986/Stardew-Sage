@@ -83,7 +83,7 @@ func fixtureProposal(input ActionInput, primary domain.HighLevelAction) domain.A
 		proposal.UncertaintyCodes = []domain.UncertaintyCode{domain.UncertaintyMissingExperience}
 	}
 	if primary.Kind != domain.ActionStopSession {
-		if primary.Kind != domain.ActionHarvestTarget {
+		if primary.Kind != domain.ActionHarvestTarget && domain.ActionEnabled(input.Snapshot, domain.ActionHarvestTarget) {
 			for _, crop := range input.Snapshot.Crops {
 				if crop.Mature && !containsString(input.Coordination.PlayerClaimedTargets, crop.ID) {
 					proposal.Alternatives = append(proposal.Alternatives, domain.HighLevelAction{
@@ -286,6 +286,9 @@ func fixtureAction(input ActionInput) domain.HighLevelAction {
 		}
 	}
 	for _, item := range input.ApplicableExperiences {
+		if !domain.ActionEnabled(snapshot, item.PreferAction) {
+			continue
+		}
 		if action, ok := actionFromExperience(item, input, newAction); ok {
 			return action
 		}
@@ -294,7 +297,7 @@ func fixtureAction(input ActionInput) domain.HighLevelAction {
 		if _, occupied := claimed[crop.ID]; occupied {
 			continue
 		}
-		if crop.Mature {
+		if crop.Mature && domain.ActionEnabled(snapshot, domain.ActionHarvestTarget) {
 			return newAction(domain.ActionHarvestTarget, crop.ID, "harvest a currently mature crop")
 		}
 	}
@@ -322,6 +325,9 @@ func fixtureAction(input ActionInput) domain.HighLevelAction {
 }
 
 func actionFromExperience(item domain.PolicyExperience, input ActionInput, newAction func(domain.ActionKind, string, string) domain.HighLevelAction) (domain.HighLevelAction, bool) {
+	if !domain.ActionEnabled(input.Snapshot, item.PreferAction) {
+		return domain.HighLevelAction{}, false
+	}
 	targetID := item.PreferredTargetID
 	switch item.PreferAction {
 	case domain.ActionDepositItems:

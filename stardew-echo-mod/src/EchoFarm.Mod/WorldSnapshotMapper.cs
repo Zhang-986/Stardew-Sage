@@ -17,6 +17,12 @@ namespace EchoFarm.Mod;
 internal sealed class WorldSnapshotMapper
 {
     private readonly SnapshotVersionTracker snapshotVersions = new();
+    private readonly bool enableExperimentalHarvest;
+
+    public WorldSnapshotMapper(bool enableExperimentalHarvest)
+    {
+        this.enableExperimentalHarvest = enableExperimentalHarvest;
+    }
 
     public WorldSnapshot Capture(
         string saveId,
@@ -110,7 +116,8 @@ internal sealed class WorldSnapshotMapper
             crops,
             waterSources,
             chests,
-            recentPlayerActions
+            recentPlayerActions,
+            enableExperimentalHarvest
         });
         return new WorldSnapshot
         {
@@ -131,7 +138,8 @@ internal sealed class WorldSnapshotMapper
             WaterSources = waterSources,
             Chests = chests,
             Obstacles = Array.Empty<BridgePosition>(),
-            RecentPlayerActions = Array.AsReadOnly(recentPlayerActions.ToArray())
+            RecentPlayerActions = Array.AsReadOnly(recentPlayerActions.ToArray()),
+            Capabilities = new ActionCapabilities { Harvest = enableExperimentalHarvest }
         };
     }
 

@@ -356,6 +356,9 @@ func validateActionForSnapshot(action domain.HighLevelAction, snapshot domain.Wo
 	if action.SaveID != snapshot.SaveID || action.SessionID != snapshot.SessionID || action.SnapshotVersion != snapshot.SnapshotVersion {
 		return errors.New("action identity or snapshot version is stale")
 	}
+	if !domain.ActionEnabled(snapshot, action.Kind) {
+		return fmt.Errorf("action kind %q is disabled by snapshot capabilities", action.Kind)
+	}
 
 	switch action.Kind {
 	case domain.ActionWaterTarget:

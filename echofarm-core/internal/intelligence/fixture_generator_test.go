@@ -168,6 +168,29 @@ func TestFixtureGeneratorAvoidsPlayerClaimedCrop(t *testing.T) {
 	}
 }
 
+func TestFixtureGeneratorDoesNotProposeDisabledHarvest(t *testing.T) {
+	generator := NewFixtureGenerator()
+	input := validActionInput()
+	input.Snapshot.Capabilities = &domain.ActionCapabilities{Harvest: false}
+	input.Snapshot.Crops = []domain.Crop{
+		{ID: "crop-ripe", Mature: true},
+		{ID: "crop-dry", NeedsWater: true},
+	}
+	var proposal domain.ActionProposal
+
+	if err := generator.GenerateJSON(context.Background(), actionSystemPrompt, input, &proposal); err != nil {
+		t.Fatalf("GenerateJSON() error = %v", err)
+	}
+	if proposal.Primary.Kind != domain.ActionWaterTarget || proposal.Primary.TargetID != "crop-dry" {
+		t.Fatalf("primary = %+v, want water_target crop-dry", proposal.Primary)
+	}
+	for _, candidate := range proposal.Alternatives {
+		if candidate.Kind == domain.ActionHarvestTarget {
+			t.Fatalf("disabled harvest leaked into alternatives: %+v", proposal.Alternatives)
+		}
+	}
+}
+
 func TestFixtureGeneratorProducesProposalAndFailureReflection(t *testing.T) {
 	generator := NewFixtureGenerator()
 	input := validActionInput()

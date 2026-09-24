@@ -66,6 +66,11 @@ public sealed class PlayerActivity : StrictContract
     public bool Success { get; init; }
 }
 
+public sealed class ActionCapabilities : StrictContract
+{
+    public bool Harvest { get; init; }
+}
+
 public sealed class WorldSnapshot : StrictContract
 {
     public string SaveId { get; init; } = string.Empty;
@@ -86,4 +91,5 @@ public sealed class WorldSnapshot : StrictContract
     public IReadOnlyList<Chest> Chests { get; init; } = Array.Empty<Chest>();
     public IReadOnlyList<Position> Obstacles { get; init; } = Array.Empty<Position>();
     public IReadOnlyList<PlayerActivity> RecentPlayerActions { get; init; } = Array.Empty<PlayerActivity>();
+    public ActionCapabilities? Capabilities { get; init; }
 }

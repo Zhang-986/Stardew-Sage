@@ -6,6 +6,10 @@ import (
 	"math"
 )
 
+func ActionEnabled(snapshot WorldSnapshot, kind ActionKind) bool {
+	return snapshot.Capabilities == nil || kind != ActionHarvestTarget || snapshot.Capabilities.Harvest
+}
+
 func (s WorldSnapshot) Validate() error {
 	if s.SaveID == "" {
 		return errors.New("save_id is required")

@@ -150,6 +150,26 @@ public sealed class JsonContractTests
     }
 
     [Fact]
+    public void WorldSnapshotRoundTripsExplicitActionCapabilities()
+    {
+        WorldSnapshot snapshot = new()
+        {
+            SaveId = "farm-1",
+            SessionId = "echo-1",
+            Day = 1,
+            MaxEnergy = 270,
+            Location = "Farm",
+            Capabilities = new ActionCapabilities { Harvest = false }
+        };
+
+        string json = EchoJson.Serialize(snapshot);
+        WorldSnapshot roundTrip = EchoJson.Deserialize<WorldSnapshot>(json);
+
+        Assert.NotNull(roundTrip.Capabilities);
+        Assert.False(roundTrip.Capabilities.Harvest);
+    }
+
+    [Fact]
     public void UnknownActionKindIsRejected()
     {
         const string json = """

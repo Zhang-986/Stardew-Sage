@@ -53,7 +53,8 @@
     "waterSources": { "type": "array", "items": { "$ref": "#/$defs/locatedTarget" } },
     "chests": { "type": "array", "items": { "$ref": "#/$defs/chest" } },
     "obstacles": { "type": "array", "items": { "$ref": "#/$defs/position" } },
-    "recentPlayerActions": { "type": "array", "items": { "$ref": "#/$defs/playerActivity" } }
+    "recentPlayerActions": { "type": "array", "items": { "$ref": "#/$defs/playerActivity" } },
+    "capabilities": { "$ref": "#/$defs/actionCapabilities" }
   },
   "$defs": {
     "position": {
@@ -103,6 +104,14 @@
         "targetId": { "type": "string", "minLength": 1 },
         "tick": { "type": "integer", "minimum": 0 },
         "success": { "type": "boolean" }
+      }
+    },
+    "actionCapabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harvest"],
+      "properties": {
+        "harvest": { "type": "boolean" }
       }
     }
   }

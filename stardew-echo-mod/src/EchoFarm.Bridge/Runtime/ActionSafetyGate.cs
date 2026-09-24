@@ -36,6 +36,8 @@ public sealed class ActionSafetyGate
                     return;
                 }
             case ActionKind.HarvestTarget:
+                if (snapshot.Capabilities is { Harvest: false })
+                    throw new UnsafeActionException("Harvesting is disabled by game capabilities.");
                 if (!FindCrop(snapshot, action.TargetId).Mature)
                     throw new UnsafeActionException("Crop is not mature.");
                 return;

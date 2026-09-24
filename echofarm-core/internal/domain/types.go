@@ -52,25 +52,30 @@ type InventorySummary struct {
 	Items     []InventoryItem `json:"items,omitempty"`
 }
 
+type ActionCapabilities struct {
+	Harvest bool `json:"harvest"`
+}
+
 type WorldSnapshot struct {
-	SaveID              string           `json:"saveId"`
-	SessionID           string           `json:"sessionId"`
-	SnapshotVersion     int64            `json:"snapshotVersion"`
-	Tick                int64            `json:"tick,omitempty"`
-	Day                 int              `json:"day"`
-	TimeOfDay           int              `json:"timeOfDay"`
-	Weather             Weather          `json:"weather"`
-	Location            string           `json:"location"`
-	PlayerPosition      Position         `json:"playerPosition"`
-	Energy              int              `json:"energy"`
-	MaxEnergy           int              `json:"maxEnergy"`
-	Inventory           InventorySummary `json:"inventory"`
-	WateringCan         ToolState        `json:"wateringCan"`
-	Crops               []Crop           `json:"crops,omitempty"`
-	WaterSources        []WaterSource    `json:"waterSources,omitempty"`
-	Chests              []Chest          `json:"chests,omitempty"`
-	Obstacles           []Position       `json:"obstacles,omitempty"`
-	RecentPlayerActions []PlayerActivity `json:"recentPlayerActions,omitempty"`
+	SaveID              string              `json:"saveId"`
+	SessionID           string              `json:"sessionId"`
+	SnapshotVersion     int64               `json:"snapshotVersion"`
+	Tick                int64               `json:"tick,omitempty"`
+	Day                 int                 `json:"day"`
+	TimeOfDay           int                 `json:"timeOfDay"`
+	Weather             Weather             `json:"weather"`
+	Location            string              `json:"location"`
+	PlayerPosition      Position            `json:"playerPosition"`
+	Energy              int                 `json:"energy"`
+	MaxEnergy           int                 `json:"maxEnergy"`
+	Inventory           InventorySummary    `json:"inventory"`
+	WateringCan         ToolState           `json:"wateringCan"`
+	Crops               []Crop              `json:"crops,omitempty"`
+	WaterSources        []WaterSource       `json:"waterSources,omitempty"`
+	Chests              []Chest             `json:"chests,omitempty"`
+	Obstacles           []Position          `json:"obstacles,omitempty"`
+	RecentPlayerActions []PlayerActivity    `json:"recentPlayerActions,omitempty"`
+	Capabilities        *ActionCapabilities `json:"capabilities,omitempty"`
 }
 
 type EventKind string

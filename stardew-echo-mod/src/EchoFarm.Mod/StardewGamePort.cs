@@ -17,7 +17,7 @@ namespace EchoFarm.Mod;
 internal sealed class StardewGamePort : IGamePort
 {
     private readonly IMonitor monitor;
-    private readonly WorldSnapshotMapper snapshots = new();
+    private readonly WorldSnapshotMapper snapshots;
     private readonly EchoAvatarState echo = new();
     private readonly ConcurrentQueue<Action> gameThreadWork = new();
     private readonly GridPathfinder pathfinder = new();
@@ -25,9 +25,10 @@ internal sealed class StardewGamePort : IGamePort
     private BridgePosition? lastObservedPlayerTile;
     private ActiveExecution? activeExecution;
 
-    public StardewGamePort(IMonitor monitor)
+    public StardewGamePort(IMonitor monitor, bool enableExperimentalHarvest)
     {
         this.monitor = monitor;
+        snapshots = new WorldSnapshotMapper(enableExperimentalHarvest);
     }
 
     public EchoAvatarState Echo => echo;

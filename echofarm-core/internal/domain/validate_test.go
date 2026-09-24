@@ -326,6 +326,27 @@ func TestPlayerCorrectionRequiresCorrelatedActions(t *testing.T) {
 	}
 }
 
+func TestActionEnabledHonorsExplicitCapabilitiesAndLegacySnapshots(t *testing.T) {
+	legacy := validReflectiveSnapshot()
+	if !ActionEnabled(legacy, ActionHarvestTarget) {
+		t.Fatal("legacy snapshot unexpectedly disabled harvesting")
+	}
+
+	restricted := legacy
+	restricted.Capabilities = &ActionCapabilities{Harvest: false}
+	if ActionEnabled(restricted, ActionHarvestTarget) {
+		t.Fatal("explicit capabilities allowed disabled harvesting")
+	}
+	if !ActionEnabled(restricted, ActionWaterTarget) || !ActionEnabled(restricted, ActionStopSession) {
+		t.Fatal("harvest capability disabled an unrelated safe action")
+	}
+
+	restricted.Capabilities.Harvest = true
+	if !ActionEnabled(restricted, ActionHarvestTarget) {
+		t.Fatal("explicit capabilities did not enable harvesting")
+	}
+}
+
 func validReflectiveSnapshot() WorldSnapshot {
 	return WorldSnapshot{
 		SaveID: "farm-1", SessionID: "echo-day-2", SnapshotVersion: 7,

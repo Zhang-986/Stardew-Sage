@@ -41,7 +41,7 @@ Add the missing reflective demo after the Continuum demo:
 
 Add a `windows-sidecar` job on `windows-latest` that installs the same Go version, runs `go test ./...`, builds `echofarm-core.exe`, starts it in fixture mode on loopback with a temporary database, polls `/healthz`, and always terminates the process.
 
-- [ ] **Step 4: Verify locally and on GitHub**
+- [x] **Step 4: Verify locally and on GitHub**
 
 Run:
 
@@ -55,7 +55,7 @@ cd ..
 
 Push the task commit and require both Linux `verify` and Windows `windows-sidecar` jobs to pass on that exact SHA.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add echofarm-core/go.mod .github/workflows/ci.yml
@@ -79,7 +79,7 @@ git commit -m "ci(echofarm): restore cross-platform release gates"
 - Modify: `stardew-echo-mod/src/EchoFarm.Mod/WorldSnapshotMapper.cs`
 - Modify: `stardew-echo-mod/src/EchoFarm.Mod/ModEntry.cs`
 
-- [ ] **Step 1: Write failing Go capability tests**
+- [x] **Step 1: Write failing Go capability tests**
 
 Add an optional snapshot capability object:
 
@@ -96,7 +96,7 @@ type WorldSnapshot struct {
 
 Tests must prove that a legacy `nil` capability preserves fixture compatibility, while an explicit `harvest:false` rejects `harvest_target` before decision persistence. `stop_session`, watering, refill, and deposit remain available.
 
-- [ ] **Step 2: Run Go tests and verify RED**
+- [x] **Step 2: Run Go tests and verify RED**
 
 Run:
 
@@ -107,7 +107,7 @@ go test ./internal/domain ./internal/policy ./internal/intelligence -run 'Test.*
 
 Expected: compilation or assertion failure because capability-aware validation does not exist.
 
-- [ ] **Step 3: Implement Go capability filtering and validation**
+- [x] **Step 3: Implement Go capability filtering and validation**
 
 Add one domain helper:
 
@@ -119,11 +119,11 @@ func ActionEnabled(snapshot WorldSnapshot, kind ActionKind) bool {
 
 The policy must reject a disabled model candidate and choose a safe enabled alternative when present; otherwise it returns `stop_session`. The fixture generator must not generate harvesting when the explicit capability is disabled.
 
-- [ ] **Step 4: Write failing C# safety tests**
+- [x] **Step 4: Write failing C# safety tests**
 
 Add `ActionCapabilities` to the strict snapshot contract and require `ActionSafetyGate.EnsureSafe` to reject `HarvestTarget` when `Harvest` is false. Retain a legacy constructor/default path only in game-independent tests; the Mod must always send explicit capabilities.
 
-- [ ] **Step 5: Implement the C# and Mod capability boundary**
+- [x] **Step 5: Implement the C# and Mod capability boundary**
 
 Add this default-disabled setting:
 
@@ -133,7 +133,7 @@ public bool EnableExperimentalHarvest { get; set; } = false;
 
 `WorldSnapshotMapper` receives the configured value and always serializes `Capabilities = new ActionCapabilities { Harvest = enableExperimentalHarvest }`. `ActionSafetyGate` validates the response against the same snapshot value immediately before execution.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run the targeted Go and .NET tests, then the full Go race and .NET suites. Commit:
 

@@ -14,6 +14,28 @@ public sealed class ActionSafetyGateTests
         new ActionSafetyGate().EnsureSafe(action, snapshot);
     }
 
+    [Fact]
+    public void RejectsHarvestWhenCapabilityIsExplicitlyDisabled()
+    {
+        WorldSnapshot snapshot = Copy(Snapshot(), capabilities: new ActionCapabilities { Harvest = false });
+        HighLevelAction action = Action(snapshot, ActionKind.HarvestTarget, "crop-ripe");
+
+        UnsafeActionException error = Assert.Throws<UnsafeActionException>(
+            () => new ActionSafetyGate().EnsureSafe(action, snapshot));
+
+        Assert.Contains("disabled", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AcceptsHarvestForLegacyOrExplicitlyEnabledSnapshot()
+    {
+        WorldSnapshot legacy = Snapshot();
+        new ActionSafetyGate().EnsureSafe(Action(legacy, ActionKind.HarvestTarget, "crop-ripe"), legacy);
+
+        WorldSnapshot enabled = Copy(legacy, capabilities: new ActionCapabilities { Harvest = true });
+        new ActionSafetyGate().EnsureSafe(Action(enabled, ActionKind.HarvestTarget, "crop-ripe"), enabled);
+    }
+
     [Theory]
     [InlineData("stale_snapshot")]
     [InlineData("unknown_target")]
@@ -94,7 +116,11 @@ public sealed class ActionSafetyGateTests
         Reason = "test"
     };
 
-    private static WorldSnapshot Copy(WorldSnapshot source, Weather? weather = null, int? water = null) => new()
+    private static WorldSnapshot Copy(
+        WorldSnapshot source,
+        Weather? weather = null,
+        int? water = null,
+        ActionCapabilities? capabilities = null) => new()
     {
         SaveId = source.SaveId,
         SessionId = source.SessionId,
@@ -117,6 +143,7 @@ public sealed class ActionSafetyGateTests
         Crops = source.Crops,
         WaterSources = source.WaterSources,
         Chests = source.Chests,
-        Obstacles = source.Obstacles
+        Obstacles = source.Obstacles,
+        Capabilities = capabilities ?? source.Capabilities
     };
 }
