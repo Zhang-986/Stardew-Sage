@@ -406,11 +406,12 @@ type PlayerCorrection struct {
 }
 
 type ExperienceOutcome struct {
-	SourceID    string                `json:"sourceId"`
-	Source      ExperienceSource      `json:"source"`
-	Observation ExperienceObservation `json:"observation"`
-	Experience  PolicyExperience      `json:"experience"`
-	Correction  *PlayerCorrection     `json:"correction,omitempty"`
+	SourceID           string                `json:"sourceId"`
+	Source             ExperienceSource      `json:"source"`
+	Observation        ExperienceObservation `json:"observation"`
+	Experience         PolicyExperience      `json:"experience"`
+	UpdatedExperiences []PolicyExperience    `json:"updatedExperiences,omitempty"`
+	Correction         *PlayerCorrection     `json:"correction,omitempty"`
 }
 
 type DecisionRecord struct {

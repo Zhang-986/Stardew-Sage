@@ -339,10 +339,6 @@ func (s *SQLite) SaveExperienceOutcome(ctx context.Context, outcome domain.Exper
 	if err := validateExperienceOutcome(outcome); err != nil {
 		return err
 	}
-	experienceJSON, err := json.Marshal(outcome.Experience)
-	if err != nil {
-		return fmt.Errorf("marshal policy experience: %w", err)
-	}
 	outcomeJSON, err := json.Marshal(outcome)
 	if err != nil {
 		return fmt.Errorf("marshal experience outcome: %w", err)
@@ -373,13 +369,29 @@ VALUES (?, ?, ?, ?)`, outcome.Experience.SaveID, outcome.Correction.ID, correcti
 			return fmt.Errorf("save player correction: %w", err)
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `
+	experiences := outcome.UpdatedExperiences
+	if len(experiences) == 0 {
+		experiences = []domain.PolicyExperience{outcome.Experience}
+	}
+	for _, experience := range experiences {
+		if experience.SaveID != outcome.Experience.SaveID {
+			return errors.New("updated experience belongs to another save")
+		}
+		if err := experience.Validate(); err != nil {
+			return fmt.Errorf("updated policy experience: %w", err)
+		}
+		experienceJSON, err := json.Marshal(experience)
+		if err != nil {
+			return fmt.Errorf("marshal policy experience: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `
 INSERT INTO policy_experiences(save_id, experience_id, payload_json, updated_at)
 VALUES (?, ?, ?, ?)
 ON CONFLICT(save_id, experience_id) DO UPDATE SET
   payload_json=excluded.payload_json, updated_at=excluded.updated_at`,
-		outcome.Experience.SaveID, outcome.Experience.ID, experienceJSON, now); err != nil {
-		return fmt.Errorf("save policy experience: %w", err)
+			experience.SaveID, experience.ID, experienceJSON, now); err != nil {
+			return fmt.Errorf("save policy experience: %w", err)
+		}
 	}
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO experience_revisions(save_id, source_id, experience_id, outcome_json, created_at)
