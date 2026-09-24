@@ -9,6 +9,7 @@
     "saveId": { "type": "string", "minLength": 1 },
     "sessionId": { "type": "string", "minLength": 1 },
     "snapshotVersion": { "type": "integer", "minimum": 0 },
+    "tick": { "type": "integer", "minimum": 0 },
     "day": { "type": "integer", "minimum": 1 },
     "timeOfDay": { "type": "integer", "minimum": 0 },
     "weather": { "enum": ["sunny", "rainy", "storm", "snow"] },

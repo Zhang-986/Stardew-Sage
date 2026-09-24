@@ -37,6 +37,13 @@ func (g *FixtureGenerator) GenerateJSON(_ context.Context, _ string, input any, 
 		default:
 			return errors.New("fixture action generator received unexpected input")
 		}
+	case *IntentInference:
+		intentInput, ok := input.(IntentInput)
+		if !ok {
+			return errors.New("fixture intent generator received unexpected input")
+		}
+		*target = fixtureIntent(intentInput)
+		return nil
 	default:
 		return fmt.Errorf("fixture generator cannot populate %T", output)
 	}
@@ -125,6 +132,10 @@ func traitContext(weather domain.Weather) domain.TraitContext {
 
 func fixtureAction(input ActionInput) domain.HighLevelAction {
 	snapshot := input.Snapshot
+	claimed := make(map[string]struct{}, len(input.Coordination.PlayerClaimedTargets))
+	for _, targetID := range input.Coordination.PlayerClaimedTargets {
+		claimed[targetID] = struct{}{}
+	}
 	newAction := func(kind domain.ActionKind, targetID, reason string) domain.HighLevelAction {
 		return domain.HighLevelAction{
 			SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
@@ -132,12 +143,18 @@ func fixtureAction(input ActionInput) domain.HighLevelAction {
 		}
 	}
 	for _, crop := range snapshot.Crops {
+		if _, occupied := claimed[crop.ID]; occupied {
+			continue
+		}
 		if crop.Mature {
 			return newAction(domain.ActionHarvestTarget, crop.ID, "harvest a currently mature crop")
 		}
 	}
 	if snapshot.Weather != domain.WeatherRainy && snapshot.Weather != domain.WeatherStorm {
 		for _, crop := range snapshot.Crops {
+			if _, occupied := claimed[crop.ID]; occupied {
+				continue
+			}
 			if crop.NeedsWater {
 				if snapshot.WateringCan.Water <= 0 && len(snapshot.WaterSources) > 0 {
 					return newAction(domain.ActionRefillCan, snapshot.WaterSources[0].ID, "refill before continuing the learned watering goal")
@@ -154,6 +171,37 @@ func fixtureAction(input ActionInput) domain.HighLevelAction {
 		}
 	}
 	return newAction(domain.ActionStopSession, "", "morning routine is complete")
+}
+
+func fixtureIntent(input IntentInput) IntentInference {
+	counts := map[domain.PlayerIntent]int{}
+	evidence := map[domain.PlayerIntent][]string{}
+	for _, activity := range input.Activities {
+		var intent domain.PlayerIntent
+		switch activity.Kind {
+		case domain.EventWater, domain.EventRefill:
+			intent = domain.PlayerIntentWatering
+		case domain.EventHarvest:
+			intent = domain.PlayerIntentHarvesting
+		case domain.EventDeposit:
+			intent = domain.PlayerIntentDepositing
+		default:
+			continue
+		}
+		counts[intent]++
+		evidence[intent] = append(evidence[intent], activity.TargetID)
+	}
+	selected := domain.PlayerIntentUnknown
+	for _, intent := range []domain.PlayerIntent{
+		domain.PlayerIntentWatering,
+		domain.PlayerIntentHarvesting,
+		domain.PlayerIntentDepositing,
+	} {
+		if counts[intent] > counts[selected] {
+			selected = intent
+		}
+	}
+	return IntentInference{Intent: selected, EvidenceTargetIDs: evidence[selected]}
 }
 
 func fixtureReplan(input ReplanInput) domain.HighLevelAction {

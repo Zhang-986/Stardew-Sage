@@ -24,9 +24,27 @@ type LearningInference struct {
 }
 
 type ActionInput struct {
-	Snapshot    domain.WorldSnapshot `json:"snapshot"`
-	PlayerModel domain.PlayerModel   `json:"playerModel"`
-	Skill       domain.SkillProgram  `json:"skill"`
+	Snapshot     domain.WorldSnapshot       `json:"snapshot"`
+	PlayerModel  domain.PlayerModel         `json:"playerModel"`
+	Skill        domain.SkillProgram        `json:"skill"`
+	Coordination domain.CoordinationContext `json:"coordination"`
+}
+
+type IntentInput struct {
+	SaveID      string                  `json:"saveId"`
+	Day         int                     `json:"day"`
+	TimeOfDay   int                     `json:"timeOfDay"`
+	Activities  []domain.PlayerActivity `json:"activities"`
+	PlayerModel domain.PlayerModel      `json:"playerModel"`
+}
+
+type IntentInference struct {
+	Intent            domain.PlayerIntent `json:"intent"`
+	EvidenceTargetIDs []string            `json:"evidenceTargetIds,omitempty"`
+}
+
+type IntentInferer interface {
+	InferIntent(ctx context.Context, input IntentInput) (domain.PlayerIntent, error)
 }
 
 type ReplanInput struct {

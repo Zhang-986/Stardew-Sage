@@ -16,6 +16,9 @@ func (s WorldSnapshot) Validate() error {
 	if s.SnapshotVersion < 0 {
 		return errors.New("snapshot_version cannot be negative")
 	}
+	if s.Tick < 0 {
+		return errors.New("tick cannot be negative")
+	}
 	if s.Day <= 0 {
 		return errors.New("day must be positive")
 	}

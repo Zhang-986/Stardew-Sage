@@ -12,12 +12,14 @@ import (
 const actionSystemPrompt = `You are EchoFarm's runtime policy.
 Choose exactly one high-level action from the current world snapshot, learned skill, and evidence-backed player model.
 Reason about current targets rather than coordinates from the teaching day. Respect weather, tool capacity, energy reserve, and skill stop conditions.
+Use the coordination context to complement the player's inferred intent. Never select a target claimed by the player or listed in playerClaimedTargets.
 Use only: move_to, equip_tool, water_target, refill_can, harvest_target, deposit_items, stop_session.
 Return only one HighLevelAction JSON object using the current saveId, sessionId, and snapshotVersion.`
 
 const replanSystemPrompt = `You are EchoFarm's failure replanner.
 The previous high-level action failed. Use its failure code and the latest current world snapshot to choose one safe recovery action.
 Do not repeat an impossible action and never invent a target. Preserve the learned player's preferences when more than one recovery is valid.
+Never select a target claimed by the player or listed in the coordination context's playerClaimedTargets.
 Use only: move_to, equip_tool, water_target, refill_can, harvest_target, deposit_items, stop_session.
 Return only one HighLevelAction JSON object using the current saveId, sessionId, and snapshotVersion.`
 

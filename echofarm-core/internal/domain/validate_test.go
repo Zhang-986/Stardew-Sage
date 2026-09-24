@@ -117,6 +117,7 @@ func TestWorldSnapshotValidate(t *testing.T) {
 		{name: "duplicate target", mutate: func(s *WorldSnapshot) { s.Chests[0].ID = "crop-1" }, wantErr: "duplicate target id"},
 		{name: "energy exceeds maximum", mutate: func(s *WorldSnapshot) { s.Energy = 300 }, wantErr: "energy"},
 		{name: "water exceeds capacity", mutate: func(s *WorldSnapshot) { s.WateringCan.Water = 50 }, wantErr: "watering_can"},
+		{name: "negative game tick", mutate: func(s *WorldSnapshot) { s.Tick = -1 }, wantErr: "tick"},
 	}
 
 	for _, tt := range tests {

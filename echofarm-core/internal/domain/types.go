@@ -56,6 +56,7 @@ type WorldSnapshot struct {
 	SaveID              string           `json:"saveId"`
 	SessionID           string           `json:"sessionId"`
 	SnapshotVersion     int64            `json:"snapshotVersion"`
+	Tick                int64            `json:"tick,omitempty"`
 	Day                 int              `json:"day"`
 	TimeOfDay           int              `json:"timeOfDay"`
 	Weather             Weather          `json:"weather"`

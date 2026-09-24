@@ -130,3 +130,40 @@ func TestFixtureGeneratorStopsWhenPreferredChestIsFull(t *testing.T) {
 		t.Fatalf("replanned action = %+v, want stop_session", output)
 	}
 }
+
+func TestFixtureGeneratorInfersDominantPlayerIntent(t *testing.T) {
+	generator := NewFixtureGenerator()
+	input := IntentInput{
+		SaveID: "farm-1", Day: 4, TimeOfDay: 700,
+		Activities: []domain.PlayerActivity{
+			{Kind: domain.EventWater, TargetID: "crop-1", Tick: 100, Success: true},
+			{Kind: domain.EventWater, TargetID: "crop-2", Tick: 110, Success: true},
+			{Kind: domain.EventHarvest, TargetID: "crop-3", Tick: 120, Success: true},
+		},
+	}
+	var output IntentInference
+	if err := generator.GenerateJSON(context.Background(), intentSystemPrompt, input, &output); err != nil {
+		t.Fatalf("GenerateJSON() error = %v", err)
+	}
+	if output.Intent != domain.PlayerIntentWatering || len(output.EvidenceTargetIDs) != 2 {
+		t.Fatalf("intent inference = %+v", output)
+	}
+}
+
+func TestFixtureGeneratorAvoidsPlayerClaimedCrop(t *testing.T) {
+	generator := NewFixtureGenerator()
+	input := validActionInput()
+	input.Snapshot.Crops = []domain.Crop{
+		{ID: "crop-claimed", Mature: true},
+		{ID: "crop-free", Mature: true},
+	}
+	input.Coordination = domain.CoordinationContext{PlayerClaimedTargets: []string{"crop-claimed"}}
+	var output domain.HighLevelAction
+
+	if err := generator.GenerateJSON(context.Background(), actionSystemPrompt, input, &output); err != nil {
+		t.Fatalf("GenerateJSON() error = %v", err)
+	}
+	if output.Kind != domain.ActionHarvestTarget || output.TargetID != "crop-free" {
+		t.Fatalf("action = %+v, want unclaimed crop", output)
+	}
+}

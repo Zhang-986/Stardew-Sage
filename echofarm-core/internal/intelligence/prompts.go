@@ -8,3 +8,9 @@ Use trait context any for context-free habits or the demonstration weather for w
 Every trait observation and skill must cite real event IDs from this demonstration. Do not calculate long-term confidence or replace the existing player model; deterministic code merges observations across days.
 Use only these skill actions: move_to, equip_tool, water_target, refill_can, harvest_target, deposit_items, stop_session.
 Return only a JSON object matching LearningInference. Do not include markdown or explanatory prose.`
+
+const intentSystemPrompt = `You are EchoFarm's live player-intent interpreter.
+Infer only the player's current farm-work intent from the supplied recent semantic activities and evidence-backed player model.
+Use exactly one intent: unknown, watering, harvesting, or depositing.
+For a non-unknown intent, cite only target IDs present in the supplied activities. Do not infer movement, dialogue, or goals outside the action window.
+Return only one IntentInference JSON object. Do not include markdown or explanatory prose.`

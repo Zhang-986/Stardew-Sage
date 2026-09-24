@@ -51,6 +51,9 @@ func TestActionGraphChoosesStructuredAction(t *testing.T) {
 	if !strings.Contains(generator.prompt, "current world") {
 		t.Fatalf("prompt does not require current-world reasoning: %q", generator.prompt)
 	}
+	if !strings.Contains(generator.prompt, "claimed") {
+		t.Fatalf("prompt does not require player-target coordination: %q", generator.prompt)
+	}
 }
 
 func TestActionGraphReplansFromFailure(t *testing.T) {
