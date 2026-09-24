@@ -14,4 +14,5 @@ internal sealed class ModConfig
     public string? DatabasePath { get; set; }
     public SButton RecordKey { get; set; } = SButton.F7;
     public SButton SummonKey { get; set; } = SButton.F8;
+    public SButton MemoryKey { get; set; } = SButton.F9;
 }

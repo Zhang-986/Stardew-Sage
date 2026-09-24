@@ -36,12 +36,12 @@ public sealed class EchoSession
     public EchoSessionState State { get; private set; } = EchoSessionState.Idle;
     public Exception? LastError { get; private set; }
 
-    public EchoSessionState BeginTeaching(string saveId, long tick)
+    public EchoSessionState BeginTeaching(string saveId, long tick, int day = 0, Weather weather = Weather.Sunny)
     {
         if (State != EchoSessionState.Idle && State != EchoSessionState.Ready)
             throw new InvalidOperationException($"Cannot record while Echo is {State}.");
         this.saveId = saveId;
-        recorder.Start(saveId, tick);
+        recorder.Start(saveId, tick, day, weather);
         LastError = null;
         State = EchoSessionState.Recording;
         return State;

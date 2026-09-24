@@ -9,6 +9,8 @@ public sealed class TeachingRecorder
     private string? saveId;
     private string? sessionId;
     private long startedAt;
+    private int day;
+    private Weather weather;
     private Position? lastMovePosition;
 
     public TeachingRecorder(Func<string>? idFactory = null)
@@ -18,7 +20,7 @@ public sealed class TeachingRecorder
 
     public bool IsRecording { get; private set; }
 
-    public string Start(string saveId, long tick)
+    public string Start(string saveId, long tick, int day = 0, Weather weather = Weather.Sunny)
     {
         if (IsRecording)
             throw new InvalidOperationException("A teaching session is already active.");
@@ -28,6 +30,8 @@ public sealed class TeachingRecorder
         this.saveId = saveId;
         sessionId = idFactory();
         startedAt = tick;
+        this.day = day;
+        this.weather = weather;
         events.Clear();
         lastMovePosition = null;
         IsRecording = true;
@@ -74,6 +78,8 @@ public sealed class TeachingRecorder
             Id = idFactory(),
             SaveId = saveId,
             SessionId = sessionId,
+            Day = day,
+            Weather = weather,
             StartedAt = startedAt,
             EndedAt = tick,
             Events = Array.AsReadOnly(events.ToArray())
@@ -93,6 +99,8 @@ public sealed class TeachingRecorder
         saveId = null;
         sessionId = null;
         startedAt = 0;
+        day = 0;
+        weather = Weather.Sunny;
         lastMovePosition = null;
         events.Clear();
     }

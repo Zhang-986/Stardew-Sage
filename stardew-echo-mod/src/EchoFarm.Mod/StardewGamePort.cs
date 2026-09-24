@@ -21,6 +21,7 @@ internal sealed class StardewGamePort : IGamePort
     private readonly EchoAvatarState echo = new();
     private readonly ConcurrentQueue<Action> gameThreadWork = new();
     private readonly GridPathfinder pathfinder = new();
+    private readonly PlayerActivityWindow playerActivity = new();
     private BridgePosition? lastObservedPlayerTile;
     private ActiveExecution? activeExecution;
 
@@ -30,6 +31,10 @@ internal sealed class StardewGamePort : IGamePort
     }
 
     public EchoAvatarState Echo => echo;
+
+    public bool RecordPlayerActivity(ObservedGameEvent observed) => playerActivity.Add(observed);
+
+    public void ResetPlayerActivity() => playerActivity.Reset();
 
     public void ShowEcho()
     {
@@ -126,7 +131,13 @@ internal sealed class StardewGamePort : IGamePort
     }
 
     public Task<WorldSnapshot> CaptureSnapshotAsync(string saveId, string sessionId, CancellationToken cancellationToken) =>
-        OnGameThread(() => snapshots.Capture(saveId, sessionId, echo), cancellationToken);
+        OnGameThread(() => snapshots.Capture(
+            saveId,
+            sessionId,
+            echo,
+            Game1.ticks,
+            playerActivity.Snapshot(Game1.ticks)
+        ), cancellationToken);
 
     public Task<ActionResult> ExecuteAsync(HighLevelAction action, CancellationToken cancellationToken) =>
         BeginOnGameThread(action, cancellationToken);

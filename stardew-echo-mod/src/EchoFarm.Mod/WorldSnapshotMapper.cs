@@ -18,7 +18,13 @@ internal sealed class WorldSnapshotMapper
 {
     private readonly SnapshotVersionTracker snapshotVersions = new();
 
-    public WorldSnapshot Capture(string saveId, string sessionId, EchoAvatarState echo)
+    public WorldSnapshot Capture(
+        string saveId,
+        string sessionId,
+        EchoAvatarState echo,
+        long tick,
+        IReadOnlyList<PlayerActivity> recentPlayerActions
+    )
     {
         GameLocation location = Game1.currentLocation;
         var crops = new List<BridgeCrop>();
@@ -91,6 +97,7 @@ internal sealed class WorldSnapshotMapper
         {
             saveId,
             sessionId,
+            tick,
             day,
             timeOfDay,
             weather,
@@ -102,13 +109,15 @@ internal sealed class WorldSnapshotMapper
             wateringCan,
             crops,
             waterSources,
-            chests
+            chests,
+            recentPlayerActions
         });
         return new WorldSnapshot
         {
             SaveId = saveId,
             SessionId = sessionId,
             SnapshotVersion = snapshotVersions.Next(fingerprint),
+            Tick = tick,
             Day = day,
             TimeOfDay = timeOfDay,
             Weather = weather,
@@ -121,7 +130,8 @@ internal sealed class WorldSnapshotMapper
             Crops = crops,
             WaterSources = waterSources,
             Chests = chests,
-            Obstacles = Array.Empty<BridgePosition>()
+            Obstacles = Array.Empty<BridgePosition>(),
+            RecentPlayerActions = Array.AsReadOnly(recentPlayerActions.ToArray())
         };
     }
 
@@ -152,7 +162,7 @@ internal sealed class WorldSnapshotMapper
         return result;
     }
 
-    private static Weather GetWeather(GameLocation location)
+    internal static Weather GetWeather(GameLocation location)
     {
         if (location.IsSnowingHere())
             return Weather.Snow;

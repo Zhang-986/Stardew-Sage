@@ -15,12 +15,15 @@ public sealed class ModEntry : Mod
     private StardewGamePort gamePort = null!;
     private EchoSession session = null!;
     private EchoRenderer renderer = null!;
+    private EchoMemoryOverlay memoryOverlay = null!;
+    private EchoFarmClient coreClient = null!;
     private CoreProcessSupervisor coreHost = null!;
     private CoreLaunchOptions coreLaunchOptions = null!;
     private Task<bool>? coreStartup;
     private readonly CancellationTokenSource modLifetime = new();
     private CancellationTokenSource saveLifetime = new();
     private ObservationProbe? pendingObservation;
+    private bool memoryRefreshInFlight;
 
     public override void Entry(IModHelper helper)
     {
@@ -54,8 +57,9 @@ public sealed class ModEntry : Mod
         recorder = new TeachingRecorder();
         gamePort = new StardewGamePort(Monitor);
         renderer = new EchoRenderer(gamePort.Echo);
+        memoryOverlay = new EchoMemoryOverlay();
         var httpClient = new HttpClient { BaseAddress = coreUrl };
-        var coreClient = new EchoFarmClient(httpClient, TimeSpan.FromSeconds(35));
+        coreClient = new EchoFarmClient(httpClient, TimeSpan.FromSeconds(35));
         session = new EchoSession(recorder, coreClient, gamePort, new ActionSafetyGate());
 
         helper.Events.GameLoop.GameLaunched += OnGameLaunched;
@@ -66,6 +70,7 @@ public sealed class ModEntry : Mod
         helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
         helper.Events.Input.ButtonPressed += OnButtonPressed;
         helper.Events.Display.RenderedWorld += OnRenderedWorld;
+        helper.Events.Display.RenderedHud += OnRenderedHud;
         AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
     }
 
@@ -95,6 +100,14 @@ public sealed class ModEntry : Mod
         if (!Context.IsWorldReady)
             return;
 
+        if (e.Button == config.MemoryKey)
+        {
+            memoryOverlay.Toggle();
+            if (memoryOverlay.Visible)
+                await RefreshMemoryAsync();
+            return;
+        }
+
         if (e.Button == config.RecordKey)
         {
             if (session.State == EchoSessionState.Recording)
@@ -111,7 +124,12 @@ public sealed class ModEntry : Mod
             }
             else if (session.State is EchoSessionState.Idle or EchoSessionState.Ready)
             {
-                session.BeginTeaching(SaveId(), Game1.ticks);
+                session.BeginTeaching(
+                    SaveId(),
+                    Game1.ticks,
+                    Math.Max(1, Game1.Date.TotalDays),
+                    WorldSnapshotMapper.GetWeather(Game1.currentLocation)
+                );
                 Monitor.Log("Echo recording started. Play the morning routine, then press the record key again.", LogLevel.Info);
             }
             return;
@@ -124,12 +142,14 @@ public sealed class ModEntry : Mod
                 Monitor.Log("Teach Echo a routine before summoning it.", LogLevel.Info);
                 return;
             }
+            gamePort.ResetPlayerActivity();
             session.StartEcho(SaveId(), $"echo-{Game1.Date.TotalDays}-{Guid.NewGuid():N}");
             Monitor.Log("Echo joined the farm.", LogLevel.Info);
             return;
         }
 
-        if (session.State == EchoSessionState.Recording && (e.Button.IsUseToolButton() || e.Button.IsActionButton()))
+        if ((session.State is EchoSessionState.Recording or EchoSessionState.Acting or EchoSessionState.AwaitingResult) &&
+            (e.Button.IsUseToolButton() || e.Button.IsActionButton()))
             pendingObservation = gamePort.BeginObservation(e.Button, Game1.ticks);
     }
 
@@ -139,28 +159,63 @@ public sealed class ModEntry : Mod
             return;
 
         gamePort.Pump();
+        if (pendingObservation is not null && e.Ticks > (ulong)pendingObservation.Tick)
+        {
+            ObservedGameEvent observed = gamePort.CompleteObservation(pendingObservation, Game1.ticks);
+            if (session.State == EchoSessionState.Recording)
+                session.Observe(observed);
+            else if (session.State is EchoSessionState.Acting or EchoSessionState.AwaitingResult)
+                gamePort.RecordPlayerActivity(observed);
+            pendingObservation = null;
+        }
         if (session.State == EchoSessionState.Recording)
         {
-            if (pendingObservation is not null && e.Ticks > (ulong)pendingObservation.Tick)
-            {
-                session.Observe(gamePort.CompleteObservation(pendingObservation, Game1.ticks));
-                pendingObservation = null;
-            }
             ObservedGameEvent? movement = gamePort.ObserveMovement(Game1.ticks);
             if (movement is not null)
                 session.Observe(movement);
         }
         if (session.State == EchoSessionState.Acting && e.IsMultipleOf(15))
             await session.TickAsync(saveLifetime.Token);
+        if (memoryOverlay.Visible && e.IsMultipleOf(60) && !memoryRefreshInFlight)
+            await RefreshMemoryAsync();
     }
 
     private void OnRenderedWorld(object? sender, RenderedWorldEventArgs e) => renderer.Draw(e.SpriteBatch);
 
+    private void OnRenderedHud(object? sender, RenderedHudEventArgs e) => memoryOverlay.Draw(e.SpriteBatch);
+
     private void StopForWorldChange()
     {
         pendingObservation = null;
+        gamePort?.ResetPlayerActivity();
+        memoryOverlay?.Hide();
         saveLifetime.Cancel();
         session?.Abort();
+    }
+
+    private async Task RefreshMemoryAsync()
+    {
+        if (memoryRefreshInFlight)
+            return;
+        memoryRefreshInFlight = true;
+        try
+        {
+            if (!await EnsureCoreStartedAsync())
+            {
+                memoryOverlay.ShowError("Core unavailable");
+                return;
+            }
+            EchoFarm.Bridge.Contracts.EchoMemoryView view = await coreClient.GetMemoryAsync(SaveId(), saveLifetime.Token);
+            memoryOverlay.Update(view);
+        }
+        catch (Exception error) when (error is EchoFarmException or OperationCanceledException)
+        {
+            memoryOverlay.ShowError(error is OperationCanceledException ? "Request cancelled" : "Core unavailable");
+        }
+        finally
+        {
+            memoryRefreshInFlight = false;
+        }
     }
 
     private void ResetSaveLifetime()
@@ -175,9 +230,7 @@ public sealed class ModEntry : Mod
             return;
         try
         {
-            using var client = new HttpClient { BaseAddress = new Uri(config.CoreUrl) };
-            var core = new EchoFarmClient(client, TimeSpan.FromSeconds(2));
-            await core.GetPlayerModelAsync(SaveId(), saveLifetime.Token);
+            await coreClient.GetPlayerModelAsync(SaveId(), saveLifetime.Token);
             session.MarkReady(SaveId());
             Monitor.Log($"EchoFarm memory loaded. Press {config.SummonKey} to summon Echo.", LogLevel.Info);
         }

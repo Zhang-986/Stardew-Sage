@@ -27,6 +27,7 @@ The integration suite starts the Go service in fixture mode and proves that C# c
 
 - F7 starts/stops teaching;
 - F8 summons the learned Echo;
+- F9 opens the in-game Echo memory panel;
 - player movement and semantic tool/action events are recorded;
 - farm crops, chests, water sources, weather, time, and Echo resources are mapped into `WorldSnapshot`;
 - Go actions are queued back onto the game update thread and use bounded grid pathfinding;
@@ -35,6 +36,8 @@ The integration suite starts the Go service in fixture mode and proves that C# c
 - mature crops are collected into a bounded, quality-aware Echo inventory;
 - Echo inventory is deposited into the learned target chest without touching the player's backpack;
 - full inventories and full chests produce explicit replanning failures instead of losing items.
+- recent player actions are sent as a short-lived intent window, so Echo avoids targets the player is already handling;
+- the memory panel shows stable cross-day traits, confidence, current inferred intent, and the latest division-of-work decision.
 
 The adapter is intentionally outside `EchoFarm.sln` on machines without the game. `Pathoschild.Stardew.ModBuildConfig` needs legal Stardew Valley assemblies before it can compile.
 
@@ -105,5 +108,7 @@ Use a disposable test save:
 7. Fill that chest before another run and confirm Echo retains any rejected items and stops instead of deleting them or looping.
 8. Empty the Echo watering state and confirm it requests a refill before more watering.
 9. Save or return to title during an action and confirm Echo stops without blocking the game.
+10. Teach the same routine on two sunny days, then teach a rainy-day harvest; press F9 and confirm the sunny routine remains stable while the rainy behavior is stored separately.
+11. Summon Echo, water two crops yourself, and confirm the panel reports your watering intent while Echo selects an unclaimed harvest target.
 
 Do not use a personal save until the live-game checks pass. The adapter never writes save files directly.

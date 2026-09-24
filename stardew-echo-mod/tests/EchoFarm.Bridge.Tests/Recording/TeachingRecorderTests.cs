@@ -10,7 +10,7 @@ public sealed class TeachingRecorderTests
     {
         var ids = new Queue<string>(new[] { "session-1", "event-1", "event-2", "event-3", "demo-1" });
         var recorder = new TeachingRecorder(() => ids.Dequeue());
-        string sessionId = recorder.Start("farm-1", 100);
+        string sessionId = recorder.Start("farm-1", 100, day: 7, weather: Weather.Rainy);
 
         Assert.Equal("session-1", sessionId);
         Assert.True(recorder.Observe(Move(110, 4, 8)));
@@ -33,6 +33,8 @@ public sealed class TeachingRecorderTests
         Assert.Equal("demo-1", demonstration.Id);
         Assert.Equal("farm-1", demonstration.SaveId);
         Assert.Equal("session-1", demonstration.SessionId);
+        Assert.Equal(7, demonstration.Day);
+        Assert.Equal(Weather.Rainy, demonstration.Weather);
         Assert.Equal(3, demonstration.Events.Count);
         DemonstrationEvent water = demonstration.Events[2];
         Assert.Equal("event-3", water.Id);
