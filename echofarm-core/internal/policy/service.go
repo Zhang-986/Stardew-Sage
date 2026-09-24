@@ -62,7 +62,7 @@ func (s *Service) NextAction(ctx context.Context, saveID string, snapshot domain
 		return domain.HighLevelAction{}, err
 	}
 	if stop != nil {
-		return *stop, s.saveDecision(ctx, snapshot, input.Coordination, *stop, *stop)
+		return s.saveDecision(ctx, snapshot, input.Coordination, *stop, *stop)
 	}
 	candidate, err := s.actor.ChooseAction(ctx, input)
 	if err != nil {
@@ -72,10 +72,7 @@ func (s *Service) NextAction(ctx context.Context, saveID string, snapshot domain
 		return domain.HighLevelAction{}, fmt.Errorf("reject AI action: %w", err)
 	}
 	final := s.resolveClaimConflict(candidate, input.Coordination, snapshot)
-	if err := s.saveDecision(ctx, snapshot, input.Coordination, candidate, final); err != nil {
-		return domain.HighLevelAction{}, err
-	}
-	return final, nil
+	return s.saveDecision(ctx, snapshot, input.Coordination, candidate, final)
 }
 
 func (s *Service) HandleResult(ctx context.Context, saveID string, snapshot domain.WorldSnapshot, result domain.ActionResult) (domain.HighLevelAction, error) {
@@ -85,8 +82,8 @@ func (s *Service) HandleResult(ctx context.Context, saveID string, snapshot doma
 	if result.SaveID != saveID || result.SaveID != snapshot.SaveID || result.SessionID != snapshot.SessionID {
 		return domain.HighLevelAction{}, errors.New("action result identity does not match current snapshot")
 	}
-	if result.SnapshotVersion > snapshot.SnapshotVersion {
-		return domain.HighLevelAction{}, errors.New("action result is newer than current snapshot")
+	if snapshot.SnapshotVersion <= result.SnapshotVersion {
+		return domain.HighLevelAction{}, errors.New("current snapshot must be newer than action result")
 	}
 	if err := s.store.AttachDecisionResult(ctx, result); err != nil {
 		return domain.HighLevelAction{}, fmt.Errorf("record action result: %w", err)
@@ -101,7 +98,7 @@ func (s *Service) HandleResult(ctx context.Context, saveID string, snapshot doma
 		return domain.HighLevelAction{}, err
 	}
 	if stop != nil {
-		return *stop, s.saveDecision(ctx, snapshot, input.Coordination, *stop, *stop)
+		return s.saveDecision(ctx, snapshot, input.Coordination, *stop, *stop)
 	}
 
 	var candidate domain.HighLevelAction
@@ -117,10 +114,7 @@ func (s *Service) HandleResult(ctx context.Context, saveID string, snapshot doma
 		return domain.HighLevelAction{}, fmt.Errorf("reject AI action: %w", err)
 	}
 	final := s.resolveClaimConflict(candidate, input.Coordination, snapshot)
-	if err := s.saveDecision(ctx, snapshot, input.Coordination, candidate, final); err != nil {
-		return domain.HighLevelAction{}, err
-	}
-	return final, nil
+	return s.saveDecision(ctx, snapshot, input.Coordination, candidate, final)
 }
 
 func (s *Service) prepare(ctx context.Context, saveID string, snapshot domain.WorldSnapshot) (intelligence.ActionInput, *domain.HighLevelAction, error) {
@@ -163,7 +157,7 @@ func (s *Service) resolveClaimConflict(candidate domain.HighLevelAction, collabo
 	}
 }
 
-func (s *Service) saveDecision(ctx context.Context, snapshot domain.WorldSnapshot, collaborationContext domain.CoordinationContext, candidate, final domain.HighLevelAction) error {
+func (s *Service) saveDecision(ctx context.Context, snapshot domain.WorldSnapshot, collaborationContext domain.CoordinationContext, candidate, final domain.HighLevelAction) (domain.HighLevelAction, error) {
 	record := domain.DecisionRecord{
 		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
 		Day: snapshot.Day, ModelRevision: collaborationContext.ModelRevision,
@@ -172,9 +166,13 @@ func (s *Service) saveDecision(ctx context.Context, snapshot domain.WorldSnapsho
 		CandidateAction:      candidate, FinalAction: final,
 	}
 	if err := s.store.SaveDecision(ctx, record); err != nil {
-		return fmt.Errorf("persist decision: %w", err)
+		return domain.HighLevelAction{}, fmt.Errorf("persist decision: %w", err)
 	}
-	return nil
+	stored, err := s.store.GetDecision(ctx, record.SaveID, record.SessionID, record.SnapshotVersion)
+	if err != nil {
+		return domain.HighLevelAction{}, fmt.Errorf("reload persisted decision: %w", err)
+	}
+	return stored.FinalAction, nil
 }
 
 func validateActionForSnapshot(action domain.HighLevelAction, snapshot domain.WorldSnapshot) error {

@@ -38,6 +38,7 @@ type policyStoreStub struct {
 	decisionErr    error
 	savedDecisions []domain.DecisionRecord
 	attachedResult *domain.ActionResult
+	saveWinner     *domain.DecisionRecord
 }
 
 func (s *policyStoreStub) SaveLearning(context.Context, domain.Demonstration, domain.PlayerModel, domain.SkillProgram) error {
@@ -58,6 +59,11 @@ func (s *policyStoreStub) GetSkill(_ context.Context, _, _ string) (domain.Skill
 
 func (s *policyStoreStub) SaveDecision(_ context.Context, record domain.DecisionRecord) error {
 	s.savedDecisions = append(s.savedDecisions, record)
+	s.priorDecision = record
+	if s.saveWinner != nil {
+		s.priorDecision = *s.saveWinner
+	}
+	s.decisionErr = nil
 	return nil
 }
 
@@ -131,6 +137,30 @@ func TestNextActionReturnsPersistedDecisionWithoutCallingActor(t *testing.T) {
 	}
 }
 
+func TestNextActionReturnsCanonicalPersistedWinner(t *testing.T) {
+	snapshot := validSnapshot()
+	winnerAction := actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature")
+	winner := domain.DecisionRecord{
+		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+		Day: snapshot.Day, ModelRevision: 1, CandidateAction: winnerAction, FinalAction: winnerAction,
+	}
+	store := validPolicyStore()
+	store.saveWinner = &winner
+	actor := &actorStub{nextAction: actionFor(snapshot, domain.ActionWaterTarget, "crop-new")}
+	service, err := NewService(store, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := service.NextAction(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != winnerAction {
+		t.Fatalf("NextAction() = %+v, want persisted winner %+v", got, winnerAction)
+	}
+}
+
 func TestNextActionUsesAIToHarvestInsteadOfWateringOnRainyDay(t *testing.T) {
 	snapshot := validSnapshot()
 	snapshot.Weather = domain.WeatherRainy
@@ -176,14 +206,16 @@ func TestNextActionAcceptsRefillWhenCanIsEmpty(t *testing.T) {
 }
 
 func TestHandleResultReplansRecoverableFailure(t *testing.T) {
-	snapshot := validSnapshot()
-	failed := actionFor(snapshot, domain.ActionWaterTarget, "crop-new")
+	executedSnapshot := validSnapshot()
+	snapshot := executedSnapshot
+	snapshot.SnapshotVersion++
+	failed := actionFor(executedSnapshot, domain.ActionWaterTarget, "crop-new")
 	replanned := actionFor(snapshot, domain.ActionMoveTo, "crop-new")
 	actor := &actorStub{replanAction: replanned}
 	service := newPolicyService(t, actor)
 
 	action, err := service.HandleResult(context.Background(), snapshot.SaveID, snapshot, domain.ActionResult{
-		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+		SaveID: executedSnapshot.SaveID, SessionID: executedSnapshot.SessionID, SnapshotVersion: executedSnapshot.SnapshotVersion,
 		Action: failed, Status: domain.ActionFailed, ErrorCode: "path_blocked",
 	})
 	if err != nil {
@@ -211,6 +243,27 @@ func TestHandleResultRejectsUnknownStatusBeforeWritingLedger(t *testing.T) {
 	}
 	if store.attachedResult != nil {
 		t.Fatalf("invalid result was persisted: %+v", store.attachedResult)
+	}
+}
+
+func TestHandleResultRequiresNewerSnapshotThanExecutedAction(t *testing.T) {
+	snapshot := validSnapshot()
+	store := validPolicyStore()
+	service, err := NewService(store, &actorStub{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := domain.ActionResult{
+		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+		Action: actionFor(snapshot, domain.ActionWaterTarget, "crop-new"), Status: domain.ActionSucceeded,
+	}
+
+	_, err = service.HandleResult(context.Background(), snapshot.SaveID, snapshot, result)
+	if err == nil || !strings.Contains(err.Error(), "newer") {
+		t.Fatalf("HandleResult() error = %v, want newer snapshot error", err)
+	}
+	if store.attachedResult != nil {
+		t.Fatalf("same-version result was persisted: %+v", store.attachedResult)
 	}
 }
 

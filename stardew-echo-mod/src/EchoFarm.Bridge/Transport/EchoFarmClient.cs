@@ -7,7 +7,9 @@ namespace EchoFarm.Bridge.Transport;
 public sealed class EchoFarmClient : IEchoFarmClient
 {
     private readonly HttpClient httpClient;
-    private readonly TimeSpan requestTimeout;
+
+    public Uri BaseAddress => httpClient.BaseAddress!;
+    public TimeSpan RequestTimeout { get; }
 
     public EchoFarmClient(HttpClient httpClient, TimeSpan requestTimeout)
     {
@@ -16,7 +18,7 @@ public sealed class EchoFarmClient : IEchoFarmClient
             throw new ArgumentException("EchoFarm client requires a loopback base address.", nameof(httpClient));
         if (requestTimeout <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(requestTimeout));
-        this.requestTimeout = requestTimeout;
+        RequestTimeout = requestTimeout;
     }
 
     public async Task<LearnResponse> LearnAsync(Demonstration demonstration, CancellationToken cancellationToken)
@@ -52,7 +54,7 @@ public sealed class EchoFarmClient : IEchoFarmClient
             throw new ArgumentException("Save ID is required.", nameof(saveId));
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(requestTimeout);
+        timeout.CancelAfter(RequestTimeout);
         HttpResponseMessage response;
         try
         {
@@ -88,7 +90,7 @@ public sealed class EchoFarmClient : IEchoFarmClient
             throw new ArgumentException("Save ID is required.", nameof(saveId));
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(requestTimeout);
+        timeout.CancelAfter(RequestTimeout);
         HttpResponseMessage response;
         try
         {
@@ -121,7 +123,7 @@ public sealed class EchoFarmClient : IEchoFarmClient
     private async Task<TResponse> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(requestTimeout);
+        timeout.CancelAfter(RequestTimeout);
         using var content = new StringContent(EchoJson.Serialize(request), Encoding.UTF8, "application/json");
         HttpResponseMessage response;
         try

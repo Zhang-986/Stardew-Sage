@@ -186,6 +186,34 @@ func TestSQLitePersistsDecisionAndAttachesResultIdempotently(t *testing.T) {
 	}
 }
 
+func TestSQLiteDecisionConflictKeepsSessionStatusFromCanonicalWinner(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenSQLite(filepath.Join(t.TempDir(), "echo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	winner := decisionRecord(7, "crop-free")
+	if err := store.SaveDecision(ctx, winner); err != nil {
+		t.Fatal(err)
+	}
+	loser := winner
+	stop := domain.HighLevelAction{
+		SaveID: winner.SaveID, SessionID: winner.SessionID, SnapshotVersion: winner.SnapshotVersion,
+		Kind: domain.ActionStopSession, Reason: "conflicting local stop",
+	}
+	loser.CandidateAction = stop
+	loser.FinalAction = stop
+	if err := store.SaveDecision(ctx, loser); err != nil {
+		t.Fatal(err)
+	}
+
+	session, err := store.GetActiveSession(ctx, winner.SaveID)
+	if err != nil || session.SessionID != winner.SessionID || session.Status != "active" {
+		t.Fatalf("GetActiveSession() = %+v, %v; want canonical winner to remain active", session, err)
+	}
+}
+
 func TestSQLiteReturnsLatestLearningOutcome(t *testing.T) {
 	ctx := context.Background()
 	store, err := OpenSQLite(filepath.Join(t.TempDir(), "echo.db"))

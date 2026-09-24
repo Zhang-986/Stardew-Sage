@@ -80,5 +80,9 @@ func (s *Service) TeachOutcome(ctx context.Context, demonstration domain.Demonst
 	if err := s.store.SaveLearningOutcome(ctx, outcome); err != nil {
 		return domain.LearningOutcome{}, fmt.Errorf("persist learning result: %w", err)
 	}
-	return outcome, nil
+	stored, err = s.store.GetLearningOutcome(ctx, demonstration.SaveID, demonstration.ID)
+	if err != nil {
+		return domain.LearningOutcome{}, fmt.Errorf("reload persisted learning result: %w", err)
+	}
+	return stored, nil
 }

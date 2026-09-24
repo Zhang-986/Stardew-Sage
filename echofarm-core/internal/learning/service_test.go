@@ -33,11 +33,17 @@ type storeStub struct {
 	savedChange  domain.LearningChange
 	priorOutcome domain.LearningOutcome
 	outcomeErr   error
+	saveWinner   *domain.LearningOutcome
 }
 
 func (s *storeStub) SaveLearningOutcome(_ context.Context, outcome domain.LearningOutcome) error {
 	s.saveCalls++
 	s.savedDemo, s.savedModel, s.savedSkill, s.savedChange = outcome.Demonstration, outcome.PlayerModel, outcome.Skill, outcome.Change
+	s.priorOutcome = outcome
+	if s.saveWinner != nil {
+		s.priorOutcome = *s.saveWinner
+	}
+	s.outcomeErr = nil
 	return nil
 }
 
@@ -133,6 +139,38 @@ func TestTeachOutcomeReturnsExistingDemonstrationWithoutLearningAgain(t *testing
 	}
 	if got.Change.Summary != "remembered" || got.PlayerModel.Revision != 3 {
 		t.Fatalf("outcome = %+v", got)
+	}
+}
+
+func TestTeachOutcomeReturnsCanonicalPersistedWinner(t *testing.T) {
+	demo := teachingDemo()
+	winnerInference := validInference(7)
+	winner := domain.LearningOutcome{
+		Demonstration: demo,
+		PlayerModel:   domain.PlayerModel{SaveID: demo.SaveID, Revision: 7, EnergyReserve: 40},
+		Skill:         winnerInference.Skill,
+		Change: domain.LearningChange{
+			ModelRevision: 7,
+			Kind:          domain.LearningChangeStrengthened,
+			Summary:       "concurrent request won",
+		},
+	}
+	store := &storeStub{
+		loadErr:    memory.ErrNotFound,
+		outcomeErr: memory.ErrNotFound,
+		saveWinner: &winner,
+	}
+	service, err := NewService(store, &learnerStub{result: validInference(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := service.TeachOutcome(context.Background(), demo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.PlayerModel.Revision != winner.PlayerModel.Revision || got.Change.Summary != winner.Change.Summary {
+		t.Fatalf("TeachOutcome() = %+v, want persisted winner %+v", got, winner)
 	}
 }
 

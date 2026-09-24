@@ -31,6 +31,20 @@ func Merge(existing *domain.PlayerModel, demonstration domain.Demonstration, obs
 	for _, event := range demonstration.Events {
 		evidence[event.ID] = struct{}{}
 	}
+	seen := make(map[string]string, len(observations))
+	for _, observation := range observations {
+		if err := observation.Validate(evidence); err != nil {
+			return domain.PlayerModel{}, domain.LearningChange{}, err
+		}
+		slot := traitSlotIdentity(observation.Key, observation.Context)
+		if previous, duplicate := seen[slot]; duplicate {
+			return domain.PlayerModel{}, domain.LearningChange{}, fmt.Errorf(
+				"ambiguous trait observations for key %q in context %q: %q and %q",
+				observation.Key, observation.Context, previous, observation.Value,
+			)
+		}
+		seen[slot] = observation.Value
+	}
 
 	model := cloneModel(existing, demonstration.SaveID)
 	model.Revision++
@@ -42,17 +56,7 @@ func Merge(existing *domain.PlayerModel, demonstration domain.Demonstration, obs
 		Kind:          domain.LearningChangeUnchanged,
 		Summary:       "no stable player trait changed",
 	}
-	seen := make(map[string]struct{}, len(observations))
 	for _, observation := range observations {
-		if err := observation.Validate(evidence); err != nil {
-			return domain.PlayerModel{}, domain.LearningChange{}, err
-		}
-		identity := traitIdentity(observation.Key, observation.Value, observation.Context)
-		if _, duplicate := seen[identity]; duplicate {
-			return domain.PlayerModel{}, domain.LearningChange{}, fmt.Errorf("duplicate trait observation %q", identity)
-		}
-		seen[identity] = struct{}{}
-
 		for i := range model.Traits {
 			trait := &model.Traits[i]
 			if trait.Key == observation.Key && trait.Context == observation.Context && trait.Value != observation.Value {
@@ -145,8 +149,8 @@ func findTraitIndex(traits []domain.TraitMemory, key domain.PreferenceKey, value
 	return -1
 }
 
-func traitIdentity(key domain.PreferenceKey, value string, context domain.TraitContext) string {
-	return string(key) + "\x00" + value + "\x00" + string(context)
+func traitSlotIdentity(key domain.PreferenceKey, context domain.TraitContext) string {
+	return string(key) + "\x00" + string(context)
 }
 
 func scopedEvidence(demonstrationID string, eventIDs []string) []string {

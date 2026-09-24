@@ -216,8 +216,22 @@ func (s *SQLite) SaveDecision(ctx context.Context, record domain.DecisionRecord)
 	}
 	defer func() { _ = tx.Rollback() }()
 	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO decision_records(save_id, session_id, snapshot_version, payload_json, created_at)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(save_id, session_id, snapshot_version) DO NOTHING`,
+		record.SaveID, record.SessionID, record.SnapshotVersion, payload, now); err != nil {
+		return fmt.Errorf("save decision: %w", err)
+	}
+	var canonical domain.DecisionRecord
+	if err := scanJSON(tx.QueryRowContext(ctx, `
+SELECT payload_json FROM decision_records
+WHERE save_id=? AND session_id=? AND snapshot_version=?`,
+		record.SaveID, record.SessionID, record.SnapshotVersion), &canonical); err != nil {
+		return fmt.Errorf("reload canonical decision: %w", err)
+	}
 	status := "active"
-	if record.FinalAction.Kind == domain.ActionStopSession {
+	if canonical.FinalAction.Kind == domain.ActionStopSession {
 		status = "completed"
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -225,15 +239,8 @@ INSERT INTO echo_sessions(save_id, session_id, day, status, updated_at)
 VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(save_id, session_id) DO UPDATE SET
   day=excluded.day, status=excluded.status, updated_at=excluded.updated_at`,
-		record.SaveID, record.SessionID, record.Day, status, now); err != nil {
+		canonical.SaveID, canonical.SessionID, canonical.Day, status, now); err != nil {
 		return fmt.Errorf("save echo session: %w", err)
-	}
-	if _, err := tx.ExecContext(ctx, `
-INSERT INTO decision_records(save_id, session_id, snapshot_version, payload_json, created_at)
-VALUES (?, ?, ?, ?, ?)
-ON CONFLICT(save_id, session_id, snapshot_version) DO NOTHING`,
-		record.SaveID, record.SessionID, record.SnapshotVersion, payload, now); err != nil {
-		return fmt.Errorf("save decision: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit decision: %w", err)

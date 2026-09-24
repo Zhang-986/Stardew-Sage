@@ -16,7 +16,8 @@ public sealed class ModEntry : Mod
     private EchoSession session = null!;
     private EchoRenderer renderer = null!;
     private EchoMemoryOverlay memoryOverlay = null!;
-    private EchoFarmClient coreClient = null!;
+    private EchoFarmClient commandClient = null!;
+    private EchoFarmClient readClient = null!;
     private CoreProcessSupervisor coreHost = null!;
     private CoreLaunchOptions coreLaunchOptions = null!;
     private Task<bool>? coreStartup;
@@ -58,9 +59,10 @@ public sealed class ModEntry : Mod
         gamePort = new StardewGamePort(Monitor);
         renderer = new EchoRenderer(gamePort.Echo);
         memoryOverlay = new EchoMemoryOverlay();
-        var httpClient = new HttpClient { BaseAddress = coreUrl };
-        coreClient = new EchoFarmClient(httpClient, TimeSpan.FromSeconds(35));
-        session = new EchoSession(recorder, coreClient, gamePort, new ActionSafetyGate());
+        EchoFarmClientSet clients = EchoFarmClientFactory.Create(coreUrl);
+        commandClient = clients.Commands;
+        readClient = clients.Reads;
+        session = new EchoSession(recorder, commandClient, gamePort, new ActionSafetyGate());
 
         helper.Events.GameLoop.GameLaunched += OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
@@ -205,7 +207,7 @@ public sealed class ModEntry : Mod
                 memoryOverlay.ShowError("Core unavailable");
                 return;
             }
-            EchoFarm.Bridge.Contracts.EchoMemoryView view = await coreClient.GetMemoryAsync(SaveId(), saveLifetime.Token);
+            EchoFarm.Bridge.Contracts.EchoMemoryView view = await readClient.GetMemoryAsync(SaveId(), saveLifetime.Token);
             memoryOverlay.Update(view);
         }
         catch (Exception error) when (error is EchoFarmException or OperationCanceledException)
@@ -230,7 +232,7 @@ public sealed class ModEntry : Mod
             return;
         try
         {
-            await coreClient.GetPlayerModelAsync(SaveId(), saveLifetime.Token);
+            await readClient.GetPlayerModelAsync(SaveId(), saveLifetime.Token);
             session.MarkReady(SaveId());
             Monitor.Log($"EchoFarm memory loaded. Press {config.SummonKey} to summon Echo.", LogLevel.Info);
         }

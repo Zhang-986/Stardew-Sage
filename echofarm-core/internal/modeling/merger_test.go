@@ -123,6 +123,24 @@ func TestMergeRejectsDifferentSave(t *testing.T) {
 	}
 }
 
+func TestMergeRejectsMultipleValuesForSameTraitContext(t *testing.T) {
+	demo := demonstration("demo-1", 1, domain.WeatherSunny, "water-1")
+	observations := []domain.TraitObservation{
+		{
+			Key: domain.PreferenceTaskOrder, Value: "watering,harvesting", Context: domain.TraitContextSunny,
+			SupportingEventIDs: []string{"water-1"}, Strength: 0.7,
+		},
+		{
+			Key: domain.PreferenceTaskOrder, Value: "harvesting,watering", Context: domain.TraitContextSunny,
+			SupportingEventIDs: []string{"water-1"}, Strength: 0.7,
+		},
+	}
+
+	if _, _, err := Merge(nil, demo, observations); err == nil {
+		t.Fatal("Merge() error = nil, want ambiguous trait observation error")
+	}
+}
+
 func demonstration(id string, day int, weather domain.Weather, eventID string) domain.Demonstration {
 	return domain.Demonstration{
 		ID: id, SaveID: "farm-1", SessionID: "teaching-" + id,
