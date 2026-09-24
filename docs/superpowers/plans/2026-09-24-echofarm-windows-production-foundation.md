@@ -252,7 +252,7 @@ Run Go race/vet, the full .NET suite, three demos, twenty-run result races, the 
 git commit -m "docs(echofarm): define Windows release acceptance"
 ```
 
-- [ ] **Step 5: Push and verify GitHub Actions**
+- [x] **Step 5: Push and verify GitHub Actions**
 
 Push the feature branch and require all jobs green for the exact final SHA. Do not create a release or claim real-game certification.
 
