@@ -195,13 +195,14 @@ public static class SetupReadiness
     {
         ArgumentNullException.ThrowIfNull(status);
         string marker = status.Readiness.IsDemo ? " DEMO" : string.Empty;
-        var lines = new List<string>(6)
+        var lines = new List<string>(7)
         {
             $"EchoFarm{marker} · setup={status.Readiness.Code}",
             $"Model: {status.Readiness.ModelMode} · Core: {status.CoreState}",
             $"Session: {status.SessionState}",
             $"Database: {status.DatabasePath}",
             $"Harvest: {(status.HarvestEnabled ? "enabled (experimental)" : "disabled")}",
+            "Learn-only: chopping, mining, mine floors, fishing",
             $"Next: {status.Readiness.Correction}"
         };
         if (!string.IsNullOrWhiteSpace(status.LatestSafeError))

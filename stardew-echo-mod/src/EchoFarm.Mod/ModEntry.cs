@@ -103,6 +103,7 @@ public sealed class ModEntry : Mod
         helper.Events.GameLoop.Saving += OnSaving;
         helper.Events.GameLoop.ReturnedToTitle += OnReturnedToTitle;
         helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
+        helper.Events.Player.Warped += OnWarped;
         helper.Events.Input.ButtonPressed += OnButtonPressed;
         helper.Events.Display.RenderedWorld += OnRenderedWorld;
         helper.Events.Display.RenderedHud += OnRenderedHud;
@@ -186,6 +187,7 @@ public sealed class ModEntry : Mod
                 try
                 {
                     EchoSessionState state = await session.CompleteTeachingAsync(Game1.ticks, saveLifetime.Token);
+                    gamePort.ResetSemanticActivities();
                     Monitor.Log($"Echo learned the morning routine ({state}). Press {config.SummonKey} to summon it.", LogLevel.Info);
                 }
                 catch (Exception error)
@@ -195,6 +197,7 @@ public sealed class ModEntry : Mod
             }
             else if (session.State is EchoSessionState.Idle or EchoSessionState.Ready)
             {
+                gamePort.ResetSemanticActivities();
                 session.BeginTeaching(
                     SaveId(),
                     Game1.ticks,
@@ -221,7 +224,11 @@ public sealed class ModEntry : Mod
 
         if ((session.State is EchoSessionState.Recording or EchoSessionState.Acting or EchoSessionState.AwaitingResult or EchoSessionState.Correcting) &&
             (e.Button.IsUseToolButton() || e.Button.IsActionButton()))
-            pendingObservation = gamePort.BeginObservation(e.Button, Game1.ticks);
+            pendingObservation = gamePort.BeginObservation(
+                e.Button,
+                Game1.ticks,
+                includeSemanticActivities: session.State == EchoSessionState.Recording
+            );
     }
 
     private async void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
@@ -259,6 +266,9 @@ public sealed class ModEntry : Mod
             Monitor.Log("Echo correction timed out; normal planning resumed.", LogLevel.Info);
         if (session.State == EchoSessionState.Recording)
         {
+            ObservedGameEvent? semantic = gamePort.PollSemanticActivity(Game1.ticks);
+            if (semantic is not null)
+                session.Observe(semantic);
             ObservedGameEvent? movement = gamePort.ObserveMovement(Game1.ticks);
             if (movement is not null)
                 session.Observe(movement);
@@ -269,6 +279,15 @@ public sealed class ModEntry : Mod
             await RefreshMemoryAsync();
     }
 
+    private void OnWarped(object? sender, WarpedEventArgs e)
+    {
+        if (session?.State != EchoSessionState.Recording)
+            return;
+        ObservedGameEvent? observed = gamePort.ObserveMineTransition(e.OldLocation, e.NewLocation, Game1.ticks);
+        if (observed is not null)
+            session.Observe(observed);
+    }
+
     private void OnRenderedWorld(object? sender, RenderedWorldEventArgs e) => renderer.Draw(e.SpriteBatch);
 
     private void OnRenderedHud(object? sender, RenderedHudEventArgs e) => memoryOverlay.Draw(e.SpriteBatch);
@@ -277,6 +296,7 @@ public sealed class ModEntry : Mod
     {
         pendingObservation = null;
         gamePort.ResetPlayerActivity();
+        gamePort.ResetSemanticActivities();
         memoryOverlay.Hide();
         saveLifetime.Cancel();
         session?.Abort();

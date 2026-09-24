@@ -22,8 +22,10 @@ internal sealed class StardewGamePort : IGamePort
     private readonly ConcurrentQueue<Action> gameThreadWork = new();
     private readonly GridPathfinder pathfinder = new();
     private readonly PlayerActivityWindow playerActivity = new();
+    private readonly SemanticActivityTracker semanticActivities = new();
     private BridgePosition? lastObservedPlayerTile;
     private ActiveExecution? activeExecution;
+    private SemanticProbe? semanticProbe;
 
     public StardewGamePort(IMonitor monitor, bool enableExperimentalHarvest)
     {
@@ -74,19 +76,23 @@ internal sealed class StardewGamePort : IGamePort
             Kind = EventKind.Move,
             Tick = tick,
             Position = current,
+            Location = Game1.currentLocation.NameOrUniqueName,
+            TimeOfDay = Game1.timeOfDay,
             Before = PlayerSample(),
             After = PlayerSample(),
             Success = true
         };
     }
 
-    public ObservationProbe? BeginObservation(SButton button, long tick)
+    public ObservationProbe? BeginObservation(SButton button, long tick, bool includeSemanticActivities = false)
     {
         if (!Context.IsWorldReady)
             return null;
         Vector2 target = button.IsUseToolButton()
             ? Game1.player.GetToolLocation() / Game1.tileSize
             : Game1.player.GetGrabTile();
+        if (includeSemanticActivities && button.IsUseToolButton() && TryBeginSemanticActivity(target, tick))
+            return null;
         EventKind? kind = null;
         if (button.IsUseToolButton() && Game1.player.CurrentTool is StardewValley.Tools.WateringCan)
         {
@@ -122,13 +128,76 @@ internal sealed class StardewGamePort : IGamePort
             Kind = probe.Kind,
             Tick = tick,
             Position = new BridgePosition { X = (int)probe.TargetTile.X, Y = (int)probe.TargetTile.Y },
+            Location = Game1.currentLocation.NameOrUniqueName,
+            TimeOfDay = Game1.timeOfDay,
             TargetId = WorldSnapshotMapper.TargetId(Game1.currentLocation, TargetKind(probe.Kind), probe.TargetTile),
+            TargetKind = TargetKind(probe.Kind),
             Tool = Game1.player.CurrentTool?.DisplayName,
             Before = probe.Before,
             After = after,
             Success = success,
             ErrorCode = success ? null : "game_action_failed"
         };
+    }
+
+    public ObservedGameEvent? PollSemanticActivity(long tick)
+    {
+        if (semanticProbe is null || !Context.IsWorldReady)
+            return null;
+        SemanticProbe probe = semanticProbe;
+        bool targetPresent = probe.Family switch
+        {
+            SemanticActivityFamily.TreeChopping =>
+                Game1.currentLocation.terrainFeatures.TryGetValue(probe.TargetTile, out TerrainFeature? feature) &&
+                feature is StardewValley.TerrainFeatures.Tree,
+            SemanticActivityFamily.RockBreaking => Game1.currentLocation.Objects.ContainsKey(probe.TargetTile),
+            SemanticActivityFamily.Fishing => true,
+            _ => false
+        };
+        IReadOnlyList<ItemDelta> itemDeltas = PlayerItemDeltas(probe.InventoryBefore);
+        ActivitySample sample = ActivitySampleFor(
+            tick,
+            probe.TargetTile,
+            probe.TargetId,
+            probe.TargetKind,
+            probe.Tool,
+            itemDeltas,
+            targetPresent
+        );
+        ObservedGameEvent? observed;
+        if (probe.Family == SemanticActivityFamily.Fishing && HasCaughtFish(probe.InventoryBefore))
+            observed = semanticActivities.CompleteFishing(sample, caught: true);
+        else if (probe.Family == SemanticActivityFamily.Fishing && Game1.player.CurrentTool is not StardewValley.Tools.FishingRod)
+            observed = semanticActivities.CompleteFishing(sample, caught: false);
+        else
+            observed = semanticActivities.Observe(sample);
+        if (observed is not null)
+            semanticProbe = null;
+        return observed;
+    }
+
+    public ObservedGameEvent? ObserveMineTransition(GameLocation oldLocation, GameLocation newLocation, long tick)
+    {
+        int oldFloor = MineFloor(oldLocation.NameOrUniqueName);
+        int newFloor = MineFloor(newLocation.NameOrUniqueName);
+        if (oldFloor <= 0 || newFloor <= 0 || oldFloor == newFloor)
+            return null;
+        semanticActivities.Reset();
+        semanticProbe = null;
+        Vector2 tile = Game1.player.Tile;
+        ActivitySample before = ActivitySampleFor(
+            Math.Max(0, tick - 1), tile, $"mine-floor-{oldFloor}", "mine_floor", string.Empty,
+            Array.Empty<ItemDelta>(), targetPresent: true, location: oldLocation.NameOrUniqueName, mineFloor: oldFloor);
+        ActivitySample after = ActivitySampleFor(
+            tick, tile, $"mine-floor-{newFloor}", "mine_floor", string.Empty,
+            Array.Empty<ItemDelta>(), targetPresent: true, location: newLocation.NameOrUniqueName, mineFloor: newFloor);
+        return semanticActivities.RecordMineTransition(before, after, newFloor - oldFloor);
+    }
+
+    public void ResetSemanticActivities()
+    {
+        semanticActivities.Reset();
+        semanticProbe = null;
     }
 
     public Task<WorldSnapshot> CaptureSnapshotAsync(string saveId, string sessionId, CancellationToken cancellationToken) =>
@@ -389,9 +458,129 @@ internal sealed class StardewGamePort : IGamePort
         return new GameStateSample
         {
             Energy = (int)Game1.player.Stamina,
+            Health = Game1.player.health,
             Water = can?.WaterLeft ?? 0,
-            InventoryCount = Game1.player.Items.Count(item => item is not null)
+            InventoryCount = Game1.player.Items.Count(item => item is not null),
+            MineFloor = MineFloor(Game1.currentLocation.NameOrUniqueName)
         };
+    }
+
+    private bool TryBeginSemanticActivity(Vector2 target, long tick)
+    {
+        SemanticActivityFamily family;
+        string targetKind;
+        if (Game1.player.CurrentTool is StardewValley.Tools.Axe &&
+            Game1.currentLocation.terrainFeatures.TryGetValue(target, out TerrainFeature? feature) &&
+            feature is StardewValley.TerrainFeatures.Tree)
+        {
+            family = SemanticActivityFamily.TreeChopping;
+            targetKind = "tree";
+        }
+        else if (Game1.player.CurrentTool is StardewValley.Tools.Pickaxe &&
+                 Game1.currentLocation.Objects.ContainsKey(target))
+        {
+            family = SemanticActivityFamily.RockBreaking;
+            targetKind = "rock";
+        }
+        else if (Game1.player.CurrentTool is StardewValley.Tools.FishingRod)
+        {
+            family = SemanticActivityFamily.Fishing;
+            targetKind = "fish";
+        }
+        else
+        {
+            return false;
+        }
+
+        if (semanticProbe is not null)
+            return semanticProbe.Family == family && semanticProbe.TargetTile == target;
+        string targetId = WorldSnapshotMapper.TargetId(Game1.currentLocation, targetKind, target);
+        IReadOnlyDictionary<string, PlayerItemState> inventory = PlayerInventorySnapshot();
+        ActivitySample sample = ActivitySampleFor(
+            tick, target, targetId, targetKind, Game1.player.CurrentTool?.DisplayName ?? string.Empty,
+            Array.Empty<ItemDelta>(), targetPresent: true);
+        if (!semanticActivities.TryBegin(family, sample))
+            return false;
+        semanticProbe = new SemanticProbe(family, target, targetId, targetKind, sample.Tool, inventory);
+        return true;
+    }
+
+    private static ActivitySample ActivitySampleFor(
+        long tick,
+        Vector2 tile,
+        string targetId,
+        string targetKind,
+        string tool,
+        IReadOnlyList<ItemDelta> itemDeltas,
+        bool targetPresent,
+        string? location = null,
+        int? mineFloor = null) => new(
+            tick,
+            location ?? Game1.currentLocation.NameOrUniqueName,
+            Game1.timeOfDay,
+            new BridgePosition { X = (int)tile.X, Y = (int)tile.Y },
+            targetId,
+            targetKind,
+            tool,
+            mineFloor is null ? PlayerSample() : new GameStateSample
+            {
+                Energy = (int)Game1.player.Stamina,
+                Health = Game1.player.health,
+                Water = Game1.player.Items.OfType<StardewValley.Tools.WateringCan>().FirstOrDefault()?.WaterLeft ?? 0,
+                InventoryCount = Game1.player.Items.Count(item => item is not null),
+                MineFloor = mineFloor.Value
+            },
+            itemDeltas,
+            targetPresent
+        );
+
+    private static IReadOnlyDictionary<string, PlayerItemState> PlayerInventorySnapshot() =>
+        Game1.player.Items
+            .Where(item => item is not null)
+            .GroupBy(item => item!.QualifiedItemId, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => new PlayerItemState(group.First()!.DisplayName, group.Sum(item => item!.Stack), group.First()!.Category),
+                StringComparer.Ordinal
+            );
+
+    private static IReadOnlyList<ItemDelta> PlayerItemDeltas(IReadOnlyDictionary<string, PlayerItemState> before)
+    {
+        IReadOnlyDictionary<string, PlayerItemState> after = PlayerInventorySnapshot();
+        return before.Keys.Concat(after.Keys)
+            .Distinct(StringComparer.Ordinal)
+            .Select(itemId =>
+            {
+                before.TryGetValue(itemId, out PlayerItemState? oldValue);
+                after.TryGetValue(itemId, out PlayerItemState? newValue);
+                return new ItemDelta
+                {
+                    ItemId = itemId,
+                    Name = newValue?.Name ?? oldValue?.Name,
+                    Quantity = (newValue?.Quantity ?? 0) - (oldValue?.Quantity ?? 0)
+                };
+            })
+            .Where(item => item.Quantity != 0)
+            .OrderBy(item => item.ItemId, StringComparer.Ordinal)
+            .Take(32)
+            .ToArray();
+    }
+
+    private static bool HasCaughtFish(IReadOnlyDictionary<string, PlayerItemState> before)
+    {
+        IReadOnlyDictionary<string, PlayerItemState> after = PlayerInventorySnapshot();
+        return after.Any(pair =>
+            pair.Value.Category == SObject.FishCategory &&
+            pair.Value.Quantity > (before.TryGetValue(pair.Key, out PlayerItemState? oldValue) ? oldValue.Quantity : 0));
+    }
+
+    private static int MineFloor(string locationName)
+    {
+        const string prefix = "UndergroundMine";
+        if (!locationName.StartsWith(prefix, StringComparison.Ordinal) ||
+            !int.TryParse(locationName[prefix.Length..], out int floor))
+            return 0;
+        return floor;
     }
 
     private static string TargetKind(EventKind kind) => kind switch
@@ -422,6 +611,17 @@ internal sealed class StardewGamePort : IGamePort
         Vector2 Target,
         Queue<BridgePosition> Path,
         TaskCompletionSource<ActionResult> Completion
+    );
+
+    private sealed record PlayerItemState(string Name, int Quantity, int Category);
+
+    private sealed record SemanticProbe(
+        SemanticActivityFamily Family,
+        Vector2 TargetTile,
+        string TargetId,
+        string TargetKind,
+        string Tool,
+        IReadOnlyDictionary<string, PlayerItemState> InventoryBefore
     );
 }
 

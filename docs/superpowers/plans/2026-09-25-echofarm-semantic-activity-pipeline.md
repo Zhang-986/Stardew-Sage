@@ -225,15 +225,15 @@ git commit -m "feat(mod): show learned lifestyle traits in F9"
 - Modify: `stardew-echo-mod/src/EchoFarm.Bridge/Recording/TeachingRecorder.cs`
 - Modify: `docs/echofarm/windows-smoke-checklist.md`
 
-- [ ] **Step 1: Add sensor adapter tests where game-neutral behavior permits**
+- [x] **Step 1: Add sensor adapter tests where game-neutral behavior permits**
 
 Keep all episode state in `SemanticActivityTracker`. The Mod translates axe/tree, pickaxe/world-object, mine warp, and fishing lifecycle observations into `ActivitySample`; no new `ActionKind` or execution path is added.
 
-- [ ] **Step 2: Wire lifecycle events**
+- [x] **Step 2: Wire lifecycle events**
 
 On teaching-mode tool input, start or advance a tree/rock episode. On each update tick, poll the pending target and complete it only on a proven state transition. Subscribe to player warp events for mine-floor transitions. Start fishing on rod use and complete only from a confirmed catch/escape signal. Reset every pending activity on save, day change, title return, or Mod exit.
 
-- [ ] **Step 3: Keep unsupported execution explicit**
+- [x] **Step 3: Keep unsupported execution explicit**
 
 Do not add chop, mine, or fish to `ActionKind`. Add the four observation categories to F9 setup diagnostics as `learn-only`; keep `Harvest: disabled` unchanged. Add native signal checks to the Windows disposable-save checklist.
 
@@ -249,7 +249,7 @@ $game = "C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley"
 
 Expected: the real `EchoFarm.Mod.dll` builds and the evidence JSON leaves the four native activity checks pending until observed in game. On machines without the legal assemblies, record the external gate and do not claim native certification.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(mod): observe extended Stardew activities"

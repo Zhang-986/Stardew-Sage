@@ -24,7 +24,8 @@ public sealed record ActivitySample(
 
 public sealed class SemanticActivityTracker
 {
-    private const long TimeoutTicks = 600;
+    private const long ToolTimeoutTicks = 600;
+    private const long FishingTimeoutTicks = 7200;
     private PendingActivity? pending;
 
     public bool HasPendingActivity => pending is not null;
@@ -51,7 +52,8 @@ public sealed class SemanticActivityTracker
             return Finish(sample, success: false, "location_changed");
         if (!StringComparer.Ordinal.Equals(sample.TargetId, pending.Start.TargetId))
             return Finish(sample, success: false, "target_changed");
-        if (sample.Tick - pending.Start.Tick > TimeoutTicks)
+        long timeout = pending.Family == SemanticActivityFamily.Fishing ? FishingTimeoutTicks : ToolTimeoutTicks;
+        if (sample.Tick - pending.Start.Tick > timeout)
             return Finish(sample, success: false, "activity_timeout");
         if (pending.Family is SemanticActivityFamily.TreeChopping or SemanticActivityFamily.RockBreaking && !sample.TargetPresent)
             return Finish(sample, success: true, errorCode: null);

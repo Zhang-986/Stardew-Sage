@@ -54,6 +54,18 @@ The build script fills machine-verifiable fields and leaves gameplay checks `pen
 - [ ] Default uninstall removes `Mods/EchoFarm` but preserves `%LOCALAPPDATA%\EchoFarm`.
 - [ ] `-DeleteLocalData` removes local memory only after explicit invocation.
 
+## Semantic activity sensors — learn-only
+
+These checks certify observation and AI learning only. They must not enable autonomous chopping, mining, mine traversal, or fishing.
+
+- [ ] During F7 teaching, repeated axe hits followed by one felled tree produce one `chop_tree` episode with wood/item gains.
+- [ ] During F7 teaching, a pickaxe hit that removes a rock produces one `break_rock` episode; an unchanged target does not report success.
+- [ ] Moving between two mine floors produces one `enter_mine_floor` event with the correct signed floor delta.
+- [ ] A completed catch produces `fish_caught` with a positive fish item delta; leaving fishing without a catch produces `fish_escaped` or a bounded cancellation.
+- [ ] Saving, changing day, returning to title, or leaving the location clears pending multi-tick activity state.
+- [ ] After two matching teaching days, F9 shows stable activity-order/resource/fishing or mine habits without raw evidence IDs.
+- [ ] F9 labels chopping, mining, mine floors, and fishing as `learn-only`; none appears in the executable action catalog.
+
 ## Real-model opt-in
 
 - [ ] Set `ModelMode` to `openai`, configure an absolute HTTP(S) `ModelBaseUrl` and `ModelName`, and provide `ECHOFARM_MODEL_API_KEY` only in the SMAPI process environment.

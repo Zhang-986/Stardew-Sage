@@ -166,6 +166,7 @@ public sealed class SetupReadinessTests
         Assert.Contains("Acting", rendered, StringComparison.Ordinal);
         Assert.Contains("echofarm.db", rendered, StringComparison.Ordinal);
         Assert.Contains("disabled", rendered, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Learn-only: chopping, mining, mine floors, fishing", rendered, StringComparison.Ordinal);
         Assert.Contains("path_blocked", rendered, StringComparison.Ordinal);
         Assert.DoesNotContain(secret, rendered, StringComparison.Ordinal);
     }

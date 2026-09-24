@@ -87,6 +87,19 @@ public sealed class SemanticActivityTrackerTests
     }
 
     [Fact]
+    public void FishingUsesASeparateBoundedTwoMinuteTimeout()
+    {
+        var tracker = new SemanticActivityTracker();
+        tracker.TryBegin(SemanticActivityFamily.Fishing,
+            Sample(100, "Beach", "sea", "fish", targetPresent: true));
+
+        Assert.Null(tracker.Observe(Sample(701, "Beach", "sea", "fish", targetPresent: true)));
+        ObservedGameEvent timeout = Assert.IsType<ObservedGameEvent>(tracker.Observe(
+            Sample(7301, "Beach", "sea", "fish", targetPresent: true)));
+        Assert.Equal("activity_timeout", timeout.ErrorCode);
+    }
+
+    [Fact]
     public void MineTransitionAndCancellationAreExplicitEvents()
     {
         var tracker = new SemanticActivityTracker();
