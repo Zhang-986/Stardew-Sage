@@ -259,7 +259,7 @@ Document defaults, environment/config override mapping, typed exhaustion behavio
 
 Run Go race/vet, the .NET Release suite, PowerShell setup tests, all three demos, package smoke, and the two concurrency tests twenty times. Confirm tracked source contains no provider-token-shaped value.
 
-- [ ] **Step 3: Commit, push, and verify exact-SHA CI**
+- [x] **Step 3: Commit, push, and verify exact-SHA CI**
 
 Commit:
 
