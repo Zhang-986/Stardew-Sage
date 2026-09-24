@@ -219,3 +219,29 @@ func TestHighLevelActionAllowsOnlyCatalog(t *testing.T) {
 		})
 	}
 }
+
+func TestActionResultRejectsUnknownStatusAndMismatchedAction(t *testing.T) {
+	action := HighLevelAction{
+		SaveID: "farm-1", SessionID: "echo-1", SnapshotVersion: 2,
+		Kind: ActionHarvestTarget, TargetID: "crop-1", Reason: "harvest",
+	}
+	valid := ActionResult{
+		SaveID: "farm-1", SessionID: "echo-1", SnapshotVersion: 2,
+		Action: action, Status: ActionSucceeded,
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	badStatus := valid
+	badStatus.Status = "maybe"
+	if err := badStatus.Validate(); err == nil || !strings.Contains(err.Error(), "status") {
+		t.Fatalf("Validate() error = %v, want status error", err)
+	}
+
+	badIdentity := valid
+	badIdentity.Action.SessionID = "another-session"
+	if err := badIdentity.Validate(); err == nil || !strings.Contains(err.Error(), "identity") {
+		t.Fatalf("Validate() error = %v, want identity error", err)
+	}
+}

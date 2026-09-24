@@ -79,6 +79,9 @@ func (s *Service) NextAction(ctx context.Context, saveID string, snapshot domain
 }
 
 func (s *Service) HandleResult(ctx context.Context, saveID string, snapshot domain.WorldSnapshot, result domain.ActionResult) (domain.HighLevelAction, error) {
+	if err := result.Validate(); err != nil {
+		return domain.HighLevelAction{}, fmt.Errorf("validate action result: %w", err)
+	}
 	if result.SaveID != saveID || result.SaveID != snapshot.SaveID || result.SessionID != snapshot.SessionID {
 		return domain.HighLevelAction{}, errors.New("action result identity does not match current snapshot")
 	}

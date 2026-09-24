@@ -194,6 +194,26 @@ func TestHandleResultReplansRecoverableFailure(t *testing.T) {
 	}
 }
 
+func TestHandleResultRejectsUnknownStatusBeforeWritingLedger(t *testing.T) {
+	snapshot := validSnapshot()
+	store := validPolicyStore()
+	service, err := NewService(store, &actorStub{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := domain.ActionResult{
+		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+		Action: actionFor(snapshot, domain.ActionWaterTarget, "crop-new"), Status: "maybe",
+	}
+
+	if _, err := service.HandleResult(context.Background(), snapshot.SaveID, snapshot, result); err == nil {
+		t.Fatal("HandleResult() error = nil, want invalid status")
+	}
+	if store.attachedResult != nil {
+		t.Fatalf("invalid result was persisted: %+v", store.attachedResult)
+	}
+}
+
 func TestNextActionStopsBeforeViolatingEnergyReserve(t *testing.T) {
 	snapshot := validSnapshot()
 	snapshot.Energy = 40

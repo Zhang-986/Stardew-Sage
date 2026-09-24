@@ -219,6 +219,23 @@ func (a HighLevelAction) Validate() error {
 	return nil
 }
 
+func (r ActionResult) Validate() error {
+	if r.Status != ActionSucceeded && r.Status != ActionFailed {
+		return fmt.Errorf("unsupported action status %q", r.Status)
+	}
+	if err := r.Action.Validate(); err != nil {
+		return fmt.Errorf("action: %w", err)
+	}
+	if r.SaveID == "" || r.SessionID == "" || r.SaveID != r.Action.SaveID ||
+		r.SessionID != r.Action.SessionID || r.SnapshotVersion != r.Action.SnapshotVersion {
+		return errors.New("action result identity does not match action")
+	}
+	if r.Status == ActionFailed && r.ErrorCode == "" {
+		return errors.New("failed action result requires an error code")
+	}
+	return nil
+}
+
 func validWeather(weather Weather) bool {
 	switch weather {
 	case WeatherSunny, WeatherRainy, WeatherStorm, WeatherSnow:

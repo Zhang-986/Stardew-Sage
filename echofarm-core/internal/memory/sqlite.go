@@ -250,6 +250,9 @@ WHERE save_id=? AND session_id=? AND snapshot_version=?`, saveID, sessionID, sna
 }
 
 func (s *SQLite) AttachDecisionResult(ctx context.Context, result domain.ActionResult) error {
+	if err := result.Validate(); err != nil {
+		return fmt.Errorf("validate action result: %w", err)
+	}
 	record, err := s.GetDecision(ctx, result.SaveID, result.SessionID, result.SnapshotVersion)
 	if err != nil {
 		return err
