@@ -287,7 +287,7 @@ Run the demo in Linux `verify`. Document the actual supported observation catego
 
 Run Go race/vet, the .NET Release suite, PowerShell setup tests, all four demos, package smoke, twenty iterations of the existing SQLite concurrency races, deterministic four-platform sidecar rebuild, native macOS health smoke, `git diff --check`, and the tracked-source secret scan.
 
-- [ ] **Step 5: Commit, push, and verify exact-SHA CI**
+- [x] **Step 5: Commit, push, and verify exact-SHA CI**
 
 ```bash
 git commit -m "docs(echofarm): verify semantic activity learning"
