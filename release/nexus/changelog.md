@@ -1,3 +1,12 @@
+# 0.3.0 — Continuum co-player
+
+- Added multi-day, evidence-backed player traits with deterministic confidence growth and contradiction handling.
+- Added weather-scoped habits so a rainy-day routine does not erase sunny-day behavior.
+- Added live player-intent inference and target claims so Echo takes complementary work instead of competing with the player.
+- Added an idempotent learning revision store and per-action execution ledger.
+- Added the F9 Echo Memory panel with trait confidence and latest decision reasoning.
+- Added a reproducible four-day cross-process collaboration demo.
+
 # 0.2.0 — Echo vertical slice
 
 - Added player-demonstration recording and structured player memory.

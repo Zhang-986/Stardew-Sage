@@ -2,14 +2,14 @@
 
 EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物语》世界、与玩家并行行动的“另一个自己”。它学习的是目标、顺序和取舍，不是昨日坐标或按键宏。
 
-当前已经完成第一条 Go + Eino 核心闭环：
+当前已经完成 Go + Eino 的持续学习与协作闭环：
 
 ```text
-示范事件 -> 行为分段 -> Eino 学习图 -> 玩家画像 + 技能
-                                        |
-当前农场 -> Eino 决策图 -> 安全校验 -> 下一动作
-                         ^          |
-                         |--失败重规划
+多日示范 -> Eino Trait 提取 -> 确定性证据合并 -> 版本化玩家画像
+                                                |
+实时玩家动作 -> 意图推断 -> 目标避让 -> Eino 决策 -> 双重安全校验
+                                                |
+                      游戏内记忆面板 <- SQLite 决策与执行账本
 ```
 
 ## 为什么 AI 不可替代
@@ -18,6 +18,8 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
 - 把一次示范编译为可迁移到新布局的技能；
 - 以有证据的画像保留玩家习惯，而不是生成一段人物小传；
 - 在雨天、新作物、空水壶或路线阻塞时根据实时状态重规划。
+- 从多天证据中区分稳定习惯与偶然选择，并保留每项结论的来源；
+- 识别玩家正在处理的目标，主动承担互补工作而不是与玩家抢活。
 
 模型只决定高层动作。白名单、目标存在性、天气、工具和体力检查由确定性代码把关。项目不使用 RAG，也不依赖 Web 聊天界面。
 
@@ -35,6 +37,14 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
 2. 雨天且布局变化时，对一个全新成熟作物选择 `harvest_target`；
 3. 晴天水壶为空时，先选择 `refill_can`；
 4. 收获因 Echo 背包已满而失败时，转去玩家教过的箱子执行 `deposit_items`。
+
+更完整的四天成长与协作演示：
+
+```bash
+./demo/run-continuum-demo.sh
+```
+
+它会连续提交两次晴天教学和一次雨天教学，验证画像置信度与情境记忆，再模拟玩家正在浇北侧作物，证明 Echo 会避开玩家目标并接手南侧收获任务。游戏内按 F9 可查看画像与最后一次分工理由。
 
 使用真实 OpenAI-compatible 模型：
 
@@ -54,7 +64,7 @@ go run ./cmd/echofarm
 正式包按 Windows x64、Linux x64、macOS Intel、macOS Apple Silicon 分开发布，每个压缩包都内置对应的 Go/Eino 服务端，玩家不需要安装 Go。打包命令、发布文案与核对清单见 [release/nexus/README.md](release/nexus/README.md)。
 
 ```bash
-./scripts/package-nexus.sh --version 0.2.0 --game-path "/path/to/Stardew Valley"
+./scripts/package-nexus.sh --version 0.3.0 --game-path "/path/to/Stardew Valley"
 ```
 
 仓库不会打包游戏程序集、API Key、数据库或日志。首次创建 Nexus 页面后，将分配到的 mod ID 通过 `--nexus-mod-id` 注入发布包的 SMAPI 更新键。
@@ -66,7 +76,7 @@ contracts/         C# 与 Go 共用的 JSON 契约
 echofarm-core/     Go + Eino AI 大脑与 SQLite 记忆
 demo/              可复现的教学和变化环境样例
 docs/echofarm/     游戏桥接协议
-stardew-echo-mod/  下一阶段的薄 SMAPI 传感器/执行器
+stardew-echo-mod/  SMAPI 传感器、受控执行器与游戏内记忆面板
 ```
 
 `aurora-admin/`、`aurora-mcp/` 和 `aurora-ui/` 是仓库原有实验代码，不属于 EchoFarm 主链路；第一阶段暂时保留，后续再迁移或清理。
@@ -82,6 +92,9 @@ stardew-echo-mod/  下一阶段的薄 SMAPI 传感器/执行器
 - [x] SMAPI 适配代码、Echo 半透明渲染及逐格寻路
 - [x] Echo 独立背包、成熟作物收获和目标箱存放闭环
 - [x] 背包满转存、箱子满安全停止的 AI 失败重规划
+- [x] 多日证据合并、情境化画像与幂等学习修订
+- [x] 实时玩家意图推断、目标避让和协作分工
+- [x] SQLite 决策账本、解释 API 与 F9 游戏内记忆面板
 - [ ] 在安装 Stardew Valley + SMAPI 的机器上完成编译与游戏内冒烟
 
 ## 安全边界

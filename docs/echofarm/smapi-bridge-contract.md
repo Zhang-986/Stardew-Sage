@@ -1,6 +1,6 @@
 # EchoFarm SMAPI Bridge Contract
 
-This document freezes the boundary between the Go/Eino core and the future C#/SMAPI mod. The bridge is a sensor and actuator; it must not infer player intent or choose goals.
+This document freezes the boundary between the Go/Eino core and the C#/SMAPI mod. The bridge is a sensor and actuator; it captures recent semantic activity, while the Go/Eino core infers player intent and chooses goals.
 
 ## Connection and lifecycle
 
@@ -43,6 +43,8 @@ The body follows `contracts/demonstration.schema.json`. Movement events should a
   "id": "demo-day-1",
   "saveId": "farm-123",
   "sessionId": "teaching-1",
+  "day": 1,
+  "weather": "sunny",
   "startedAt": 100,
   "endedAt": 400,
   "events": [
@@ -60,7 +62,7 @@ The body follows `contracts/demonstration.schema.json`. Movement events should a
 }
 ```
 
-Success returns the new `playerModel` and `skill`. The bridge can render these as a short “Echo memory” page but must not edit them.
+Success returns the new `playerModel`, `skill`, and `learningChange`. Repeating the same demonstration ID is idempotent and returns its stored outcome without increasing confidence again.
 
 ## Ask for the next action
 
@@ -76,6 +78,7 @@ The body follows `contracts/world-snapshot.schema.json` and contains only decisi
   "saveId": "farm-123",
   "sessionId": "echo-day-2",
   "snapshotVersion": 17,
+  "tick": 3600,
   "day": 2,
   "timeOfDay": 620,
   "weather": "sunny",
@@ -88,7 +91,10 @@ The body follows `contracts/world-snapshot.schema.json` and contains only decisi
   "crops": [],
   "waterSources": [],
   "chests": [],
-  "obstacles": []
+  "obstacles": [],
+  "recentPlayerActions": [
+    {"kind": "water_target", "targetId": "crop-north-1", "tick": 3500, "success": true}
+  ]
 }
 ```
 
@@ -112,6 +118,7 @@ Before execution, the bridge must rebuild or inspect the newest game state and r
 - target exists and is interactable;
 - rain/tool/energy preconditions still permit the action;
 - all game mutations will occur on the SMAPI game thread.
+- the target is not claimed by the player's recent activity window.
 
 ## Report an action result
 
@@ -174,9 +181,18 @@ Harvested items live in Echo's own bounded inventory. A chest transfer removes o
 ```http
 GET /v1/player-model?saveId=farm-123
 GET /v1/skills/morning-farm-routine?saveId=farm-123
+GET /v1/echo/memory?saveId=farm-123
 ```
 
-These endpoints support the in-game Echo memory panel and diagnostics. A missing profile or skill returns 404.
+The memory endpoint projects stable multi-day traits, the latest learning change, active Echo session, and last decision record for the F9 panel. A missing profile or skill returns 404.
+
+## Persistence and idempotency
+
+- A learning revision, derived player model, skill, and source demonstration commit in one SQLite transaction.
+- Reusing a demonstration ID returns the original outcome without another model call.
+- Runtime decisions use `(saveId, sessionId, snapshotVersion)` as their idempotency key.
+- An action result is accepted only when its full action payload matches the recorded final action for that key.
+- Model candidates rejected by player target claims are retained in the ledger beside the deterministic `stop_session` decision for diagnosis.
 
 ## Error contract
 

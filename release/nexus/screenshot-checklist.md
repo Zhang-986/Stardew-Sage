@@ -10,5 +10,7 @@ Capture these images from a disposable save at 1920×1080 or higher. Do not show
 6. **Weather adaptation:** rainy farm with Echo skipping dry-crop watering.
 7. **Recovery:** log or overlay showing refill-before-watering or full-inventory-to-deposit replanning.
 8. **Configuration:** sanitized `config.json` with no API key field.
+9. **Continuum memory:** F9 panel showing at least two stable traits and their confidence.
+10. **Co-play split:** player watering one plot while the panel explains that Echo chose an unclaimed harvest elsewhere.
 
-Use the hero image as the Nexus tile. Put teaching, generalization, and independent action first in the gallery so the concept is understandable without reading the full description.
+Use the hero image as the Nexus tile. Put teaching, Continuum memory, co-play split, and generalization first in the gallery so the concept is understandable without reading the full description.

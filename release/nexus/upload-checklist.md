@@ -12,8 +12,8 @@
 ## Page fields
 
 - **Name:** EchoFarm — Teach an AI by Playing
-- **Version:** 0.2.0
-- **Summary:** Teach a translucent AI echo your farm routine through normal play; it adapts the routine to the current day instead of replaying coordinates.
+- **Version:** 0.3.0
+- **Summary:** Train a persistent AI echo across multiple days; it learns your habits, understands your current task, and takes complementary farm work.
 - **Requirements:** Stardew Valley 1.6, SMAPI 4.1+, an OpenAI-compatible endpoint for real learning
 - **Source:** https://github.com/Zhang-986/Stardew-Sage
 - **Description:** copy `description.md`
@@ -22,7 +22,7 @@
 
 ## Files
 
-- [ ] Upload `EchoFarm-0.2.0-windows-x64.zip` as the main file.
+- [ ] Upload `EchoFarm-0.3.0-windows-x64.zip` as the main file.
 - [ ] Upload Linux x64, macOS x64, and macOS arm64 as optional files.
 - [ ] Verify each Nexus download hash against `SHA256SUMS.txt` after upload.
 - [ ] Do not upload the fixture-DLL smoke-test output.

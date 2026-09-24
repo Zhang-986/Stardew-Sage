@@ -2,7 +2,7 @@
 
 EchoFarm Core is the Go + Eino brain for a Stardew Valley AI echo that learns from normal play and later participates in the farm alongside the player.
 
-This module owns behavior interpretation, evidence-backed player memory, skill compilation, next-action selection, replanning, and safety validation. It does not control game memory directly. A thin SMAPI bridge will translate these high-level actions into game-thread operations.
+This module owns behavior interpretation, multi-day evidence merging, player-intent inference, cooperative next-action selection, replanning, decision auditing, and safety validation. It does not control game memory directly. A thin SMAPI bridge translates high-level actions into game-thread operations.
 
 ## Run the offline smoke demo
 
@@ -20,6 +20,15 @@ The demo learns from one recorded morning, then shows changed-world decisions:
 - an `inventory_full` harvest failure produces `deposit_items` at the learned preferred chest.
 
 The fixture replanner also routes `inventory_full` to the player's demonstrated chest and stops safely on `chest_full`, matching the game bridge's lossless partial-deposit behavior.
+
+## Run the four-day Continuum demo
+
+```bash
+cd ..
+./demo/run-continuum-demo.sh
+```
+
+This scenario teaches two consistent sunny routines and one rainy routine, then starts a co-play day where the player is already watering two crops. It proves that stable sunny habits survive the weather-context change, the player intent is inferred as `watering`, and Echo selects an unclaimed harvest instead of competing for the same targets. The final output is the persisted memory and decision view.
 
 ## Run with a real model
 
@@ -46,5 +55,6 @@ Optional settings:
 - `POST /v1/echo/action-result`
 - `GET /v1/player-model?saveId=...`
 - `GET /v1/skills/morning-farm-routine?saveId=...`
+- `GET /v1/echo/memory?saveId=...`
 
 All model outputs are validated against the action catalog and current snapshot before they can cross into the game bridge. If the model is unavailable, Echo stops and returns HTTP 503; it does not silently switch to scripted behavior.
