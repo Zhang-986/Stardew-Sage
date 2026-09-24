@@ -1,4 +1,4 @@
-# EchoFarm 0.3.0 — Continuum
+# EchoFarm 0.4.0 — Reflective Policy
 
 EchoFarm learns a farm routine from how you play, then creates a translucent AI-controlled Echo that performs the learned goal in the current world instead of replaying yesterday's coordinates.
 
@@ -29,8 +29,10 @@ xattr -dr com.apple.quarantine "/path/to/Stardew Valley/Contents/MacOS/Mods/Echo
 - Press F8 on a later day to summon the learned Echo.
 - Teach the routine on multiple days so Echo can distinguish stable habits from one-off choices.
 - Press F9 to inspect Echo's evidence-backed memory, confidence, inferred player intent, and current division of work.
+- Press F10 while Echo has a pending decision, then perform one successful farm action within 20 seconds to teach a better choice. Press F10 again to cancel, or retry after a temporary model outage.
 - Echo currently supports walking, watering, refilling its can, harvesting mature crops into its own inventory, and depositing them into the chest you demonstrated.
 - While Echo is active, it watches only recent semantic farm actions and avoids crops or chests you are already handling.
+- Failed actions and explicit corrections become bounded, auditable policy experiences; later matching situations can change the first action before another failure occurs.
 
 Use a disposable save for this preview release. If the model or sidecar is unavailable, Echo stops and Stardew Valley continues normally.
 

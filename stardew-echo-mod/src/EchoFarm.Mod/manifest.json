@@ -1,7 +1,7 @@
 {
   "Name": "EchoFarm",
   "Author": "Zhang-986",
-  "Version": "0.3.0",
+  "Version": "0.4.0",
   "Description": "Train a persistent AI echo that learns your habits and works alongside you.",
   "UniqueID": "Zhang986.EchoFarm",
   "EntryDll": "EchoFarm.Mod.dll",

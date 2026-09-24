@@ -1,0 +1,51 @@
+{
+  "id": "correction-chest-west-1",
+  "saveId": "demo-farm",
+  "sessionId": "echo-day-5",
+  "rejectedDecisionSnapshotVersion": 1,
+  "rejectedAction": {
+    "saveId": "demo-farm",
+    "sessionId": "echo-day-5",
+    "snapshotVersion": 1,
+    "kind": "deposit_items",
+    "targetId": "shipping-chest",
+    "reason": "apply learned experience: deposit carried items before attempting another harvest"
+  },
+  "snapshot": {
+    "saveId": "demo-farm",
+    "sessionId": "echo-day-5",
+    "snapshotVersion": 2,
+    "tick": 5100,
+    "day": 5,
+    "timeOfDay": 720,
+    "weather": "sunny",
+    "location": "Farm",
+    "playerPosition": {"x": 7, "y": 6},
+    "energy": 260,
+    "maxEnergy": 270,
+    "inventory": {
+      "freeSlots": 1,
+      "items": [{"itemId":"(O)24","name":"Parsnip","quantity":6}]
+    },
+    "wateringCan": {"name":"Watering Can","level":1,"water":18,"capacity":40},
+    "crops": [
+      {"id":"crop-day5-ripe","position":{"x":15,"y":5},"kind":"parsnip","growthStage":5,"mature":true,"needsWater":false}
+    ],
+    "waterSources": [{"id":"pond-south","position":{"x":12,"y":14}}],
+    "chests": [
+      {"id":"shipping-chest","label":"shipping","position":{"x":3,"y":6}},
+      {"id":"artisan-chest","label":"artisan","position":{"x":7,"y":6}}
+    ],
+    "obstacles": [],
+    "recentPlayerActions": []
+  },
+  "preferredAction": {
+    "saveId": "demo-farm",
+    "sessionId": "echo-day-5",
+    "snapshotVersion": 2,
+    "kind": "deposit_items",
+    "targetId": "artisan-chest",
+    "reason": "player demonstrated a better action"
+  },
+  "observedAtTick": 5100
+}

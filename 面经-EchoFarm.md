@@ -4,15 +4,17 @@
 
 ## 1. 项目简介（简历可用）
 
-EchoFarm 是一个 Go + CloudWeGo Eino 与 C#/SMAPI 组合的 AI 原生游戏 Mod：它从玩家多日真实操作中提取有证据的行为习惯，形成版本化玩家画像，并驱动半透明 AI 分身在动态农场中与玩家并行行动。系统通过结构化模型输出、确定性证据合并、实时目标避让、跨进程幂等账本和双重安全校验，让 AI 决策既具有泛化能力，又不会直接越权修改游戏状态。
+EchoFarm 是一个 Go + CloudWeGo Eino 与 C#/SMAPI 组合的 AI 原生游戏 Mod：它从玩家真实操作、动作失败和显式纠正中学习，形成版本化玩家画像与可迁移策略经验，并驱动半透明 AI 分身在动态农场中与玩家并行行动。系统通过结构化模型输出、确定性证据合并、实时目标避让、跨进程幂等账本和双重安全校验，让 AI 决策既具有泛化能力，又不会直接越权修改游戏状态。
 
 ## 2. 简历 bullet
 
 - **持续学习架构：** 针对单次示范容易把偶然操作固化为长期偏好的问题，将模型职责收敛为提取带情境与事件引用的行为观察，并由确定性合并器完成置信度增长、同情境冲突衰减和跨天气隔离，形成按存档版本化、可追溯且可重复学习的玩家画像；通过三日教学脚本验证画像修订递增和稳定习惯不被雨天样本误覆盖。
 - **人机协同决策：** 针对玩家与 AI 化身同时行动时可能争抢同一作物的问题，引入二十秒语义活动窗口、玩家意图推断和目标声明机制，将近期浇水、收获、存箱行为汇入决策上下文，并在模型输出后执行确定性冲突校验；四天跨进程 Demo 可验证 Echo 识别玩家正在浇水并主动选择未占用的收获目标。
+- **反思式策略学习：** 针对“失败后只会当场重试”的问题，设计事件触发的 Eino Reflection Graph，将失败或 F10 玩家示范抽象为有限枚举、带证据的策略经验；由 Go 完成语义去重、矛盾衰减、Top-3 情境匹配和幂等落账，五段跨进程 Demo 验证满背包失败后下一天主动先存箱，纠正后改用玩家示范的箱子。
+- **可控决策治理：** 让模型一次返回主动作、最多两个备选、不确定性枚举和经验引用，再由确定性策略层按稳定 Trait、已强化经验与不确定性校准置信度；主候选失效时顺序降级，低于 0.35 或无合法候选时安全停止。
 - **跨进程一致性：** 针对 C# 游戏线程与 Go 推理服务之间的超时、重放和状态漂移风险，以存档、会话、快照版本组成关联键，建立学习结果和动作决策幂等语义，并要求动作结果与账本中的最终动作完整匹配；重复请求不会再次调用模型或重复提高画像置信度，过期与伪造结果会在进入游戏执行前被拒绝。
-- **分层安全执行：** 针对大模型输出不可直接信任的问题，将 LLM 限制在 Trait、Intent 和白名单高层动作三类结构化输出，Go 层校验目标存在性、天气、体力和资源条件，C# 层在最新快照上二次校验并只在游戏主线程执行；模型或本地服务故障时仅停止 Echo，不阻塞游戏保存与退出。
-- **可观测与交付工程：** 针对 AI 决策难解释、Mod 安装链路复杂的问题，使用 SQLite 保存学习修订、候选动作、最终动作和执行结果，并提供 F9 游戏内记忆面板；同时实现 sidecar 自动拉起、健康检查、进程归属清理和 Windows/Linux/macOS 四平台打包验证，当前 Go race/vet、77 个 .NET 测试及双 Demo 均可本地复现。
+- **分层安全执行：** 针对大模型输出不可直接信任的问题，将 LLM 限制在 Trait、Intent、ActionProposal 和 ExperienceObservation 四类结构化输出，Go 层校验目标存在性、证据关联、天气、体力和资源条件，C# 层在最新快照上二次校验并只在游戏主线程执行；模型或本地服务故障时仅停止 Echo，不阻塞游戏保存与退出。
+- **可观测与交付工程：** 针对 AI 决策难解释、Mod 安装链路复杂的问题，使用 SQLite 保存学习修订、候选动作、最终动作、置信度和经验证据，并提供 F9 游戏内记忆面板；同时实现 sidecar 自动拉起、健康检查、进程归属清理和 Windows/Linux/macOS 四平台打包验证，当前 Go race/vet、87 个 .NET 测试及三个跨进程 Demo 均可本地复现。
 
 ## 3. 面试问题
 
@@ -59,6 +61,14 @@ EchoFarm 是一个 Go + CloudWeGo Eino 与 C#/SMAPI 组合的 AI 原生游戏 Mo
 追问 2：怎样处理重复请求和模型重试？
 
 口播：教学请求使用存档 ID 与 demonstration ID 作为幂等键。服务在调用 Eino 前先查询学习修订，如果该示范已经成功提交，就直接返回当时保存的完整结果，不再次推理，也不再次增加观测次数。首次处理时，示范、合并后的画像、技能和学习变化在同一个事务中提交，避免只写入一半。这样网络超时后的客户端重试是安全的。模型调用本身失败时不会落任何长期状态，也不会静默切换到 fixture 假装完成真实学习。
+
+#### 6.1 为什么反思闭环不是“再问模型一遍”？
+
+口播：我没有让模型在每个动作前做多轮 Planner/Critic 自我讨论，因为那会把延迟、费用和不可重放性放大。反思只被新失败或玩家 F10 纠正触发一次，Eino 负责把具体事件抽象成有限结构；Go 再验证证据 ID、目标和枚举，用语义主键合并经验。失败经验的初始置信度最高 0.65，显式纠正最高 0.85，同样证据会强化，同作用域冲突会衰减。因此“会学”不是 Prompt 宣称，而是可查询、可回放、可幂等的状态变化。
+
+追问：如何防止一次失败把策略带偏？
+
+口播：首先用置信度上限限制单次证据，然后每次决策最多只注入三条与当前天气、背包和资源信号精确匹配的经验。模型只能引用这些 ID，不能伪造。它返回的模型置信度也不是执行权限，策略层会加上稳定 Trait/已强化经验加成、减去不确定性惩罚，再逐个检查主动作和备选；低于 0.35 直接停止。
 
 ### 主题三：实时协作与规划
 
@@ -112,7 +122,7 @@ EchoFarm 是一个 Go + CloudWeGo Eino 与 C#/SMAPI 组合的 AI 原生游戏 Mo
 
 #### 14. 你如何证明这不是只写了架构文档？
 
-口播：仓库有三层可重复证据。第一层是 Go 单元和 race 测试，覆盖画像合并、Eino 输出约束、协调器、SQLite 事务、HTTP 与策略；第二层是 77 个 .NET Bridge 测试，覆盖 JSON 契约、录制状态机、网络关联、安全门、进程托管、背包和箱子转移；第三层是两个真实跨进程脚本，其中 Continuum 脚本启动 Go 服务、连续提交三天教学、发起第四天协作决策并从 memory API 验证账本。四平台打包烟测也会逐个检查 ZIP 根目录、DLL、平台二进制和敏感文件排除。真实游戏内编译与试玩尚未完成，我会明确区分。
+口播：仓库有三层可重复证据。第一层是 Go 单元和 race 测试，覆盖画像/经验合并、Eino 输出约束、候选降级、SQLite 事务、HTTP 与策略；第二层是 87 个 .NET Bridge 测试，覆盖 JSON 契约、录制/纠正状态机、网络关联、安全门、进程托管、背包和箱子转移；第三层是三个真实跨进程脚本，反思 Demo 还会两次重启 Go 进程，验证失败和玩家纠正在新会话的首次决策前生效。四平台打包烟测也会逐个检查 ZIP 根目录、DLL、平台二进制和敏感文件排除。真实游戏内编译与试玩尚未完成，我会明确区分。
 
 #### 15. 这个项目当前最大的风险和下一步是什么？
 
@@ -136,9 +146,11 @@ EchoFarm 是一个 Go + CloudWeGo Eino 与 C#/SMAPI 组合的 AI 原生游戏 Mo
 | 玩家意图 | `echofarm-core/internal/intelligence/intent_graph.go`；`PlayerActivityWindow.cs` | 问题 7、9 |
 | 目标避让 | `echofarm-core/internal/coordination/service.go`、`ValidateChoice` | 问题 8 |
 | 动作账本 | `echofarm-core/internal/policy/service.go`、`DecisionRecord`、`decision_records` | 问题 10、11 |
+| 反思经验 | `internal/intelligence/reflection_graph.go`、`internal/experience`、`CorrectionCapture.cs` | 问题 6.1、10、12 |
 | C#/Go 关联 | `EchoFarmClient.cs`、`EchoSession.cs`、`ActionSafetyGate.cs` | 问题 3、10、11 |
 | 游戏主线程执行 | `StardewGamePort.cs`、`GridPathfinder.cs`、`HarvestTransfer.cs`、`DepositTransfer.cs` | 问题 3、10 |
 | 记忆面板 | `internal/memoryview/service.go`、`EchoMemoryPresenter.cs`、`EchoMemoryOverlay.cs` | 问题 1、11 |
 | Sidecar 生命周期 | `CoreProcessSupervisor.cs`、`SystemCoreProcess.cs` | 问题 2、13 |
 | 四天验收 | `demo/run-continuum-demo.sh`、`demo/fixtures/day-*-*.json` | 问题 1、5、7、14 |
+| 反思验收 | `demo/run-reflective-demo.sh`、`day-5-reflective-farm.json`、`player-chest-correction.json` | 问题 6.1、14 |
 | 跨平台打包 | `scripts/package-nexus.sh`、`scripts/verify-nexus-package.sh` | 问题 13、14 |

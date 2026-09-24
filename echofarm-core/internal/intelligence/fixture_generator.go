@@ -73,18 +73,34 @@ func (g *FixtureGenerator) GenerateJSON(_ context.Context, _ string, input any, 
 
 func fixtureProposal(input ActionInput, primary domain.HighLevelAction) domain.ActionProposal {
 	proposal := domain.ActionProposal{Primary: primary, ModelConfidence: 0.78}
-	for _, experience := range input.ApplicableExperiences {
-		proposal.AppliedExperienceIDs = append(proposal.AppliedExperienceIDs, experience.ID)
+	for _, item := range input.ApplicableExperiences {
+		if item.PreferAction == primary.Kind && (item.PreferredTargetID == "" || item.PreferredTargetID == primary.TargetID) {
+			proposal.AppliedExperienceIDs = []string{item.ID}
+			break
+		}
 	}
 	if len(proposal.AppliedExperienceIDs) == 0 {
 		proposal.UncertaintyCodes = []domain.UncertaintyCode{domain.UncertaintyMissingExperience}
 	}
 	if primary.Kind != domain.ActionStopSession {
-		proposal.Alternatives = []domain.HighLevelAction{{
+		if primary.Kind != domain.ActionHarvestTarget {
+			for _, crop := range input.Snapshot.Crops {
+				if crop.Mature && !containsString(input.Coordination.PlayerClaimedTargets, crop.ID) {
+					proposal.Alternatives = append(proposal.Alternatives, domain.HighLevelAction{
+						SaveID: input.Snapshot.SaveID, SessionID: input.Snapshot.SessionID,
+						SnapshotVersion: input.Snapshot.SnapshotVersion,
+						Kind:            domain.ActionHarvestTarget, TargetID: crop.ID,
+						Reason: "fallback to the currently mature crop",
+					})
+					break
+				}
+			}
+		}
+		proposal.Alternatives = append(proposal.Alternatives, domain.HighLevelAction{
 			SaveID: input.Snapshot.SaveID, SessionID: input.Snapshot.SessionID,
 			SnapshotVersion: input.Snapshot.SnapshotVersion,
 			Kind:            domain.ActionStopSession, Reason: "safe fallback if the primary action becomes invalid",
-		}}
+		})
 	}
 	return proposal
 }
@@ -269,6 +285,11 @@ func fixtureAction(input ActionInput) domain.HighLevelAction {
 			Kind: kind, TargetID: targetID, Reason: reason,
 		}
 	}
+	for _, item := range input.ApplicableExperiences {
+		if action, ok := actionFromExperience(item, input, newAction); ok {
+			return action
+		}
+	}
 	for _, crop := range snapshot.Crops {
 		if _, occupied := claimed[crop.ID]; occupied {
 			continue
@@ -298,6 +319,53 @@ func fixtureAction(input ActionInput) domain.HighLevelAction {
 		}
 	}
 	return newAction(domain.ActionStopSession, "", "morning routine is complete")
+}
+
+func actionFromExperience(item domain.PolicyExperience, input ActionInput, newAction func(domain.ActionKind, string, string) domain.HighLevelAction) (domain.HighLevelAction, bool) {
+	targetID := item.PreferredTargetID
+	switch item.PreferAction {
+	case domain.ActionDepositItems:
+		if targetID == "" && len(input.Snapshot.Chests) > 0 {
+			targetID = input.Snapshot.Chests[0].ID
+		}
+	case domain.ActionRefillCan:
+		if targetID == "" && len(input.Snapshot.WaterSources) > 0 {
+			targetID = input.Snapshot.WaterSources[0].ID
+		}
+	case domain.ActionHarvestTarget:
+		if targetID == "" {
+			for _, crop := range input.Snapshot.Crops {
+				if crop.Mature && !containsString(input.Coordination.PlayerClaimedTargets, crop.ID) {
+					targetID = crop.ID
+					break
+				}
+			}
+		}
+	case domain.ActionWaterTarget:
+		if targetID == "" {
+			for _, crop := range input.Snapshot.Crops {
+				if crop.NeedsWater && !containsString(input.Coordination.PlayerClaimedTargets, crop.ID) {
+					targetID = crop.ID
+					break
+				}
+			}
+		}
+	default:
+		return domain.HighLevelAction{}, false
+	}
+	if targetID == "" {
+		return domain.HighLevelAction{}, false
+	}
+	return newAction(item.PreferAction, targetID, "apply learned experience: "+item.Summary), true
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func fixtureIntent(input IntentInput) IntentInference {

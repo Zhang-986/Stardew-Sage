@@ -1,3 +1,12 @@
+# 0.4.0 — Reflective Policy
+
+- Added bounded Eino reflection for failed actions and explicit player corrections.
+- Added persistent, save-scoped policy experiences with deterministic merge, contradiction handling, and idempotent evidence revisions.
+- Added ranked action proposals with calibrated policy confidence and up to two validated fallback actions.
+- Added F10 correction capture: Echo pauses, learns from the next successful farm action, and safely retries temporary model failures.
+- Expanded F9 memory with decision confidence, fallback count, and failure/player-correction evidence.
+- Added a five-stage cross-process demo proving proactive failure avoidance and corrected chest selection across restarts.
+
 # 0.3.0 — Continuum co-player
 
 - Added multi-day, evidence-backed player traits with deterministic confidence growth and contradiction handling.

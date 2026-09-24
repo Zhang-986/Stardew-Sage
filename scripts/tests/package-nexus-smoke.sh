@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-version="0.3.0"
+version="0.4.0"
 temp_root="$(mktemp -d "${TMPDIR:-/tmp}/echofarm-package-test.XXXXXX")"
 trap 'rm -rf "$temp_root"' EXIT
 

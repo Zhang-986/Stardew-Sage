@@ -9,17 +9,20 @@ It is not a chat window and it is not a coordinate macro. Move a crop, add a new
 - F7 records a normal farm routine and learns task order plus preferred storage.
 - F8 summons a translucent player-like Echo without taking control away from you.
 - F9 opens Echo Memory to show learned traits, confidence, current player intent, and the latest division-of-work decision.
+- F10 pauses Echo and turns your next successful farm action into a high-signal correction.
 - Echo walks tile by tile, waters dry crops, refills its own can, harvests mature crops into its own inventory, and deposits them into the chest you taught it to use.
 - Rain, changed layouts, empty watering cans, blocked paths, full inventory, and full chests produce explicit replanning or safe-stop behavior.
 - Player models and learned skills are isolated by save ID in a local SQLite database.
 - Repeated teaching strengthens consistent habits; one unusual day cannot silently overwrite a stable preference.
 - While you and Echo work together, a short-lived activity window lets Echo avoid crops and chests you are already handling.
 - Learning revisions and runtime decisions are recorded in a structured local ledger for explainability.
+- Failed actions are reflected into bounded policy experiences, so a later matching session can avoid the failure before trying the same action.
+- Each AI proposal carries calibrated confidence and up to two safe alternatives; low-confidence or invalid plans stop instead of touching the world.
 - A second deterministic safety gate rejects stale, invented, or invalid model actions before game state changes.
 
 ## AI architecture
 
-The local sidecar is written in Go and uses CloudWeGo Eino for trait extraction, player-intent inference, action selection, and failure replanning. Deterministic Go code owns evidence merging, idempotency, target claims, and validation. The C#/SMAPI Mod is deliberately thin: it observes the game, validates actions, animates Echo, and mutates the world only on the game thread. No RAG or external knowledge base is used.
+The local sidecar is written in Go and uses CloudWeGo Eino for trait extraction, player-intent inference, ranked action proposals, and one-shot reflection. Deterministic Go code owns evidence and experience merging, idempotency, confidence calibration, target claims, and validation. The C#/SMAPI Mod is deliberately thin: it observes the game, captures explicit corrections, validates actions, animates Echo, and mutates the world only on the game thread. No RAG or external knowledge base is used.
 
 The service binds only to localhost. Model credentials stay in the process environment and are not stored in the Mod configuration, logs, archive, or save file.
 

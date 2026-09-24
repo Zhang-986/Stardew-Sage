@@ -2,7 +2,7 @@
 
 EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物语》世界、与玩家并行行动的“另一个自己”。它学习的是目标、顺序和取舍，不是昨日坐标或按键宏。
 
-当前已经完成 Go + Eino 的持续学习与协作闭环：
+当前已经完成 Go + Eino 的持续学习、协作与反思闭环：
 
 ```text
 多日示范 -> Eino Trait 提取 -> 确定性证据合并 -> 版本化玩家画像
@@ -10,6 +10,8 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
 实时玩家动作 -> 意图推断 -> 目标避让 -> Eino 决策 -> 双重安全校验
                                                 |
                       游戏内记忆面板 <- SQLite 决策与执行账本
+                                                |
+失败/玩家 F10 纠正 -> Eino 反思 -> 结构化经验 -> 下次提前改变策略
 ```
 
 ## 为什么 AI 不可替代
@@ -20,6 +22,8 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
 - 在雨天、新作物、空水壶或路线阻塞时根据实时状态重规划。
 - 从多天证据中区分稳定习惯与偶然选择，并保留每项结论的来源；
 - 识别玩家正在处理的目标，主动承担互补工作而不是与玩家抢活。
+- 将动作失败抽象为可复用策略经验，下一个会话在首次尝试前主动避错；
+- 玩家可按 F10 否定当前决策，用下一次成功操作教会 Echo 更好的选择。
 
 模型只决定高层动作。白名单、目标存在性、天气、工具和体力检查由确定性代码把关。项目不使用 RAG，也不依赖 Web 聊天界面。
 
@@ -46,6 +50,14 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
 
 它会连续提交两次晴天教学和一次雨天教学，验证画像置信度与情境记忆，再模拟玩家正在浇北侧作物，证明 Echo 会避开玩家目标并接手南侧收获任务。游戏内按 F9 可查看画像与最后一次分工理由。
 
+反思与玩家纠正演示：
+
+```bash
+./demo/run-reflective-demo.sh
+```
+
+它会启动真实 Go 进程并两次重启，证明“首次满背包收获失败 -> 形成经验 -> 下次提前存箱 -> 玩家纠正箱子 -> 再下次优先新箱子”的跨会话学习链。
+
 使用真实 OpenAI-compatible 模型：
 
 ```bash
@@ -57,14 +69,14 @@ export ECHOFARM_MODEL_NAME=your-model
 go run ./cmd/echofarm
 ```
 
-详细配置见 [echofarm-core/README.md](echofarm-core/README.md)，产品设计见 [EchoFarm 设计](docs/superpowers/specs/2026-09-23-echofarm-player-model-design.md)。
+详细配置见 [echofarm-core/README.md](echofarm-core/README.md)，产品设计见 [EchoFarm 设计](docs/superpowers/specs/2026-09-23-echofarm-player-model-design.md) 和 [Reflective Policy 设计](docs/superpowers/specs/2026-09-24-echofarm-reflective-policy-design.md)。
 
 ## Nexus Mods 打包
 
 正式包按 Windows x64、Linux x64、macOS Intel、macOS Apple Silicon 分开发布，每个压缩包都内置对应的 Go/Eino 服务端，玩家不需要安装 Go。打包命令、发布文案与核对清单见 [release/nexus/README.md](release/nexus/README.md)。
 
 ```bash
-./scripts/package-nexus.sh --version 0.3.0 --game-path "/path/to/Stardew Valley"
+./scripts/package-nexus.sh --version 0.4.0 --game-path "/path/to/Stardew Valley"
 ```
 
 仓库不会打包游戏程序集、API Key、数据库或日志。首次创建 Nexus 页面后，将分配到的 mod ID 通过 `--nexus-mod-id` 注入发布包的 SMAPI 更新键。
@@ -95,6 +107,9 @@ stardew-echo-mod/  SMAPI 传感器、受控执行器与游戏内记忆面板
 - [x] 多日证据合并、情境化画像与幂等学习修订
 - [x] 实时玩家意图推断、目标避让和协作分工
 - [x] SQLite 决策账本、解释 API 与 F9 游戏内记忆面板
+- [x] 失败反思、Top-3 情境经验匹配和跨会话主动避错
+- [x] 带置信度和最多两个备选的可解释动作提案
+- [x] F10 显式玩家纠正、20 秒捕获窗口与幂等经验落账
 - [ ] 在安装 Stardew Valley + SMAPI 的机器上完成编译与游戏内冒烟
 
 ## 安全边界

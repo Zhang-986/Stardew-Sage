@@ -2,7 +2,7 @@
 
 EchoFarm Core is the Go + Eino brain for a Stardew Valley AI echo that learns from normal play and later participates in the farm alongside the player.
 
-This module owns behavior interpretation, multi-day evidence merging, player-intent inference, cooperative next-action selection, replanning, decision auditing, and safety validation. It does not control game memory directly. A thin SMAPI bridge translates high-level actions into game-thread operations.
+This module owns behavior interpretation, multi-day evidence merging, player-intent inference, reflective policy learning, ranked next-action selection, decision auditing, and safety validation. It does not control game memory directly. A thin SMAPI bridge translates high-level actions into game-thread operations.
 
 ## Run the offline smoke demo
 
@@ -30,6 +30,15 @@ cd ..
 
 This scenario teaches two consistent sunny routines and one rainy routine, then starts a co-play day where the player is already watering two crops. It proves that stable sunny habits survive the weather-context change, the player intent is inferred as `watering`, and Echo selects an unclaimed harvest instead of competing for the same targets. The final output is the persisted memory and decision view.
 
+## Run the reflective-policy demo
+
+```bash
+cd ..
+./demo/run-reflective-demo.sh
+```
+
+This scenario restarts the real Go process twice while retaining one SQLite database. It proves that a failed full-inventory harvest creates bounded policy experience, that the next session deposits before harvesting, and that an explicit player chest correction overrides the earlier target on a later decision. Responses expose calibrated confidence, safe alternatives, and the exact experience ID applied.
+
 ## Run with a real model
 
 EchoFarm uses Eino's OpenAI-compatible chat-model component. All settings come from environment variables; no credential is stored in the repository.
@@ -53,6 +62,7 @@ Optional settings:
 - `POST /v1/demonstrations/learn`
 - `POST /v1/echo/next-action`
 - `POST /v1/echo/action-result`
+- `POST /v1/echo/corrections`
 - `GET /v1/player-model?saveId=...`
 - `GET /v1/skills/morning-farm-routine?saveId=...`
 - `GET /v1/echo/memory?saveId=...`

@@ -1,6 +1,6 @@
 # EchoFarm 项目导学
 
-> 基线：`codex/living-valley-director` 分支，EchoFarm 0.3.0 Continuum。本文只描述仓库中已有实现；真实 Stardew Valley + SMAPI 编译和游戏内冒烟仍待合法游戏环境验证。
+> 基线：`codex/living-valley-director` 分支，EchoFarm 0.4.0 Reflective Policy。本文只描述仓库中已有实现；真实 Stardew Valley + SMAPI 编译和游戏内冒烟仍待合法游戏环境验证。
 
 ## 1. 前置知识（面试高频标注）
 
@@ -12,6 +12,7 @@
 | LLM 结构化输出 | 限制模型只能生成 Trait、意图和白名单动作 | `internal/intelligence` | 高 |
 | 状态机与并发控制 | 防止同一帧并发执行多个 Echo 动作 | `EchoSession`、`CoreProcessSupervisor` | 高 |
 | 人机协同规划 | 避免 Echo 与玩家争抢同一作物 | `internal/coordination`、`PlayerActivityWindow` | 高 |
+| 反思式策略学习 | 解释失败和玩家纠正如何跨会话改变首次决策 | `internal/experience`、`ReflectionGraph`、`CorrectionCapture` | 高 |
 | SQLite 事务 | 保证示范、画像、技能和修订原子提交 | `internal/memory/sqlite.go` | 中高 |
 | 游戏主线程约束 | 防止异步网络回调直接修改游戏世界 | `StardewGamePort` | 中高 |
 | 跨平台 sidecar 发布 | 解释 Go 服务如何随 Mod 分发并托管 | `CoreProcessSupervisor`、`scripts/package-nexus.sh` | 中 |
@@ -25,7 +26,8 @@
 | 人机任务协调 | 把“AI 助手”升级为能与玩家并行行动的分身 | Intent Inference、短时窗口、Target Claim | `PlayerActivityWindow.cs` → `internal/coordination/service.go` → `internal/policy/service.go` | 3 |
 | 跨进程状态一致性 | 保证 C#、HTTP、Go 和 SQLite 对同一次动作达成一致 | Correlation ID、Snapshot Version、Idempotency | `EchoSession.cs` → `EchoFarmClient.cs` → `internal/httpapi/handler.go` → `internal/memory/sqlite.go` | 4 |
 | 可解释运行账本 | 让面试演示能回答“为什么这样做” | Decision Ledger、Projection、Read Model | `internal/memory/sqlite.go` → `internal/memoryview/service.go` → `EchoMemoryPresenter.cs` | 5 |
-| 本地服务生命周期 | 玩家只安装 Mod，不需要手动开 Go 服务 | Sidecar、Health Check、Ownership、Graceful Shutdown | `CoreProcessSupervisor.cs` → `SystemCoreProcess.cs` → `ModEntry.cs` | 6 |
+| 反思经验闭环 | 不只当场重试，而是从失败/F10 纠正中形成可复用策略 | Reflection、Bounded Memory、Confidence Calibration | `reflection_graph.go` → `experience/service.go` → `policy/service.go` → `CorrectionCapture.cs` | 6 |
+| 本地服务生命周期 | 玩家只安装 Mod，不需要手动开 Go 服务 | Sidecar、Health Check、Ownership、Graceful Shutdown | `CoreProcessSupervisor.cs` → `SystemCoreProcess.cs` → `ModEntry.cs` | 7 |
 
 ## 3. 必备知识点
 
@@ -34,7 +36,9 @@
 - [ ] 能手算一次置信度增长公式，并说明冲突为何按情境隔离。
 - [ ] 能解释 `saveId + sessionId + snapshotVersion` 分别解决什么问题。
 - [ ] 能说明玩家目标占用为何既写入 Prompt，又必须由确定性代码再次校验。
-- [ ] 能画出 `Idle → Recording → Learning → Ready → Acting → AwaitingResult` 状态机。
+- [ ] 能画出 `Idle → Recording → Learning → Ready → Acting → AwaitingResult/Correcting` 状态机。
+- [ ] 能解释 `ActionProposal` 中模型置信度与 Go 策略置信度的区别。
+- [ ] 能说清失败经验、玩家纠正的权重上限和幂等语义。
 - [ ] 能解释为什么逐格寻路不调用模型、什么时候才重新推理。
 - [ ] 能说明 Echo 独立背包如何避免污染玩家背包，以及箱满时如何保证物品不丢。
 - [ ] 能解释本地 sidecar 的启动、健康检查、进程归属和退出清理。
@@ -54,6 +58,7 @@
 | 游戏状态机 | 异步状态、单飞请求 | `stardew-echo-mod/src/EchoFarm.Bridge/Runtime/EchoSession.cs` | 25 分钟 | 为什么不会一帧触发多个动作？ |
 | 游戏执行 | 主线程队列、寻路、物品安全 | `stardew-echo-mod/src/EchoFarm.Mod/StardewGamePort.cs` | 40 分钟 | Go 的高层动作如何安全落到游戏世界？ |
 | 可解释 UI | 读模型、展示投影 | `internal/memoryview/service.go`、`EchoMemoryPresenter.cs`、`EchoMemoryOverlay.cs` | 20 分钟 | 面板内容来自哪里，为什么不让模型自由生成？ |
+| 反思式策略 | 失败归因、可审计经验、候选降级 | `reflection_graph.go`、`internal/experience`、`policy/service.go` | 35 分钟 | 为什么 AI 能跨会话避免同类失败？ |
 | 发布链路 | 可复现构建、平台矩阵 | `scripts/package-nexus.sh`、`scripts/verify-nexus-package.sh` | 25 分钟 | 如何避免把密钥、数据库和错误平台二进制打进包？ |
 
 ## 5. 自学提醒
@@ -104,9 +109,17 @@
 
 问题：模型适合解释语义和权衡，但不适合直接操作内存、执行逐帧寻路或决定安全边界。
 
-机制：LLM 只生成受 JSON 结构约束的 Trait、Intent 和 HighLevelAction；Go 验证动作与目标，C# 在主线程执行确定性寻路和资源转移。
+机制：LLM 只生成受 JSON 结构约束的 Trait、Intent、ActionProposal 和 ExperienceObservation；Go 验证动作、证据与目标，C# 在主线程执行确定性寻路和资源转移。
 
-落点：三个 Eino 图、Go policy 校验和 C# safety gate 形成逐层收窄的信任边界。
+落点：学习、意图、动作和反思四个 Eino 图，与 Go policy 校验和 C# safety gate 形成逐层收窄的信任边界。
+
+### 7.6 失败和玩家纠正如何真正改变策略
+
+问题：只在失败后当场换一个动作，下一次仍会重复犯错；如果只记自由文本反思，又无法稳定匹配、安全执行和证明来源。
+
+机制：Reflection Graph 只在新失败或新纠正上运行一次，输出由 trigger、情境、有限信号、规避动作、优先动作和证据 ID 组成的经验。Go 根据语义主键合并、对矛盾经验衰减，并在后续快照中只匹配 Top-3。Action Graph 输出主动作、两个备选和模型置信度，最终置信度、候选选择与安全停止由确定性代码完成。
+
+落点：`run-reflective-demo.sh` 会在两次进程重启后分别验证失败经验和 F10 纠正经验改变下一个会话的首次决策。
 
 ## 8. 关键设计决策
 
@@ -120,7 +133,7 @@
 
 ## 9. 量化与验证（含待测，建议）
 
-当前可核验证据：Go 全包 race 测试与 vet 通过；.NET Bridge 77 个测试通过；单日四场景与四天 Continuum 跨进程 Demo 通过；四个平台的 Nexus 包结构烟测通过；macOS arm64 sidecar `/healthz` 实测成功。
+当前可核验证据：Go 全包 race 测试与 vet 通过；.NET Bridge 87 个测试通过；单日、四天 Continuum 和五段反思策略跨进程 Demo 通过；四个平台的 Nexus 包结构烟测通过；macOS arm64 sidecar `/healthz` 实测成功。
 
 上线前建议补测：
 
