@@ -29,3 +29,11 @@ type DecisionStore interface {
 	GetDecision(ctx context.Context, saveID, sessionID string, snapshotVersion int64) (domain.DecisionRecord, error)
 	AttachDecisionResult(ctx context.Context, result domain.ActionResult) error
 }
+
+type ExperienceStore interface {
+	GetPlayerModel(ctx context.Context, saveID string) (domain.PlayerModel, error)
+	SaveExperienceOutcome(ctx context.Context, outcome domain.ExperienceOutcome) error
+	GetExperienceOutcome(ctx context.Context, saveID, sourceID string) (domain.ExperienceOutcome, error)
+	ListPolicyExperiences(ctx context.Context, saveID string) ([]domain.PolicyExperience, error)
+	GetPlayerCorrection(ctx context.Context, saveID, correctionID string) (domain.PlayerCorrection, error)
+}

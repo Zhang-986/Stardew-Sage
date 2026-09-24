@@ -57,6 +57,28 @@ CREATE TABLE IF NOT EXISTS decision_records (
   payload_json BLOB NOT NULL,
   created_at TEXT NOT NULL,
   PRIMARY KEY (save_id, session_id, snapshot_version)
+);
+CREATE TABLE IF NOT EXISTS policy_experiences (
+  save_id TEXT NOT NULL,
+  experience_id TEXT NOT NULL,
+  payload_json BLOB NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, experience_id)
+);
+CREATE TABLE IF NOT EXISTS experience_revisions (
+  save_id TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  experience_id TEXT NOT NULL,
+  outcome_json BLOB NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, source_id)
+);
+CREATE TABLE IF NOT EXISTS player_corrections (
+  save_id TEXT NOT NULL,
+  correction_id TEXT NOT NULL,
+  payload_json BLOB NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, correction_id)
 );`
 
 type SQLite struct {
@@ -311,6 +333,134 @@ WHERE save_id=? AND status='active' ORDER BY updated_at DESC LIMIT 1`, saveID).S
 		return domain.EchoSessionMemory{}, fmt.Errorf("read active echo session: %w", err)
 	}
 	return value, nil
+}
+
+func (s *SQLite) SaveExperienceOutcome(ctx context.Context, outcome domain.ExperienceOutcome) error {
+	if err := validateExperienceOutcome(outcome); err != nil {
+		return err
+	}
+	experienceJSON, err := json.Marshal(outcome.Experience)
+	if err != nil {
+		return fmt.Errorf("marshal policy experience: %w", err)
+	}
+	outcomeJSON, err := json.Marshal(outcome)
+	if err != nil {
+		return fmt.Errorf("marshal experience outcome: %w", err)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin experience transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	var alreadyStored int
+	err = tx.QueryRowContext(ctx, `SELECT 1 FROM experience_revisions WHERE save_id=? AND source_id=?`,
+		outcome.Experience.SaveID, outcome.SourceID).Scan(&alreadyStored)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("check experience revision: %w", err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if outcome.Correction != nil {
+		correctionJSON, err := json.Marshal(outcome.Correction)
+		if err != nil {
+			return fmt.Errorf("marshal player correction: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO player_corrections(save_id, correction_id, payload_json, created_at)
+VALUES (?, ?, ?, ?)`, outcome.Experience.SaveID, outcome.Correction.ID, correctionJSON, now); err != nil {
+			return fmt.Errorf("save player correction: %w", err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO policy_experiences(save_id, experience_id, payload_json, updated_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(save_id, experience_id) DO UPDATE SET
+  payload_json=excluded.payload_json, updated_at=excluded.updated_at`,
+		outcome.Experience.SaveID, outcome.Experience.ID, experienceJSON, now); err != nil {
+		return fmt.Errorf("save policy experience: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO experience_revisions(save_id, source_id, experience_id, outcome_json, created_at)
+VALUES (?, ?, ?, ?, ?)`, outcome.Experience.SaveID, outcome.SourceID, outcome.Experience.ID, outcomeJSON, now); err != nil {
+		return fmt.Errorf("save experience revision: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit experience transaction: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLite) GetExperienceOutcome(ctx context.Context, saveID, sourceID string) (domain.ExperienceOutcome, error) {
+	var value domain.ExperienceOutcome
+	err := scanJSON(s.db.QueryRowContext(ctx, `
+SELECT outcome_json FROM experience_revisions WHERE save_id=? AND source_id=?`, saveID, sourceID), &value)
+	return value, err
+}
+
+func (s *SQLite) ListPolicyExperiences(ctx context.Context, saveID string) ([]domain.PolicyExperience, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT payload_json FROM policy_experiences WHERE save_id=? ORDER BY experience_id`, saveID)
+	if err != nil {
+		return nil, fmt.Errorf("list policy experiences: %w", err)
+	}
+	defer rows.Close()
+	result := make([]domain.PolicyExperience, 0)
+	for rows.Next() {
+		var experience domain.PolicyExperience
+		if err := scanJSON(rows, &experience); err != nil {
+			return nil, err
+		}
+		result = append(result, experience)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate policy experiences: %w", err)
+	}
+	return result, nil
+}
+
+func (s *SQLite) GetPlayerCorrection(ctx context.Context, saveID, correctionID string) (domain.PlayerCorrection, error) {
+	var value domain.PlayerCorrection
+	err := scanJSON(s.db.QueryRowContext(ctx, `
+SELECT payload_json FROM player_corrections WHERE save_id=? AND correction_id=?`, saveID, correctionID), &value)
+	return value, err
+}
+
+func validateExperienceOutcome(outcome domain.ExperienceOutcome) error {
+	if outcome.SourceID == "" || outcome.SourceID != outcome.Observation.EvidenceRef {
+		return errors.New("experience source ID must match observation evidence")
+	}
+	if outcome.Source != domain.ExperienceSourceFailure && outcome.Source != domain.ExperienceSourceCorrection {
+		return errors.New("unsupported experience source")
+	}
+	if err := outcome.Experience.Validate(); err != nil {
+		return fmt.Errorf("policy experience: %w", err)
+	}
+	if outcome.Experience.Source != outcome.Source {
+		return errors.New("experience source does not match outcome")
+	}
+	targets := make(map[string]struct{})
+	if outcome.Observation.PreferredTargetID != "" {
+		targets[outcome.Observation.PreferredTargetID] = struct{}{}
+	}
+	if err := outcome.Observation.Validate(map[string]struct{}{outcome.SourceID: {}}, targets); err != nil {
+		return fmt.Errorf("experience observation: %w", err)
+	}
+	if outcome.Source == domain.ExperienceSourceCorrection {
+		if outcome.Correction == nil {
+			return errors.New("correction experience requires player correction")
+		}
+		if err := outcome.Correction.Validate(); err != nil {
+			return err
+		}
+		if outcome.Correction.ID != outcome.SourceID || outcome.Correction.SaveID != outcome.Experience.SaveID {
+			return errors.New("player correction does not match experience outcome")
+		}
+	} else if outcome.Correction != nil {
+		return errors.New("failure experience cannot contain player correction")
+	}
+	return nil
 }
 
 func (s *SQLite) GetDemonstration(ctx context.Context, saveID, demonstrationID string) (domain.Demonstration, error) {

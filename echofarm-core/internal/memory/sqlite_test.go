@@ -262,6 +262,99 @@ func TestSQLiteRejectsResultForDifferentAction(t *testing.T) {
 	}
 }
 
+func TestSQLitePersistsExperienceOutcomeAcrossReopen(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "echo.db")
+	store, err := OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := experienceOutcome("farm-a", "decision:echo-day-4:1", domain.ExperienceSourceFailure, "chest-east")
+	if err := store.SaveExperienceOutcome(ctx, want); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err = OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	got, err := store.GetExperienceOutcome(ctx, want.Experience.SaveID, want.SourceID)
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("GetExperienceOutcome() = %+v, %v; want %+v", got, err, want)
+	}
+	experiences, err := store.ListPolicyExperiences(ctx, want.Experience.SaveID)
+	if err != nil || len(experiences) != 1 || !reflect.DeepEqual(experiences[0], want.Experience) {
+		t.Fatalf("ListPolicyExperiences() = %+v, %v", experiences, err)
+	}
+}
+
+func TestSQLiteExperienceOutcomeIsIdempotentBySource(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenSQLite(filepath.Join(t.TempDir(), "echo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	winner := experienceOutcome("farm-a", "decision:echo-day-4:1", domain.ExperienceSourceFailure, "chest-east")
+	if err := store.SaveExperienceOutcome(ctx, winner); err != nil {
+		t.Fatal(err)
+	}
+	loser := experienceOutcome("farm-a", winner.SourceID, domain.ExperienceSourceFailure, "chest-west")
+	if err := store.SaveExperienceOutcome(ctx, loser); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := store.GetExperienceOutcome(ctx, "farm-a", winner.SourceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Experience.PreferredTargetID != "chest-east" {
+		t.Fatalf("canonical outcome = %+v, want first writer", got)
+	}
+}
+
+func TestSQLitePersistsCorrectionWithExperienceAtomically(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenSQLite(filepath.Join(t.TempDir(), "echo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	outcome := experienceOutcome("farm-a", "correction-1", domain.ExperienceSourceCorrection, "chest-west")
+	outcome.Observation.Trigger = domain.ExperiencePlayerCorrection
+	outcome.Experience.Trigger = domain.ExperiencePlayerCorrection
+	snapshot := correctionSnapshot("farm-a")
+	outcome.Correction = &domain.PlayerCorrection{
+		ID: outcome.SourceID, SaveID: snapshot.SaveID, SessionID: snapshot.SessionID,
+		RejectedDecisionSnapshotVersion: 1,
+		RejectedAction: domain.HighLevelAction{
+			SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: 1,
+			Kind: domain.ActionDepositItems, TargetID: "chest-east", Reason: "old preference",
+		},
+		Snapshot: snapshot,
+		PreferredAction: domain.HighLevelAction{
+			SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+			Kind: domain.ActionDepositItems, TargetID: "chest-west", Reason: "player correction",
+		},
+		ObservedAtTick: 200,
+	}
+
+	if err := store.SaveExperienceOutcome(ctx, outcome); err != nil {
+		t.Fatal(err)
+	}
+	correction, err := store.GetPlayerCorrection(ctx, "farm-a", "correction-1")
+	if err != nil || !reflect.DeepEqual(correction, *outcome.Correction) {
+		t.Fatalf("GetPlayerCorrection() = %+v, %v", correction, err)
+	}
+	if experiences, err := store.ListPolicyExperiences(ctx, "farm-other"); err != nil || len(experiences) != 0 {
+		t.Fatalf("other save experiences = %+v, %v", experiences, err)
+	}
+}
+
 func decisionRecord(version int64, targetID string) domain.DecisionRecord {
 	action := domain.HighLevelAction{
 		SaveID: "farm-a", SessionID: "echo-day-4", SnapshotVersion: version,
@@ -293,4 +386,35 @@ func learningArtifacts(saveID string, revision int) (domain.Demonstration, domai
 		SuccessConditions: []string{"all crops cared for"}, EvidenceEventIDs: []string{eventID},
 	}
 	return demo, model, skill
+}
+
+func experienceOutcome(saveID, sourceID string, source domain.ExperienceSource, targetID string) domain.ExperienceOutcome {
+	observation := domain.ExperienceObservation{
+		Trigger: domain.ExperienceInventoryFull, Context: domain.TraitContextSunny,
+		WhenSignals: []domain.SituationSignal{domain.SignalInventoryFull, domain.SignalInventoryHasItems},
+		AvoidAction: domain.ActionHarvestTarget, PreferAction: domain.ActionDepositItems,
+		PreferredTargetID: targetID, Summary: "deposit before harvesting", EvidenceRef: sourceID, Strength: 0.8,
+	}
+	return domain.ExperienceOutcome{
+		SourceID: sourceID, Source: source, Observation: observation,
+		Experience: domain.PolicyExperience{
+			ID: "exp-" + targetID, SaveID: saveID, Trigger: observation.Trigger, Context: observation.Context,
+			WhenSignals: append([]domain.SituationSignal(nil), observation.WhenSignals...),
+			AvoidAction: observation.AvoidAction, PreferAction: observation.PreferAction,
+			PreferredTargetID: targetID, Summary: observation.Summary,
+			Confidence: 0.65, ObservationCount: 1, FirstSeenDay: 4, LastSeenDay: 4,
+			EvidenceRefs: []string{sourceID}, Source: source,
+		},
+	}
+}
+
+func correctionSnapshot(saveID string) domain.WorldSnapshot {
+	return domain.WorldSnapshot{
+		SaveID: saveID, SessionID: "echo-day-4", SnapshotVersion: 2,
+		Day: 4, TimeOfDay: 710, Weather: domain.WeatherSunny, Location: "Farm",
+		Energy: 200, MaxEnergy: 270,
+		Inventory:   domain.InventorySummary{FreeSlots: 0, Items: []domain.InventoryItem{{ItemID: "parsnip", Name: "Parsnip", Quantity: 1}}},
+		WateringCan: domain.ToolState{Name: "Watering Can", Water: 10, Capacity: 40},
+		Chests:      []domain.Chest{{ID: "chest-east"}, {ID: "chest-west"}},
+	}
 }
