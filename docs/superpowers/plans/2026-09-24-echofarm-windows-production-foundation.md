@@ -234,19 +234,19 @@ git commit -m "feat(echofarm): add Windows production setup workflow"
 - Modify: `README.md`
 - Modify: `release/nexus/BUILD-EVIDENCE.md`
 
-- [ ] **Step 1: Define the disposable-save matrix**
+- [x] **Step 1: Define the disposable-save matrix**
 
 The checklist records exact versions and verifies startup, fixture marker, F7 teaching, F8 summon, F9 status, F10 correction, watering, refill, deposit, safe stop, blocked route, target disappearance, save, reload, day change, title return, process cleanup, uninstall, and log secret scan. Harvest remains disabled unless a separate native-semantics section passes.
 
-- [ ] **Step 2: Add an evidence report template**
+- [x] **Step 2: Add an evidence report template**
 
 The Windows script emits JSON containing source commit, game/SMAPI version strings, architecture, package checksum, each check name/status, and redacted diagnostics. Human gameplay checks remain explicitly unsigned until the owner records them.
 
-- [ ] **Step 3: Run complete offline verification**
+- [x] **Step 3: Run complete offline verification**
 
 Run Go race/vet, the full .NET suite, three demos, twenty-run result races, the PowerShell self-tests in the Windows CI job, four-platform package smoke, deterministic sidecar rebuild, and native health smoke.
 
-- [ ] **Step 4: Review and commit**
+- [x] **Step 4: Review and commit**
 
 ```bash
 git commit -m "docs(echofarm): define Windows release acceptance"

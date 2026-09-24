@@ -27,7 +27,7 @@ $game = "C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley"
 .\scripts\windows\Install-EchoFarm.ps1 -Install -GamePath $game -PackagePath .\dist\windows\EchoFarm
 ```
 
-The build command compiles the real SMAPI Mod against the local legal game installation, cross-builds the Windows x64 Go sidecar, validates an exact file allowlist, and writes `dist\windows\EchoFarm.zip` plus its SHA-256 file. Installation stages into `Mods\.EchoFarm.installing`, preserves an existing `Mods\EchoFarm\config.json`, and then replaces the program directory.
+The build command compiles the real SMAPI Mod against the local legal game installation, cross-builds the Windows x64 Go sidecar, validates an exact file allowlist, and writes `dist\windows\EchoFarm.zip`, its SHA-256 file, and `EchoFarm.evidence.json`. Installation stages into `Mods\.EchoFarm.installing`, preserves an existing `Mods\EchoFarm\config.json`, and then replaces the program directory.
 
 Uninstall removes only the Mod program directory by default, preserving the learned SQLite memory under local application data:
 

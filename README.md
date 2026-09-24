@@ -78,6 +78,19 @@ go run ./cmd/echofarm
 
 正式包按 Windows x64、Linux x64、macOS Intel、macOS Apple Silicon 分开发布，每个压缩包都内置对应的 Go/Eino 服务端，玩家不需要安装 Go。打包命令、发布文案与核对清单见 [release/nexus/README.md](release/nexus/README.md)。
 
+第一个生产候选版的明确范围是 Windows x64 + Stardew Valley 1.6 + SMAPI 4.1+ + 单人模式。首次启动默认为无付费调用的 `fixture` 演示模式，F9 会明确显示 `DEMO`；收获能力在完成原生游戏语义认证前默认关闭。
+
+Windows 仓库所有者可直接执行：
+
+```powershell
+$game = "C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley"
+.\scripts\windows\Install-EchoFarm.ps1 -Doctor -GamePath $game
+.\scripts\windows\Install-EchoFarm.ps1 -Build -GamePath $game
+.\scripts\windows\Install-EchoFarm.ps1 -Install -GamePath $game -PackagePath .\dist\windows\EchoFarm
+```
+
+实机验收按 [Windows 冒烟清单](docs/echofarm/windows-smoke-checklist.md) 执行。构建脚本会同时产出 SHA-256 和 `EchoFarm.evidence.json`，游戏内项目在真实观察前一律保持 `pending`。
+
 ```bash
 ./scripts/package-nexus.sh --version 0.4.0 --game-path "/path/to/Stardew Valley"
 ```
@@ -114,6 +127,9 @@ stardew-echo-mod/  SMAPI 传感器、受控执行器与游戏内记忆面板
 - [x] 带置信度和最多两个备选的可解释动作提案
 - [x] F10 显式玩家纠正、20 秒捕获窗口与幂等经验落账
 - [x] 规范动作结果反馈、经验有效置信度排序与反复失效经验冷却
+- [x] 收获默认关闭的跨语言能力门禁与执行前二次校验
+- [x] 首启配置诊断、端口冲突识别与 F9 运行状态面板
+- [x] Windows doctor/build/install/uninstall 工作流与自动证据 JSON
 - [ ] 在安装 Stardew Valley + SMAPI 的机器上完成编译与游戏内冒烟
 
 ## 安全边界
@@ -121,6 +137,7 @@ stardew-echo-mod/  SMAPI 传感器、受控执行器与游戏内记忆面板
 - 服务默认只监听 `127.0.0.1`；
 - 仓库不保存有效模型密钥；
 - 模型不能修改金币、好感度、存档或生成任意物品；
+- 未认证的收获动作在 Go 策略层和 C# 游戏执行层都被拒绝；
 - 模型不可用时只停止 Echo，不影响游戏保存和退出。
 
 ## License

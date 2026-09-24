@@ -211,6 +211,72 @@ function Move-EchoFarmDirectoryAtomically {
     }
 }
 
+function Protect-EchoFarmDiagnosticText {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return $Text
+    }
+    $safe = $Text -replace '(?i)(authorization\s*:\s*bearer\s+)[^\s,;]+', '$1[REDACTED]'
+    $safe = $safe -replace '(?i)(api[_-]?key\s*[=:]\s*)[^\s,;]+', '$1[REDACTED]'
+    return $safe -replace '(?i)sk-[a-z0-9_-]+', '[REDACTED]'
+}
+
+function Write-EchoFarmEvidenceReport {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$OutputPath,
+        [Parameter(Mandatory)][string]$SourceCommit,
+        [Parameter(Mandatory)][string]$GameVersion,
+        [Parameter(Mandatory)][string]$SmapiVersion,
+        [Parameter(Mandatory)][string]$Architecture,
+        [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$PackageSha256,
+        [Parameter(Mandatory)][object[]]$Checks,
+        [object[]]$Diagnostics = @()
+    )
+
+    $safeDiagnostics = @(
+        foreach ($diagnostic in $Diagnostics) {
+            [pscustomobject][ordered]@{
+                code    = [string]$diagnostic.Code
+                message = Protect-EchoFarmDiagnosticText ([string]$diagnostic.Message)
+            }
+        }
+    )
+    $safeChecks = @(
+        foreach ($check in $Checks) {
+            [pscustomobject][ordered]@{
+                name   = [string]$check.Name
+                status = [string]$check.Status
+                signed = [bool]$check.Signed
+            }
+        }
+    )
+    $report = [pscustomobject][ordered]@{
+        schemaVersion = 1
+        generatedAtUtc = [DateTime]::UtcNow.ToString('o')
+        sourceCommit = $SourceCommit
+        platform = 'windows'
+        architecture = $Architecture
+        gameVersion = $GameVersion
+        smapiVersion = $SmapiVersion
+        packageSha256 = $PackageSha256.ToLowerInvariant()
+        checks = $safeChecks
+        diagnostics = $safeDiagnostics
+    }
+    $parent = Split-Path -Parent ([System.IO.Path]::GetFullPath($OutputPath))
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $OutputPath -Encoding utf8
+    return $report
+}
+
+function Get-EchoFarmFileVersion {
+    param([Parameter(Mandatory)][string]$Path)
+    $info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($Path)
+    if (-not [string]::IsNullOrWhiteSpace($info.ProductVersion)) { return $info.ProductVersion }
+    if (-not [string]::IsNullOrWhiteSpace($info.FileVersion)) { return $info.FileVersion }
+    return 'unknown'
+}
+
 function Build-EchoFarmPackage {
     [CmdletBinding()]
     param(
@@ -297,11 +363,35 @@ function Build-EchoFarmPackage {
         Compress-Archive -LiteralPath $OutputPath -DestinationPath $archivePath -CompressionLevel Optimal
         $checksum = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
         Set-Content -LiteralPath "$OutputPath.sha256" -Value "$checksum  $([System.IO.Path]::GetFileName($archivePath))"
+        $sourceCommit = 'unknown'
+        if ($null -ne (Get-Command git -ErrorAction SilentlyContinue)) {
+            $candidateCommit = (& git -C $repoRoot rev-parse HEAD 2>$null | Select-Object -First 1)
+            if (-not [string]::IsNullOrWhiteSpace($candidateCommit)) {
+                $sourceCommit = $candidateCommit.Trim()
+            }
+        }
+        $checks = @(
+            [pscustomobject]@{ Name = 'prerequisites'; Status = 'passed'; Signed = $true },
+            [pscustomobject]@{ Name = 'mod_build'; Status = $(if ($SkipCompilation) { 'fixture' } else { 'passed' }); Signed = -not $SkipCompilation },
+            [pscustomobject]@{ Name = 'sidecar_build'; Status = $(if ($SkipCompilation) { 'fixture' } else { 'passed' }); Signed = -not $SkipCompilation },
+            [pscustomobject]@{ Name = 'package_allowlist'; Status = 'passed'; Signed = $true },
+            [pscustomobject]@{ Name = 'gameplay_smoke'; Status = 'pending'; Signed = $false }
+        )
+        $evidencePath = "$OutputPath.evidence.json"
+        Write-EchoFarmEvidenceReport `
+            -OutputPath $evidencePath `
+            -SourceCommit $sourceCommit `
+            -GameVersion (Get-EchoFarmFileVersion (Join-Path $GamePath 'Stardew Valley.dll')) `
+            -SmapiVersion (Get-EchoFarmFileVersion (Join-Path $GamePath 'StardewModdingAPI.dll')) `
+            -Architecture 'x64' `
+            -PackageSha256 $checksum `
+            -Checks $checks | Out-Null
         return [pscustomobject]@{
             Ready       = $true
             PackagePath = $OutputPath
             ArchivePath = $archivePath
             Checksum    = $checksum
+            EvidencePath = $evidencePath
             Issues      = @()
         }
     }
@@ -383,4 +473,4 @@ function Uninstall-EchoFarm {
     }
 }
 
-Export-ModuleMember -Function Resolve-EchoFarmGamePath, Test-EchoFarmPrerequisites, Test-EchoFarmPackage, Build-EchoFarmPackage, Install-EchoFarm, Uninstall-EchoFarm
+Export-ModuleMember -Function Resolve-EchoFarmGamePath, Test-EchoFarmPrerequisites, Test-EchoFarmPackage, Write-EchoFarmEvidenceReport, Build-EchoFarmPackage, Install-EchoFarm, Uninstall-EchoFarm

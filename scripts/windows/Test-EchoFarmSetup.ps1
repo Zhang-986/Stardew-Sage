@@ -105,6 +105,7 @@ try {
         Assert-True $result.Ready "Fixture package build failed: $($result.Issues | ConvertTo-Json -Compress)"
         Assert-True (Test-Path -LiteralPath (Join-Path $output 'core/echofarm-core.exe')) 'Core executable was not staged.'
         Assert-True (Test-Path -LiteralPath "$output.sha256") 'Package checksum file was not emitted.'
+        Assert-True (Test-Path -LiteralPath "$output.evidence.json") 'Machine-readable build evidence was not emitted.'
     }
 
     Invoke-Test 'install atomically replaces program files and preserves config' {
@@ -152,6 +153,36 @@ try {
 
         Assert-True $result.Ready 'Doctor entry point did not return a ready result.'
         Assert-True ($result.GamePath -eq $gamePath) 'Doctor entry point returned the wrong game path.'
+    }
+
+    Invoke-Test 'evidence report records versions and redacts diagnostics' {
+        $output = Join-Path $tempRoot 'evidence/report.json'
+        $checks = @(
+            [pscustomobject]@{ Name = 'package_allowlist'; Status = 'passed'; Signed = $true },
+            [pscustomobject]@{ Name = 'gameplay_smoke'; Status = 'pending'; Signed = $false }
+        )
+        $diagnostics = @(
+            [pscustomobject]@{ Code = 'provider_error'; Message = 'Authorization: Bearer sk-do-not-display' }
+        )
+
+        Write-EchoFarmEvidenceReport `
+            -OutputPath $output `
+            -SourceCommit 'abc123' `
+            -GameVersion '1.6.15' `
+            -SmapiVersion '4.1.10' `
+            -Architecture 'x64' `
+            -PackageSha256 ('a' * 64) `
+            -Checks $checks `
+            -Diagnostics $diagnostics | Out-Null
+
+        $raw = Get-Content -LiteralPath $output -Raw
+        $report = $raw | ConvertFrom-Json
+        Assert-True ($report.sourceCommit -eq 'abc123') 'Source commit was not recorded.'
+        Assert-True ($report.gameVersion -eq '1.6.15') 'Game version was not recorded.'
+        Assert-True ($report.smapiVersion -eq '4.1.10') 'SMAPI version was not recorded.'
+        Assert-True ($report.checks[1].status -eq 'pending' -and -not $report.checks[1].signed) 'Human gameplay check was not left unsigned.'
+        Assert-True (-not $raw.Contains('sk-do-not-display')) 'Evidence report leaked a secret diagnostic value.'
+        Assert-True ($raw.Contains('[REDACTED]')) 'Evidence report did not mark redacted content.'
     }
 }
 finally {
