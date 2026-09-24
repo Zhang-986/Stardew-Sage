@@ -133,7 +133,10 @@ function Get-EchoFarmRelativeFileList {
 
 function Test-EchoFarmPackage {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$PackagePath)
+    param(
+        [Parameter(Mandatory)][string]$PackagePath,
+        [switch]$AllowConfig
+    )
 
     $issues = [System.Collections.Generic.List[object]]::new()
     if (-not (Test-Path -LiteralPath $PackagePath -PathType Container)) {
@@ -152,6 +155,9 @@ function Test-EchoFarmPackage {
     $allowed = @{}
     foreach ($path in $required) {
         $allowed[$path] = $true
+    }
+    if ($AllowConfig) {
+        $allowed['config.json'] = $true
     }
     $files = @(Get-EchoFarmRelativeFileList -PackagePath $PackagePath)
     foreach ($requiredPath in $required) {
@@ -439,6 +445,173 @@ function Install-EchoFarm {
     [pscustomobject]@{ Installed = $true; InstallPath = $destination; ConfigPreserved = Test-Path -LiteralPath (Join-Path $destination 'config.json') }
 }
 
+function Get-EchoFarmAvailablePort {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    try {
+        $listener.Start()
+        return ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
+    }
+    finally {
+        $listener.Stop()
+    }
+}
+
+function Test-EchoFarmCoreHealth {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$CoreExecutablePath,
+        [string]$WorkingDirectory,
+        [ValidateRange(1, 120)][int]$TimeoutSeconds = 15
+    )
+
+    $issues = [System.Collections.Generic.List[object]]::new()
+    if (-not (Test-Path -LiteralPath $CoreExecutablePath -PathType Leaf)) {
+        $issues.Add((New-EchoFarmIssue 'missing_core_executable' 'The EchoFarm sidecar executable is missing.' 'Rebuild the candidate package and retry.'))
+        return [pscustomobject]@{ Ready = $false; Endpoint = $null; Issues = @($issues.ToArray()) }
+    }
+    $CoreExecutablePath = [System.IO.Path]::GetFullPath($CoreExecutablePath)
+    if ([string]::IsNullOrWhiteSpace($WorkingDirectory)) {
+        $WorkingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ('echofarm-health-' + [Guid]::NewGuid().ToString('N'))
+    }
+    $WorkingDirectory = [System.IO.Path]::GetFullPath($WorkingDirectory)
+    New-Item -ItemType Directory -Path $WorkingDirectory -Force | Out-Null
+
+    $port = Get-EchoFarmAvailablePort
+    $endpoint = "http://127.0.0.1:$port/healthz"
+    $databasePath = Join-Path $WorkingDirectory ('health-' + [Guid]::NewGuid().ToString('N') + '.db')
+    $process = $null
+    try {
+        $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+        $startInfo.FileName = $CoreExecutablePath
+        $startInfo.WorkingDirectory = $WorkingDirectory
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.EnvironmentVariables['ECHOFARM_ADDRESS'] = "127.0.0.1:$port"
+        $startInfo.EnvironmentVariables['ECHOFARM_DATABASE_PATH'] = $databasePath
+        $startInfo.EnvironmentVariables['ECHOFARM_MODEL_MODE'] = 'fixture'
+        $process = [System.Diagnostics.Process]::Start($startInfo)
+        if ($null -eq $process) {
+            throw 'The sidecar process could not be created.'
+        }
+
+        $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+        while ([DateTime]::UtcNow -lt $deadline) {
+            if ($process.HasExited) {
+                $issues.Add((New-EchoFarmIssue 'core_exited_early' "The EchoFarm sidecar exited before health verification (code $($process.ExitCode))." 'Rebuild the package and inspect the SMAPI/Core diagnostic log.'))
+                break
+            }
+            try {
+                $response = Invoke-RestMethod -Uri $endpoint -TimeoutSec 2
+                if ($response.status -eq 'ok') {
+                    return [pscustomobject]@{ Ready = $true; Endpoint = $endpoint; Issues = @() }
+                }
+            }
+            catch {
+                Start-Sleep -Milliseconds 200
+            }
+        }
+        if ($issues.Count -eq 0) {
+            $issues.Add((New-EchoFarmIssue 'core_health_timeout' 'The EchoFarm sidecar did not become healthy before the deadline.' 'Check endpoint conflicts or security software, then rerun -Prepare.'))
+        }
+    }
+    catch {
+        $issues.Add((New-EchoFarmIssue 'core_start_failed' (Protect-EchoFarmDiagnosticText $_.Exception.Message) 'Confirm the package architecture is Windows x64 and rerun -Prepare.'))
+    }
+    finally {
+        if ($null -ne $process) {
+            try {
+                if (-not $process.HasExited) {
+                    $process.Kill()
+                    $process.WaitForExit(5000) | Out-Null
+                }
+            }
+            catch {
+            }
+            $process.Dispose()
+        }
+        foreach ($path in @($databasePath, "$databasePath-shm", "$databasePath-wal")) {
+            Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+        }
+    }
+    return [pscustomobject]@{ Ready = $false; Endpoint = $endpoint; Issues = @($issues.ToArray()) }
+}
+
+function New-EchoFarmCandidate {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$GamePath,
+        [string]$OutputPath,
+        [string]$ModBuildDirectory,
+        [string]$CoreExecutablePath,
+        [switch]$SkipCompilation,
+        [scriptblock]$HealthProbe
+    )
+
+    $buildArguments = @{
+        GamePath        = $GamePath
+        SkipCompilation = $SkipCompilation
+    }
+    if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
+        $buildArguments.OutputPath = $OutputPath
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ModBuildDirectory)) {
+        $buildArguments.ModBuildDirectory = $ModBuildDirectory
+    }
+    if (-not [string]::IsNullOrWhiteSpace($CoreExecutablePath)) {
+        $buildArguments.CoreExecutablePath = $CoreExecutablePath
+    }
+
+    $build = Build-EchoFarmPackage @buildArguments
+    $install = Install-EchoFarm -GamePath $GamePath -PackagePath $build.PackagePath
+    $installedPackage = Test-EchoFarmPackage -PackagePath $install.InstallPath -AllowConfig
+    if ($null -eq $HealthProbe) {
+        $health = Test-EchoFarmCoreHealth `
+            -CoreExecutablePath (Join-Path $install.InstallPath 'core/echofarm-core.exe') `
+            -WorkingDirectory (Join-Path ([System.IO.Path]::GetTempPath()) ('echofarm-candidate-' + [Guid]::NewGuid().ToString('N')))
+    }
+    else {
+        $health = & $HealthProbe `
+            -CoreExecutablePath (Join-Path $install.InstallPath 'core/echofarm-core.exe') `
+            -WorkingDirectory (Split-Path -Parent $install.InstallPath)
+    }
+
+    $readyForDisposableSave = [bool]($build.Ready -and $install.Installed -and $installedPackage.Ready -and $health.Ready)
+    $stages = @(
+        [pscustomobject][ordered]@{ name = 'build'; status = $(if ($build.Ready) { 'passed' } else { 'failed' }); automated = $true },
+        [pscustomobject][ordered]@{ name = 'package'; status = $(if ($installedPackage.Ready) { 'passed' } else { 'failed' }); automated = $true },
+        [pscustomobject][ordered]@{ name = 'install'; status = $(if ($install.Installed) { 'passed' } else { 'failed' }); automated = $true },
+        [pscustomobject][ordered]@{ name = 'sidecar_health'; status = $(if ($health.Ready) { 'passed' } else { 'failed' }); automated = $true },
+        [pscustomobject][ordered]@{ name = 'smapi_launch'; status = 'pending'; automated = $false },
+        [pscustomobject][ordered]@{ name = 'semantic_activity_gameplay'; status = 'pending'; automated = $false }
+    )
+    $report = [pscustomobject][ordered]@{
+        schemaVersion = 1
+        generatedAtUtc = [DateTime]::UtcNow.ToString('o')
+        readyForDisposableSave = $readyForDisposableSave
+        readyForPublicRelease = $false
+        gamePath = [System.IO.Path]::GetFullPath($GamePath)
+        installPath = $install.InstallPath
+        archivePath = $build.ArchivePath
+        packageSha256 = $build.Checksum
+        stages = $stages
+        nextAction = 'Launch StardewModdingAPI.exe with a disposable save and complete docs/echofarm/windows-smoke-checklist.md.'
+    }
+    $acceptancePath = "$($build.PackagePath).acceptance.json"
+    $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $acceptancePath -Encoding utf8
+
+    [pscustomobject]@{
+        Ready                  = $readyForDisposableSave
+        ReadyForDisposableSave = $readyForDisposableSave
+        ReadyForPublicRelease  = $false
+        InstallPath            = $install.InstallPath
+        ArchivePath            = $build.ArchivePath
+        EvidencePath           = $build.EvidencePath
+        AcceptancePath         = $acceptancePath
+        HealthEndpoint         = $health.Endpoint
+        Issues                 = @($installedPackage.Issues) + @($health.Issues)
+    }
+}
+
 function Uninstall-EchoFarm {
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -473,4 +646,4 @@ function Uninstall-EchoFarm {
     }
 }
 
-Export-ModuleMember -Function Resolve-EchoFarmGamePath, Test-EchoFarmPrerequisites, Test-EchoFarmPackage, Write-EchoFarmEvidenceReport, Build-EchoFarmPackage, Install-EchoFarm, Uninstall-EchoFarm
+Export-ModuleMember -Function Resolve-EchoFarmGamePath, Test-EchoFarmPrerequisites, Test-EchoFarmPackage, Write-EchoFarmEvidenceReport, Build-EchoFarmPackage, Install-EchoFarm, Test-EchoFarmCoreHealth, New-EchoFarmCandidate, Uninstall-EchoFarm

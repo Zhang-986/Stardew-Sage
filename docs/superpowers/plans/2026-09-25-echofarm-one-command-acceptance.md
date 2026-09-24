@@ -16,11 +16,11 @@
 - Modify: `scripts/windows/Test-EchoFarmSetup.ps1`
 - Modify: `scripts/windows/EchoFarm.Setup.psm1`
 
-- [ ] **Step 1: Write the failing orchestration test**
+- [x] **Step 1: Write the failing orchestration test**
 
-Add a fixture test that calls `Prepare-EchoFarmCandidate` with fixture Mod/Core files and an injected successful health probe. Assert that the package is installed, `ReadyForDisposableSave` is true, `ReadyForPublicRelease` is false, the native gameplay stage is `pending`, and `EchoFarm.acceptance.json` exists without secret-bearing content.
+Add a fixture test that calls `New-EchoFarmCandidate` with fixture Mod/Core files and an injected successful health probe. Assert that the package is installed, `ReadyForDisposableSave` is true, `ReadyForPublicRelease` is false, the native gameplay stage is `pending`, and `EchoFarm.acceptance.json` exists without secret-bearing content.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -28,17 +28,17 @@ Run:
 .tools/pwsh/pwsh -NoLogo -NoProfile -File scripts/windows/Test-EchoFarmSetup.ps1
 ```
 
-Expected: FAIL because `Prepare-EchoFarmCandidate` does not exist.
+Expected: FAIL because the candidate orchestration function does not exist.
 
-- [ ] **Step 3: Implement the bounded health probe**
+- [x] **Step 3: Implement the bounded health probe**
 
 Add `Test-EchoFarmCoreHealth` to `EchoFarm.Setup.psm1`. It must choose a free loopback port, launch only the supplied sidecar with fixture-mode environment variables through `System.Diagnostics.ProcessStartInfo`, poll `/healthz` until it receives `{ "status": "ok" }`, terminate only the process it owns, delete its temporary database, and return stable issue codes instead of leaking process output.
 
-- [ ] **Step 4: Implement candidate orchestration and evidence**
+- [x] **Step 4: Implement candidate orchestration and evidence**
 
-Add `Prepare-EchoFarmCandidate` to compose `Build-EchoFarmPackage`, `Install-EchoFarm`, `Test-EchoFarmPackage` against the installed directory, and `Test-EchoFarmCoreHealth`. Write `EchoFarm.acceptance.json` with automated stages `build`, `package`, `install`, and `sidecar_health` passed, manual stages `smapi_launch` and `semantic_activity_gameplay` pending, `readyForDisposableSave: true`, and `readyForPublicRelease: false`. Export both new functions.
+Add `New-EchoFarmCandidate` to compose `Build-EchoFarmPackage`, `Install-EchoFarm`, `Test-EchoFarmPackage` against the installed directory, and `Test-EchoFarmCoreHealth`. Write `EchoFarm.acceptance.json` with automated stages `build`, `package`, `install`, and `sidecar_health` passed, manual stages `smapi_launch` and `semantic_activity_gameplay` pending, `readyForDisposableSave: true`, and `readyForPublicRelease: false`. Export both new functions.
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Run the PowerShell suite and require all tests to pass, then commit:
 
@@ -82,4 +82,3 @@ Document the resulting acceptance JSON and state explicitly that `readyForDispos
 - [ ] **Step 5: Run full verification and commit**
 
 Run the PowerShell suite, full .NET Release suite, Go race/vet, all four cross-process demos, Nexus package smoke, tracked-source secret scan, and `git diff --check`. Commit and push the exact SHA, then require Linux `verify` and Windows `windows-sidecar` to pass.
-

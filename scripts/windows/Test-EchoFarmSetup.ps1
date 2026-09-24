@@ -108,6 +108,49 @@ try {
         Assert-True (Test-Path -LiteralPath "$output.evidence.json") 'Machine-readable build evidence was not emitted.'
     }
 
+    Invoke-Test 'prepares an installed candidate and keeps native gameplay pending' {
+        $root = Join-Path $tempRoot 'prepare'
+        $gamePath = New-FixtureGame (Join-Path $root 'game')
+        $modBuild = Join-Path $root 'mod-build'
+        New-Item -ItemType Directory -Path $modBuild -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $modBuild 'EchoFarm.Mod.dll') -Value 'mod'
+        Set-Content -LiteralPath (Join-Path $modBuild 'EchoFarm.Bridge.dll') -Value 'bridge'
+        $core = Join-Path $root 'echofarm-core.exe'
+        Set-Content -LiteralPath $core -Value 'core'
+        $output = Join-Path $root 'out/EchoFarm'
+        $installed = Join-Path $gamePath 'Mods/EchoFarm'
+        New-Item -ItemType Directory -Path $installed -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $installed 'config.json') -Value '{"keep":true}'
+        $healthProbe = {
+            param([string]$CoreExecutablePath, [string]$WorkingDirectory)
+            [pscustomobject]@{
+                Ready    = $true
+                Endpoint = 'http://127.0.0.1:18499/healthz'
+                Issues   = @()
+            }
+        }
+
+        $result = New-EchoFarmCandidate `
+            -GamePath $gamePath `
+            -OutputPath $output `
+            -ModBuildDirectory $modBuild `
+            -CoreExecutablePath $core `
+            -SkipCompilation `
+            -HealthProbe $healthProbe
+
+        Assert-True $result.ReadyForDisposableSave 'Automated candidate gates did not allow disposable-save testing.'
+        Assert-True (-not $result.ReadyForPublicRelease) 'Unsigned native gameplay unexpectedly allowed public release.'
+        Assert-True (Test-Path -LiteralPath (Join-Path $gamePath 'Mods/EchoFarm/manifest.json')) 'Candidate was not installed.'
+        Assert-True ((Get-Content -LiteralPath (Join-Path $installed 'config.json') -Raw).Trim() -eq '{"keep":true}') 'Candidate preparation did not preserve config.json.'
+        Assert-True (Test-Path -LiteralPath $result.AcceptancePath) 'Candidate acceptance report was not emitted.'
+        $raw = Get-Content -LiteralPath $result.AcceptancePath -Raw
+        $report = $raw | ConvertFrom-Json
+        $native = @($report.stages | Where-Object name -eq 'semantic_activity_gameplay')
+        Assert-True ($report.readyForDisposableSave -and -not $report.readyForPublicRelease) 'Acceptance readiness flags are incorrect.'
+        Assert-True ($native.Count -eq 1 -and $native[0].status -eq 'pending' -and -not $native[0].automated) 'Native gameplay gate was not left pending.'
+        Assert-True (-not $raw.Contains('sk-do-not-display')) 'Acceptance report leaked secret material.'
+    }
+
     Invoke-Test 'install atomically replaces program files and preserves config' {
         $root = Join-Path $tempRoot 'install'
         $gamePath = New-FixtureGame (Join-Path $root 'game')
