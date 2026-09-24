@@ -15,7 +15,7 @@ func Match(snapshot domain.WorldSnapshot, experiences []domain.PolicyExperience,
 	result := make([]domain.PolicyExperience, 0, min(limit, len(experiences)))
 	for _, experience := range experiences {
 		if experience.SaveID != snapshot.SaveID || !contextMatches(experience.Context, snapshot.Weather) ||
-			!signalsMatch(experience.WhenSignals, availableSignals) {
+			!signalsMatch(experience.WhenSignals, availableSignals) || domain.ExperienceIsCooled(experience) {
 			continue
 		}
 		if experience.PreferredTargetID != "" {
@@ -29,8 +29,10 @@ func Match(snapshot domain.WorldSnapshot, experiences []domain.PolicyExperience,
 		result = append(result, copy)
 	}
 	sort.Slice(result, func(i, j int) bool {
-		if result[i].Confidence != result[j].Confidence {
-			return result[i].Confidence > result[j].Confidence
+		leftConfidence := domain.ExperienceRankingConfidence(result[i])
+		rightConfidence := domain.ExperienceRankingConfidence(result[j])
+		if leftConfidence != rightConfidence {
+			return leftConfidence > rightConfidence
 		}
 		if result[i].ObservationCount != result[j].ObservationCount {
 			return result[i].ObservationCount > result[j].ObservationCount

@@ -55,6 +55,9 @@ func Merge(existing []domain.PolicyExperience, saveID string, day int, source do
 		if source == domain.ExperienceSourceCorrection {
 			experience.Source = source
 		}
+		if err := refreshEffectiveConfidence(experience); err != nil {
+			return nil, domain.PolicyExperience{}, err
+		}
 		learned := *experience
 		learned.WhenSignals = append([]domain.SituationSignal(nil), experience.WhenSignals...)
 		learned.EvidenceRefs = append([]string(nil), experience.EvidenceRefs...)
@@ -66,6 +69,9 @@ func Merge(existing []domain.PolicyExperience, saveID string, day int, source do
 		if sameScope(result[i], observation, normalizedSignals) {
 			result[i].Confidence *= 0.8
 			result[i].ContradictionCount++
+			if err := refreshEffectiveConfidence(&result[i]); err != nil {
+				return nil, domain.PolicyExperience{}, err
+			}
 		}
 	}
 	confidence := observation.Strength
@@ -80,12 +86,22 @@ func Merge(existing []domain.PolicyExperience, saveID string, day int, source do
 		ID: id, SaveID: saveID, Trigger: observation.Trigger, Context: observation.Context,
 		WhenSignals: normalizedSignals, AvoidAction: observation.AvoidAction, PreferAction: observation.PreferAction,
 		PreferredTargetID: observation.PreferredTargetID, Summary: observation.Summary,
-		Confidence: confidence, ObservationCount: 1, FirstSeenDay: day, LastSeenDay: day,
+		Confidence: confidence, EffectiveConfidence: confidence,
+		ObservationCount: 1, FirstSeenDay: day, LastSeenDay: day,
 		EvidenceRefs: []string{observation.EvidenceRef}, Source: source,
 	}
 	result = append(result, learned)
 	sortExperiences(result)
 	return result, learned, nil
+}
+
+func refreshEffectiveConfidence(experience *domain.PolicyExperience) error {
+	effective, err := domain.EffectiveExperienceConfidence(experience.Confidence, experience.SuccessCount, experience.FailureCount)
+	if err != nil {
+		return err
+	}
+	experience.EffectiveConfidence = effective
+	return nil
 }
 
 func experienceID(observation domain.ExperienceObservation, signals []domain.SituationSignal) string {

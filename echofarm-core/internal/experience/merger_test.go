@@ -1,6 +1,7 @@
 package experience
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
@@ -50,6 +51,30 @@ func TestMergeStrengthensMatchingExperienceWithoutMutatingInput(t *testing.T) {
 	}
 	if !reflect.DeepEqual(existing, before) {
 		t.Fatalf("Merge mutated input: before=%+v after=%+v", before, existing)
+	}
+}
+
+func TestMergeReprojectsEffectivenessAfterSemanticEvidenceChanges(t *testing.T) {
+	observation := experienceObservation("chest-east", "decision:echo-1:1")
+	existing, _, err := Merge(nil, "farm-1", 2, domain.ExperienceSourceFailure, observation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing[0].FailureCount = 1
+	existing[0].EffectiveConfidence = 0.52
+	second := observation
+	second.EvidenceRef = "decision:echo-2:1"
+
+	_, learned, err := Merge(existing, "farm-1", 3, domain.ExperienceSourceFailure, second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := domain.EffectiveExperienceConfidence(learned.Confidence, learned.SuccessCount, learned.FailureCount)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(learned.EffectiveConfidence-want) > 1e-9 {
+		t.Fatalf("effective confidence = %v, want %v after semantic update", learned.EffectiveConfidence, want)
 	}
 }
 

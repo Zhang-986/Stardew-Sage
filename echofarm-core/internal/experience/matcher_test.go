@@ -47,6 +47,45 @@ func TestMatchRequiresAllSituationSignalsAndExistingPreferredTarget(t *testing.T
 	}
 }
 
+func TestMatchRanksEffectiveConfidenceBeforeSemanticConfidence(t *testing.T) {
+	snapshot := matchingSnapshot()
+	highSemantic := policyExperience("exp-semantic", domain.TraitContextSunny, "chest-east", 0.9, 4)
+	highSemantic.EffectiveConfidence = 0.45
+	highSemantic.SuccessCount = 1
+	highSemantic.FailureCount = 4
+	highEffective := policyExperience("exp-effective", domain.TraitContextSunny, "chest-west", 0.6, 2)
+	highEffective.EffectiveConfidence = 0.8
+	highEffective.SuccessCount = 4
+
+	got := Match(snapshot, []domain.PolicyExperience{highSemantic, highEffective}, 2)
+	if len(got) != 2 || got[0].ID != highEffective.ID {
+		t.Fatalf("Match() = %+v, want effective experience first", got)
+	}
+}
+
+func TestMatchFiltersRepeatedlyContradictedCooledExperience(t *testing.T) {
+	snapshot := matchingSnapshot()
+	cooled := policyExperience("exp-cooled", domain.TraitContextSunny, "chest-east", 0.65, 4)
+	cooled.EffectiveConfidence = 0.39
+	cooled.FailureCount = 3
+	legacy := policyExperience("exp-legacy", domain.TraitContextSunny, "chest-west", 0.6, 2)
+
+	got := Match(snapshot, []domain.PolicyExperience{cooled, legacy}, 3)
+	if len(got) != 1 || got[0].ID != legacy.ID {
+		t.Fatalf("Match() = %+v, want only legacy experience", got)
+	}
+}
+
+func matchingSnapshot() domain.WorldSnapshot {
+	return domain.WorldSnapshot{
+		SaveID: "farm-1", SessionID: "echo-5", SnapshotVersion: 1, Day: 5, TimeOfDay: 700,
+		Weather: domain.WeatherSunny, Location: "Farm", Energy: 200, MaxEnergy: 270,
+		Inventory:   domain.InventorySummary{FreeSlots: 0, Items: []domain.InventoryItem{{ItemID: "parsnip", Name: "Parsnip", Quantity: 1}}},
+		WateringCan: domain.ToolState{Name: "Watering Can", Water: 10, Capacity: 40},
+		Chests:      []domain.Chest{{ID: "chest-east"}, {ID: "chest-west"}},
+	}
+}
+
 func policyExperience(id string, context domain.TraitContext, targetID string, confidence float64, observations int) domain.PolicyExperience {
 	return domain.PolicyExperience{
 		ID: id, SaveID: "farm-1", Trigger: domain.ExperienceInventoryFull, Context: context,

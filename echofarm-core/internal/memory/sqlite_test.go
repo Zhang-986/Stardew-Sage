@@ -358,7 +358,9 @@ func TestSQLitePersistsExperienceOutcomeAcrossReopen(t *testing.T) {
 		t.Fatalf("GetExperienceOutcome() = %+v, %v; want %+v", got, err, want)
 	}
 	experiences, err := store.ListPolicyExperiences(ctx, want.Experience.SaveID)
-	if err != nil || len(experiences) != 1 || !reflect.DeepEqual(experiences[0], want.Experience) {
+	wantProjected := want.Experience
+	wantProjected.EffectiveConfidence = wantProjected.Confidence
+	if err != nil || len(experiences) != 1 || !reflect.DeepEqual(experiences[0], wantProjected) {
 		t.Fatalf("ListPolicyExperiences() = %+v, %v", experiences, err)
 	}
 }

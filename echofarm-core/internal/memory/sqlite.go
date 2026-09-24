@@ -94,6 +94,16 @@ CREATE TABLE IF NOT EXISTS reflection_jobs (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (save_id, source_id)
+);
+CREATE TABLE IF NOT EXISTS experience_feedback (
+  save_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  snapshot_version INTEGER NOT NULL,
+  experience_id TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  error_code TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, session_id, snapshot_version, experience_id)
 );`
 
 type SQLite struct {
@@ -354,12 +364,12 @@ WHERE save_id=? AND session_id=? AND snapshot_version=? AND payload_json=?`,
 		return false, fmt.Errorf("read attached decision result count: %w", err)
 	}
 	if affected == 1 {
+		now := s.now().UTC().Format(time.RFC3339Nano)
 		if result.Status == domain.ActionFailed {
 			jobPayload, marshalErr := json.Marshal(reflectionJobPayload{Snapshot: snapshot, Result: result})
 			if marshalErr != nil {
 				return false, fmt.Errorf("marshal reflection job: %w", marshalErr)
 			}
-			now := s.now().UTC().Format(time.RFC3339Nano)
 			sourceID := fmt.Sprintf("decision:%s:%d", result.SessionID, result.SnapshotVersion)
 			if _, err := tx.ExecContext(ctx, `
 INSERT INTO reflection_jobs(
@@ -370,6 +380,9 @@ ON CONFLICT(save_id, source_id) DO NOTHING`,
 				result.SaveID, sourceID, jobPayload, reflectionJobPending, now, now); err != nil {
 				return false, fmt.Errorf("enqueue reflection job: %w", err)
 			}
+		}
+		if err := appendExperienceFeedback(ctx, tx, record, result, now); err != nil {
+			return false, err
 		}
 		if err := tx.Commit(); err != nil {
 			return false, fmt.Errorf("commit action result: %w", err)
@@ -390,6 +403,35 @@ WHERE save_id=? AND session_id=? AND snapshot_version=?`,
 		return false, nil
 	}
 	return false, errors.New("decision result already recorded with different content")
+}
+
+func appendExperienceFeedback(ctx context.Context, tx *sql.Tx, record domain.DecisionRecord, result domain.ActionResult, now string) error {
+	if record.Proposal == nil || record.SelectedCandidate != 0 || record.FinalAction.Kind == domain.ActionStopSession || len(record.Proposal.AppliedExperienceIDs) == 0 {
+		return nil
+	}
+	outcome := domain.ClassifyExperienceFeedback(result)
+	errorCode := domain.NormalizeExperienceFeedbackError(result)
+	for _, experienceID := range record.Proposal.AppliedExperienceIDs {
+		var exists int
+		err := tx.QueryRowContext(ctx, `
+SELECT 1 FROM policy_experiences WHERE save_id=? AND experience_id=?`,
+			record.SaveID, experienceID).Scan(&exists)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("applied experience %q is not persisted for this save", experienceID)
+		}
+		if err != nil {
+			return fmt.Errorf("verify applied experience %q: %w", experienceID, err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO experience_feedback(
+  save_id, session_id, snapshot_version, experience_id, outcome, error_code, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(save_id, session_id, snapshot_version, experience_id) DO NOTHING`,
+			record.SaveID, record.SessionID, record.SnapshotVersion, experienceID, outcome, errorCode, now); err != nil {
+			return fmt.Errorf("save experience feedback %q: %w", experienceID, err)
+		}
+	}
+	return nil
 }
 
 func (s *SQLite) ClaimReflectionJob(ctx context.Context, saveID string, leaseDuration time.Duration) (ReflectionJobLease, bool, error) {
@@ -541,7 +583,13 @@ func (s *SQLite) SaveExperienceOutcome(ctx context.Context, outcome domain.Exper
 	if err := validateExperienceOutcome(outcome); err != nil {
 		return err
 	}
-	outcomeJSON, err := json.Marshal(outcome)
+	persistedOutcome := outcome
+	persistedOutcome.Experience = basePolicyExperience(outcome.Experience)
+	persistedOutcome.UpdatedExperiences = make([]domain.PolicyExperience, len(outcome.UpdatedExperiences))
+	for index, experience := range outcome.UpdatedExperiences {
+		persistedOutcome.UpdatedExperiences[index] = basePolicyExperience(experience)
+	}
+	outcomeJSON, err := json.Marshal(persistedOutcome)
 	if err != nil {
 		return fmt.Errorf("marshal experience outcome: %w", err)
 	}
@@ -576,6 +624,7 @@ VALUES (?, ?, ?, ?)`, outcome.Experience.SaveID, outcome.Correction.ID, correcti
 		experiences = []domain.PolicyExperience{outcome.Experience}
 	}
 	for _, experience := range experiences {
+		experience = basePolicyExperience(experience)
 		if experience.SaveID != outcome.Experience.SaveID {
 			return errors.New("updated experience belongs to another save")
 		}
@@ -619,19 +668,75 @@ SELECT payload_json FROM policy_experiences WHERE save_id=? ORDER BY experience_
 	if err != nil {
 		return nil, fmt.Errorf("list policy experiences: %w", err)
 	}
-	defer rows.Close()
 	result := make([]domain.PolicyExperience, 0)
 	for rows.Next() {
 		var experience domain.PolicyExperience
 		if err := scanJSON(rows, &experience); err != nil {
+			_ = rows.Close()
 			return nil, err
 		}
+		experience = basePolicyExperience(experience)
 		result = append(result, experience)
 	}
 	if err := rows.Err(); err != nil {
+		_ = rows.Close()
 		return nil, fmt.Errorf("iterate policy experiences: %w", err)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close policy experiences: %w", err)
+	}
+	indexes := make(map[string]int, len(result))
+	for index := range result {
+		indexes[result[index].ID] = index
+	}
+	feedbackRows, err := s.db.QueryContext(ctx, `
+SELECT experience_id, outcome, COUNT(*) FROM experience_feedback
+WHERE save_id=? GROUP BY experience_id, outcome ORDER BY experience_id, outcome`, saveID)
+	if err != nil {
+		return nil, fmt.Errorf("list experience feedback: %w", err)
+	}
+	defer feedbackRows.Close()
+	for feedbackRows.Next() {
+		var experienceID string
+		var outcome domain.ExperienceFeedbackOutcome
+		var count int
+		if err := feedbackRows.Scan(&experienceID, &outcome, &count); err != nil {
+			return nil, fmt.Errorf("scan experience feedback: %w", err)
+		}
+		index, ok := indexes[experienceID]
+		if !ok {
+			return nil, fmt.Errorf("experience feedback references missing experience %q", experienceID)
+		}
+		switch outcome {
+		case domain.ExperienceFeedbackSucceeded:
+			result[index].SuccessCount += count
+		case domain.ExperienceFeedbackContradicted:
+			result[index].FailureCount += count
+		case domain.ExperienceFeedbackNeutral:
+			result[index].NeutralCount += count
+		default:
+			return nil, fmt.Errorf("unsupported experience feedback outcome %q", outcome)
+		}
+	}
+	if err := feedbackRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate experience feedback: %w", err)
+	}
+	for index := range result {
+		effective, err := domain.EffectiveExperienceConfidence(result[index].Confidence, result[index].SuccessCount, result[index].FailureCount)
+		if err != nil {
+			return nil, fmt.Errorf("project experience %q: %w", result[index].ID, err)
+		}
+		result[index].EffectiveConfidence = effective
+	}
 	return result, nil
+}
+
+func basePolicyExperience(experience domain.PolicyExperience) domain.PolicyExperience {
+	experience.EffectiveConfidence = 0
+	experience.SuccessCount = 0
+	experience.FailureCount = 0
+	experience.NeutralCount = 0
+	return experience
 }
 
 func (s *SQLite) GetPlayerCorrection(ctx context.Context, saveID, correctionID string) (domain.PlayerCorrection, error) {
