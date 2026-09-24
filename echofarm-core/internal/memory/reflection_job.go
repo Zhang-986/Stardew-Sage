@@ -15,6 +15,7 @@ const (
 	reflectionJobCompleted  = "completed"
 
 	ReflectionFailureModelUnavailable = "model_unavailable"
+	ReflectionFailureBudgetExceeded   = "budget_exhausted"
 	ReflectionFailureCanceled         = "canceled"
 	ReflectionFailureInternal         = "reflection_failed"
 )
@@ -48,7 +49,7 @@ func validateReflectionLease(lease ReflectionJobLease) error {
 
 func validReflectionFailureCode(code string) bool {
 	switch code {
-	case ReflectionFailureModelUnavailable, ReflectionFailureCanceled, ReflectionFailureInternal:
+	case ReflectionFailureModelUnavailable, ReflectionFailureBudgetExceeded, ReflectionFailureCanceled, ReflectionFailureInternal:
 		return true
 	default:
 		return false

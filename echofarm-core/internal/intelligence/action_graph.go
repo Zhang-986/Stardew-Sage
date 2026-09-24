@@ -71,7 +71,7 @@ func compileActionChain[I any](generator StructuredGenerator, prompt string, act
 	chain.AppendLambda(compose.InvokableLambda(func(ctx context.Context, input I) (domain.ActionProposal, error) {
 		var proposal domain.ActionProposal
 		if err := generator.GenerateJSON(ctx, prompt, input, &proposal); err != nil {
-			if errors.Is(err, ErrModelUnavailable) {
+			if errors.Is(err, ErrModelUnavailable) || errors.Is(err, ErrModelBudgetExceeded) {
 				return domain.ActionProposal{}, err
 			}
 			return domain.ActionProposal{}, fmt.Errorf("%w: %v", ErrInvalidModelOutput, err)

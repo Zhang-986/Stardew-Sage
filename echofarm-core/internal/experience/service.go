@@ -68,6 +68,8 @@ func (s *Service) ProcessPending(ctx context.Context, saveID string) (bool, erro
 			failureCode = memory.ReflectionFailureCanceled
 		} else if errors.Is(err, intelligence.ErrModelUnavailable) {
 			failureCode = memory.ReflectionFailureModelUnavailable
+		} else if errors.Is(err, intelligence.ErrModelBudgetExceeded) {
+			failureCode = memory.ReflectionFailureBudgetExceeded
 		}
 		releaseErr := s.store.ReleaseReflectionJob(context.WithoutCancel(ctx), lease, failureCode)
 		return true, errors.Join(err, releaseErr)

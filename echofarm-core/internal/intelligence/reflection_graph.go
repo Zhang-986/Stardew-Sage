@@ -24,7 +24,7 @@ func NewReflectionGraph(generator StructuredGenerator) (*ReflectionGraph, error)
 		}
 		var observation domain.ExperienceObservation
 		if err := generator.GenerateJSON(ctx, reflectionSystemPrompt, input, &observation); err != nil {
-			if errors.Is(err, ErrModelUnavailable) {
+			if errors.Is(err, ErrModelUnavailable) || errors.Is(err, ErrModelBudgetExceeded) {
 				return domain.ExperienceObservation{}, err
 			}
 			return domain.ExperienceObservation{}, fmt.Errorf("%w: %v", ErrInvalidModelOutput, err)

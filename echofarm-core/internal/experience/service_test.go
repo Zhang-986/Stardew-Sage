@@ -288,6 +288,29 @@ func TestProcessPendingReleasesModelFailureAndRetries(t *testing.T) {
 	}
 }
 
+func TestProcessPendingReleasesBudgetExhaustionWithStableCode(t *testing.T) {
+	snapshot, result := reflectiveFailure()
+	sourceID := FailureSourceID(result)
+	store := &experienceStoreStub{
+		model: domain.PlayerModel{SaveID: snapshot.SaveID, Revision: 2, EnergyReserve: 40},
+		pendingJob: &memory.ReflectionJob{
+			SaveID: snapshot.SaveID, SourceID: sourceID, Snapshot: snapshot, Result: result,
+		},
+	}
+	service, err := NewService(store, &reflectorStub{err: intelligence.ErrModelBudgetExceeded})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	processed, err := service.ProcessPending(context.Background(), snapshot.SaveID)
+	if !processed || !errors.Is(err, intelligence.ErrModelBudgetExceeded) {
+		t.Fatalf("ProcessPending() = %v, %v", processed, err)
+	}
+	if store.leaseActive || len(store.releaseCodes) != 1 || store.releaseCodes[0] != memory.ReflectionFailureBudgetExceeded {
+		t.Fatalf("released job state = active:%v codes:%v", store.leaseActive, store.releaseCodes)
+	}
+}
+
 func TestProcessPendingCompletesFromCanonicalOutcomeWithoutModelCall(t *testing.T) {
 	snapshot, result := reflectiveFailure()
 	sourceID := FailureSourceID(result)

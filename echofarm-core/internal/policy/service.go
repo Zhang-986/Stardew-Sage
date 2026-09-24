@@ -92,6 +92,9 @@ func (s *Service) NextDecision(ctx context.Context, saveID string, snapshot doma
 	}
 	input, stop, err := s.prepare(ctx, saveID, snapshot)
 	if err != nil {
+		if errors.Is(err, intelligence.ErrModelBudgetExceeded) {
+			return s.saveBudgetStop(ctx, snapshot, input.Coordination)
+		}
 		return domain.ActionDecision{}, err
 	}
 	if stop != nil {
@@ -101,6 +104,9 @@ func (s *Service) NextDecision(ctx context.Context, saveID string, snapshot doma
 	}
 	proposal, err := s.actor.ProposeAction(ctx, input)
 	if err != nil {
+		if errors.Is(err, intelligence.ErrModelBudgetExceeded) {
+			return s.saveBudgetStop(ctx, snapshot, input.Coordination)
+		}
 		return domain.ActionDecision{}, err
 	}
 	decision, selected, err := s.selectDecision(proposal, input)
@@ -142,6 +148,9 @@ func (s *Service) HandleResultDecision(ctx context.Context, saveID string, snaps
 	}
 	input, stop, err := s.prepare(ctx, saveID, snapshot)
 	if err != nil {
+		if errors.Is(err, intelligence.ErrModelBudgetExceeded) {
+			return s.saveBudgetStop(ctx, snapshot, input.Coordination)
+		}
 		return domain.ActionDecision{}, err
 	}
 	if stop != nil {
@@ -157,6 +166,9 @@ func (s *Service) HandleResultDecision(ctx context.Context, saveID string, snaps
 		proposal, err = s.actor.ProposeAction(ctx, input)
 	}
 	if err != nil {
+		if errors.Is(err, intelligence.ErrModelBudgetExceeded) {
+			return s.saveBudgetStop(ctx, snapshot, input.Coordination)
+		}
 		return domain.ActionDecision{}, err
 	}
 	decision, selected, err := s.selectDecision(proposal, input)
@@ -183,14 +195,16 @@ func (s *Service) prepare(ctx context.Context, saveID string, snapshot domain.Wo
 		return intelligence.ActionInput{}, nil, fmt.Errorf("load policy experiences: %w", err)
 	}
 	applicableExperiences := experience.Match(snapshot, storedExperiences, 3)
+	input := intelligence.ActionInput{
+		Snapshot: snapshot, PlayerModel: model, Skill: skill,
+		ApplicableExperiences: applicableExperiences,
+		Coordination:          domain.CoordinationContext{ModelRevision: model.Revision},
+	}
 	collaborationContext, err := s.collaborator.Prepare(ctx, snapshot, model)
 	if err != nil {
-		return intelligence.ActionInput{}, nil, err
+		return input, nil, err
 	}
-	input := intelligence.ActionInput{
-		Snapshot: snapshot, PlayerModel: model, Skill: skill, Coordination: collaborationContext,
-		ApplicableExperiences: applicableExperiences,
-	}
+	input.Coordination = collaborationContext
 	if snapshot.Energy <= model.EnergyReserve {
 		stop := domain.HighLevelAction{
 			SaveID: saveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
@@ -199,6 +213,16 @@ func (s *Service) prepare(ctx context.Context, saveID string, snapshot domain.Wo
 		return input, &stop, nil
 	}
 	return input, nil, nil
+}
+
+func (s *Service) saveBudgetStop(ctx context.Context, snapshot domain.WorldSnapshot, collaboration domain.CoordinationContext) (domain.ActionDecision, error) {
+	stop := domain.HighLevelAction{
+		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+		Kind: domain.ActionStopSession, Reason: "model budget exhausted; start a new Echo session or raise the configured limit",
+	}
+	proposal := domain.ActionProposal{Primary: stop, ModelConfidence: 1}
+	decision := domain.ActionDecision{Action: stop, Confidence: 1}
+	return s.saveDecision(ctx, snapshot, collaboration, proposal, decision, 0)
 }
 
 func validateSnapshotForSave(saveID string, snapshot domain.WorldSnapshot) error {

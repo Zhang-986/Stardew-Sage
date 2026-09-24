@@ -224,6 +224,8 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, output any) error {
 
 func writeServiceError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, intelligence.ErrModelBudgetExceeded):
+		writeAPIError(w, http.StatusTooManyRequests, "model_budget_exhausted", "Echo stopped because the configured model budget was exhausted")
 	case errors.Is(err, intelligence.ErrModelUnavailable):
 		writeAPIError(w, http.StatusServiceUnavailable, "model_unavailable", "Echo is unavailable; the game may continue normally")
 	case errors.Is(err, memory.ErrNotFound):

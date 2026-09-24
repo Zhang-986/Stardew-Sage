@@ -21,7 +21,7 @@ func NewIntentGraph(generator StructuredGenerator) (*IntentGraph, error) {
 	chain.AppendLambda(compose.InvokableLambda(func(ctx context.Context, input IntentInput) (IntentInference, error) {
 		var inference IntentInference
 		if err := generator.GenerateJSON(ctx, intentSystemPrompt, input, &inference); err != nil {
-			if errors.Is(err, ErrModelUnavailable) {
+			if errors.Is(err, ErrModelUnavailable) || errors.Is(err, ErrModelBudgetExceeded) {
 				return IntentInference{}, err
 			}
 			return IntentInference{}, fmt.Errorf("%w: %v", ErrInvalidModelOutput, err)

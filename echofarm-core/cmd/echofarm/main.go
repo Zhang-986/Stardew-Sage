@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/coordination"
+	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/domain"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/experience"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/httpapi"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/intelligence"
@@ -23,13 +25,15 @@ import (
 )
 
 type config struct {
-	Address      string
-	DatabasePath string
-	ModelMode    string
-	ModelBaseURL string
-	ModelAPIKey  string
-	ModelName    string
-	ModelTimeout time.Duration
+	Address                     string
+	DatabasePath                string
+	ModelMode                   string
+	ModelBaseURL                string
+	ModelAPIKey                 string
+	ModelName                   string
+	ModelTimeout                time.Duration
+	MaxModelCallsPerSession     int
+	MaxReportedTokensPerSession int
 }
 
 func main() {
@@ -62,6 +66,13 @@ func run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+	generator, err = intelligence.NewTrackingGenerator(generator, store, domain.ModelBudgetLimits{
+		MaxCallsPerSession:          config.MaxModelCallsPerSession,
+		MaxReportedTokensPerSession: config.MaxReportedTokensPerSession,
+	})
+	if err != nil {
+		return err
 	}
 	handler, err := buildHandler(ctx, store, generator)
 	if err != nil {
@@ -150,6 +161,15 @@ func loadConfig(lookup func(string) (string, bool)) (config, error) {
 		ModelName:    get("ECHOFARM_MODEL_NAME", ""),
 		ModelTimeout: 30 * time.Second,
 	}
+	var err error
+	result.MaxModelCallsPerSession, err = positiveIntSetting(get("ECHOFARM_MAX_MODEL_CALLS_PER_SESSION", "32"), "ECHOFARM_MAX_MODEL_CALLS_PER_SESSION")
+	if err != nil {
+		return config{}, err
+	}
+	result.MaxReportedTokensPerSession, err = positiveIntSetting(get("ECHOFARM_MAX_REPORTED_TOKENS_PER_SESSION", "100000"), "ECHOFARM_MAX_REPORTED_TOKENS_PER_SESSION")
+	if err != nil {
+		return config{}, err
+	}
 	host, _, err := net.SplitHostPort(result.Address)
 	if err != nil {
 		return config{}, fmt.Errorf("invalid ECHOFARM_ADDRESS: %w", err)
@@ -165,4 +185,12 @@ func loadConfig(lookup func(string) (string, bool)) (config, error) {
 		return config{}, errors.New("openai mode requires ECHOFARM_MODEL_BASE_URL, ECHOFARM_MODEL_API_KEY, and ECHOFARM_MODEL_NAME")
 	}
 	return result, nil
+}
+
+func positiveIntSetting(raw, key string) (int, error) {
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer", key)
+	}
+	return value, nil
 }

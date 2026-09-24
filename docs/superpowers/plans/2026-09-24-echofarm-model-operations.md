@@ -156,11 +156,11 @@ git commit -m "feat(ai): persist model usage and enforce budgets"
 - Modify: `echofarm-core/cmd/echofarm/main.go`
 - Create: `echofarm-core/cmd/echofarm/main_test.go`
 
-- [ ] **Step 1: Write failing budget-boundary tests**
+- [x] **Step 1: Write failing budget-boundary tests**
 
 Prove that exhausted action or intent budgets produce and persist a correlated `stop_session` action whose reason contains `model budget exhausted`; learning and correction map to HTTP `429` with code `model_budget_exhausted`; reflection jobs return to pending with the stable `budget_exhausted` failure class; and invalid/non-positive budget environment values are rejected.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -170,11 +170,11 @@ go test ./internal/policy ./internal/httpapi ./cmd/echofarm -run 'Test.*Budget' 
 
 Expected: failures because budget errors are not handled or configured.
 
-- [ ] **Step 3: Wire the tracked generator**
+- [x] **Step 3: Wire the tracked generator**
 
 Add positive integer settings `ECHOFARM_MAX_MODEL_CALLS_PER_SESSION` (default `32`) and `ECHOFARM_MAX_REPORTED_TOKENS_PER_SESSION` (default `100000`). Wrap fixture and OpenAI generators once, before graph construction. Existing idempotency checks stay before generator invocation, so duplicate demonstrations, decisions, corrections, and results consume no new reservation.
 
-- [ ] **Step 4: Implement fail-closed mappings**
+- [x] **Step 4: Implement fail-closed mappings**
 
 Handle `ErrModelBudgetExceeded` in policy preparation/proposal paths by persisting a `stop_session` decision. Map it to HTTP 429 for operations that cannot return an action. Add `budget_exhausted` to the reflection job's bounded failure codes without persisting arbitrary model messages.
 
@@ -184,7 +184,7 @@ The HTTP error body remains the existing strict shape:
 {"code":"model_budget_exhausted","message":"Echo stopped because the configured model budget was exhausted"}
 ```
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run full Go race/vet and commit:
 

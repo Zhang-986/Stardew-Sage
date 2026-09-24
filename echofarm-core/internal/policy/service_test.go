@@ -21,11 +21,16 @@ type actorStub struct {
 	replanCalls    int
 	lastAction     intelligence.ActionInput
 	lastReplan     intelligence.ReplanInput
+	nextErr        error
+	replanErr      error
 }
 
 func (s *actorStub) ProposeAction(_ context.Context, input intelligence.ActionInput) (domain.ActionProposal, error) {
 	s.chooseCalls++
 	s.lastAction = input
+	if s.nextErr != nil {
+		return domain.ActionProposal{}, s.nextErr
+	}
 	if s.nextProposal.Primary.Kind != "" {
 		return s.nextProposal, nil
 	}
@@ -35,6 +40,9 @@ func (s *actorStub) ProposeAction(_ context.Context, input intelligence.ActionIn
 func (s *actorStub) ProposeRecovery(_ context.Context, input intelligence.ReplanInput) (domain.ActionProposal, error) {
 	s.replanCalls++
 	s.lastReplan = input
+	if s.replanErr != nil {
+		return domain.ActionProposal{}, s.replanErr
+	}
 	if s.replanProposal.Primary.Kind != "" {
 		return s.replanProposal, nil
 	}
@@ -114,6 +122,7 @@ func (s *policyStoreStub) AttachDecisionResult(_ context.Context, result domain.
 type coordinatorStub struct {
 	context domain.CoordinationContext
 	calls   int
+	err     error
 }
 
 type experienceLearnerStub struct {
@@ -131,7 +140,44 @@ func (s *experienceLearnerStub) ProcessPending(_ context.Context, saveID string)
 
 func (s *coordinatorStub) Prepare(context.Context, domain.WorldSnapshot, domain.PlayerModel) (domain.CoordinationContext, error) {
 	s.calls++
-	return s.context, nil
+	return s.context, s.err
+}
+
+func TestNextDecisionPersistsSafeStopWhenActionBudgetIsExhausted(t *testing.T) {
+	snapshot := validSnapshot()
+	store := validPolicyStore()
+	service, err := NewService(store, &actorStub{nextErr: intelligence.ErrModelBudgetExceeded})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decision, err := service.NextDecision(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Action.Kind != domain.ActionStopSession || !strings.Contains(decision.Action.Reason, "model budget exhausted") {
+		t.Fatalf("decision = %+v", decision)
+	}
+	if len(store.savedDecisions) != 1 || store.savedDecisions[0].FinalAction != decision.Action {
+		t.Fatalf("saved decisions = %+v", store.savedDecisions)
+	}
+}
+
+func TestNextDecisionPersistsSafeStopWhenIntentBudgetIsExhausted(t *testing.T) {
+	snapshot := validSnapshot()
+	store := validPolicyStore()
+	service, err := NewService(store, &actorStub{}, &coordinatorStub{err: intelligence.ErrModelBudgetExceeded})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decision, err := service.NextDecision(context.Background(), snapshot.SaveID, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Action.Kind != domain.ActionStopSession || !strings.Contains(decision.Action.Reason, "model budget exhausted") {
+		t.Fatalf("decision = %+v", decision)
+	}
 }
 
 func TestNextActionRecordsCoordinatedDecisionAndStopsOnClaimConflict(t *testing.T) {

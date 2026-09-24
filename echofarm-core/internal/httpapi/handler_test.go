@@ -294,6 +294,26 @@ func TestModelUnavailableMapsToServiceUnavailableWithoutDetails(t *testing.T) {
 	}
 }
 
+func TestModelBudgetExhaustionMapsToTypedTooManyRequests(t *testing.T) {
+	handler := newTestHandler(t, &apiStub{err: intelligence.ErrModelBudgetExceeded})
+	body, _ := json.Marshal(validDemonstration())
+	request := httptest.NewRequest(http.MethodPost, "/v1/demonstrations/learn", bytes.NewReader(body))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429", response.Code)
+	}
+	var bodyValue errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &bodyValue); err != nil {
+		t.Fatal(err)
+	}
+	if bodyValue.Code != "model_budget_exhausted" || bytes.Contains(response.Body.Bytes(), []byte("provider")) {
+		t.Fatalf("response = %s", response.Body.String())
+	}
+}
+
 func TestGetPlayerModelMapsMissingMemoryToNotFound(t *testing.T) {
 	handler := newTestHandler(t, &apiStub{err: memory.ErrNotFound})
 	request := httptest.NewRequest(http.MethodGet, "/v1/player-model?saveId=farm-1", nil)

@@ -21,7 +21,7 @@ func NewLearningGraph(generator StructuredGenerator) (*LearningGraph, error) {
 	chain.AppendLambda(compose.InvokableLambda(func(ctx context.Context, input LearningInput) (LearningInference, error) {
 		var result LearningInference
 		if err := generator.GenerateJSON(ctx, learningSystemPrompt, input, &result); err != nil {
-			if errors.Is(err, ErrModelUnavailable) {
+			if errors.Is(err, ErrModelUnavailable) || errors.Is(err, ErrModelBudgetExceeded) {
 				return LearningInference{}, err
 			}
 			return LearningInference{}, fmt.Errorf("%w: %v", ErrInvalidModelOutput, err)
