@@ -395,10 +395,31 @@ func (c PlayerCorrection) Validate() error {
 	default:
 		return fmt.Errorf("unsupported preferred correction action %q", c.PreferredAction.Kind)
 	}
+	var targetPresent bool
+	switch c.PreferredAction.Kind {
+	case ActionWaterTarget, ActionHarvestTarget:
+		_, targetPresent = findID(cropIDs(c.Snapshot.Crops), c.PreferredAction.TargetID)
+	case ActionRefillCan:
+		_, targetPresent = findID(waterSourceIDs(c.Snapshot.WaterSources), c.PreferredAction.TargetID)
+	case ActionDepositItems:
+		_, targetPresent = findID(chestIDs(c.Snapshot.Chests), c.PreferredAction.TargetID)
+	}
+	if !targetPresent {
+		return fmt.Errorf("preferred correction target %q is not present in snapshot", c.PreferredAction.TargetID)
+	}
 	if c.ObservedAtTick < 0 {
 		return errors.New("correction tick cannot be negative")
 	}
 	return nil
+}
+
+func findID(ids []string, target string) (int, bool) {
+	for index, id := range ids {
+		if id == target {
+			return index, true
+		}
+	}
+	return -1, false
 }
 
 func validUncertaintyCode(code UncertaintyCode) bool {

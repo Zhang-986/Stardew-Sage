@@ -12,7 +12,7 @@ public static class EchoMemoryPresenter
         {
             $"Echo v{view.ModelRevision} · 学习到第 {view.LearnedThroughDay} 天"
         };
-        foreach (TraitMemory trait in view.StableTraits.Take(4))
+        foreach (TraitMemory trait in view.StableTraits.Take(2))
         {
             int confidence = (int)Math.Round(trait.Confidence * 100, MidpointRounding.AwayFromZero);
             lines.Add($"习惯 {TraitName(trait.Key)}：{trait.Value}（{confidence}%）");
@@ -23,8 +23,15 @@ public static class EchoMemoryPresenter
         {
             lines.Add($"你正在：{IntentName(view.LastDecision.InferredIntent)}");
             string target = view.LastDecision.FinalAction.TargetId ?? "结束本轮";
+            int confidence = (int)Math.Round(view.LastDecision.PolicyConfidence * 100, MidpointRounding.AwayFromZero);
             lines.Add(string.Create(CultureInfo.InvariantCulture,
-                $"分工：Echo -> {view.LastDecision.FinalAction.Kind} {target}（避开 {view.LastDecision.PlayerClaimedTargets.Count} 个目标）"));
+                $"决策：Echo -> {view.LastDecision.FinalAction.Kind} {target}（{confidence}%，备选 {view.LastDecision.SafeAlternatives.Count}，避开 {view.LastDecision.PlayerClaimedTargets.Count} 个目标）"));
+        }
+        foreach (PolicyExperience experience in view.Experiences.Take(2))
+        {
+            string source = experience.Source == ExperienceSource.Correction ? "玩家纠正" : "失败反思";
+            string target = string.IsNullOrWhiteSpace(experience.PreferredTargetId) ? experience.PreferAction.ToString() : experience.PreferredTargetId;
+            lines.Add($"经验·{source}：{experience.Summary} -> {target}");
         }
         return Array.AsReadOnly(lines.Take(8).ToArray());
     }

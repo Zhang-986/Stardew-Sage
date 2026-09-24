@@ -318,6 +318,12 @@ func TestPlayerCorrectionRequiresCorrelatedActions(t *testing.T) {
 	if err := invalid.Validate(); err == nil || !strings.Contains(err.Error(), "identity") {
 		t.Fatalf("Validate() error = %v, want identity error", err)
 	}
+
+	invalid = valid
+	invalid.PreferredAction.TargetID = "chest-invented"
+	if err := invalid.Validate(); err == nil || !strings.Contains(err.Error(), "not present") {
+		t.Fatalf("Validate() error = %v, want missing target error", err)
+	}
 }
 
 func validReflectiveSnapshot() WorldSnapshot {

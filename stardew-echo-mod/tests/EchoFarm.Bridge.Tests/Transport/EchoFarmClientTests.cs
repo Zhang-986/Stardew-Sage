@@ -101,9 +101,120 @@ public sealed class EchoFarmClientTests
             return Task.FromResult(Json(HttpStatusCode.OK, EchoJson.Serialize(next)));
         }));
 
-        HighLevelAction result = await client.ReportActionResultAsync(request, CancellationToken.None);
+        ActionResponse result = await client.ReportActionResultAsync(request, CancellationToken.None);
 
-        Assert.Equal(snapshot.SnapshotVersion, result.SnapshotVersion);
+        Assert.Equal(snapshot.SnapshotVersion, result.Action.SnapshotVersion);
+    }
+
+    [Fact]
+    public async Task CorrectPostsCorrelatedPlayerEvidence()
+    {
+        PlayerCorrection correction = ValidCorrection();
+        string? path = null;
+        string? body = null;
+        var response = new CorrectionResponse
+        {
+            Experience = new PolicyExperience
+            {
+                Id = "exp-corrected-chest",
+                SaveId = correction.SaveId,
+                Trigger = ExperienceTrigger.PlayerCorrection,
+                Context = TraitContext.Sunny,
+                WhenSignals = new[] { SituationSignal.InventoryHasItems },
+                PreferAction = ActionKind.DepositItems,
+                PreferredTargetId = "chest-west",
+                Summary = "use the player's chest",
+                Confidence = 0.85,
+                ObservationCount = 1,
+                FirstSeenDay = 2,
+                LastSeenDay = 2,
+                EvidenceRefs = new[] { correction.Id },
+                Source = ExperienceSource.Correction
+            }
+        };
+        var client = CreateClient(new StubHttpHandler(async request =>
+        {
+            path = request.RequestUri?.AbsolutePath;
+            body = await request.Content!.ReadAsStringAsync();
+            return Json(HttpStatusCode.OK, EchoJson.Serialize(response));
+        }));
+
+        CorrectionResponse result = await client.CorrectAsync(correction, CancellationToken.None);
+
+        Assert.Equal("/v1/echo/corrections", path);
+        Assert.Equal("exp-corrected-chest", result.Experience.Id);
+        using JsonDocument document = JsonDocument.Parse(body!);
+        Assert.Equal("chest-west", document.RootElement.GetProperty("preferredAction").GetProperty("targetId").GetString());
+    }
+
+    [Fact]
+    public async Task CorrectRejectsUncorrelatedEvidenceBeforeSending()
+    {
+        PlayerCorrection correction = ValidCorrection();
+        correction = new PlayerCorrection
+        {
+            Id = correction.Id,
+            SaveId = correction.SaveId,
+            SessionId = correction.SessionId,
+            RejectedDecisionSnapshotVersion = correction.RejectedDecisionSnapshotVersion,
+            RejectedAction = correction.RejectedAction,
+            Snapshot = correction.Snapshot,
+            PreferredAction = new HighLevelAction
+            {
+                SaveId = "another-save",
+                SessionId = correction.SessionId,
+                SnapshotVersion = correction.Snapshot.SnapshotVersion,
+                Kind = ActionKind.DepositItems,
+                TargetId = "chest-west",
+                Reason = "bad"
+            },
+            ObservedAtTick = correction.ObservedAtTick
+        };
+        int requests = 0;
+        var client = CreateClient(new StubHttpHandler(_ =>
+        {
+            requests++;
+            return Task.FromResult(Json(HttpStatusCode.OK, "{}"));
+        }));
+
+        await Assert.ThrowsAsync<EchoFarmProtocolException>(() => client.CorrectAsync(correction, CancellationToken.None));
+
+        Assert.Equal(0, requests);
+    }
+
+    [Fact]
+    public async Task CorrectRejectsInventedPreferredTargetBeforeSending()
+    {
+        PlayerCorrection valid = ValidCorrection();
+        var correction = new PlayerCorrection
+        {
+            Id = valid.Id,
+            SaveId = valid.SaveId,
+            SessionId = valid.SessionId,
+            RejectedDecisionSnapshotVersion = valid.RejectedDecisionSnapshotVersion,
+            RejectedAction = valid.RejectedAction,
+            Snapshot = valid.Snapshot,
+            PreferredAction = new HighLevelAction
+            {
+                SaveId = valid.SaveId,
+                SessionId = valid.SessionId,
+                SnapshotVersion = valid.Snapshot.SnapshotVersion,
+                Kind = ActionKind.DepositItems,
+                TargetId = "chest-invented",
+                Reason = "bad"
+            },
+            ObservedAtTick = valid.ObservedAtTick
+        };
+        int requests = 0;
+        var client = CreateClient(new StubHttpHandler(_ =>
+        {
+            requests++;
+            return Task.FromResult(Json(HttpStatusCode.OK, "{}"));
+        }));
+
+        await Assert.ThrowsAsync<EchoFarmProtocolException>(() => client.CorrectAsync(correction, CancellationToken.None));
+
+        Assert.Equal(0, requests);
     }
 
     [Fact]
@@ -203,7 +314,8 @@ public sealed class EchoFarmClientTests
         Energy = 200,
         MaxEnergy = 270,
         WateringCan = new ToolState { Name = "Watering Can", Water = 5, Capacity = 40 },
-        Crops = new[] { new Crop { Id = "crop-new", NeedsWater = true } }
+        Crops = new[] { new Crop { Id = "crop-new", NeedsWater = true } },
+        Chests = new[] { new Chest { Id = "chest-east" }, new Chest { Id = "chest-west" } }
     };
 
     private static PlayerModel ValidModel() => new()
@@ -233,6 +345,39 @@ public sealed class EchoFarmClientTests
         TargetId = "crop-new",
         Reason = "current dry crop"
     };
+
+    private static PlayerCorrection ValidCorrection()
+    {
+        WorldSnapshot snapshot = ValidSnapshot();
+        var rejected = new HighLevelAction
+        {
+            SaveId = snapshot.SaveId,
+            SessionId = snapshot.SessionId,
+            SnapshotVersion = snapshot.SnapshotVersion - 1,
+            Kind = ActionKind.DepositItems,
+            TargetId = "chest-east",
+            Reason = "initial choice"
+        };
+        return new PlayerCorrection
+        {
+            Id = "correction-1",
+            SaveId = snapshot.SaveId,
+            SessionId = snapshot.SessionId,
+            RejectedDecisionSnapshotVersion = rejected.SnapshotVersion,
+            RejectedAction = rejected,
+            Snapshot = snapshot,
+            PreferredAction = new HighLevelAction
+            {
+                SaveId = snapshot.SaveId,
+                SessionId = snapshot.SessionId,
+                SnapshotVersion = snapshot.SnapshotVersion,
+                Kind = ActionKind.DepositItems,
+                TargetId = "chest-west",
+                Reason = "player demonstration"
+            },
+            ObservedAtTick = 240
+        };
+    }
 
     private sealed class StubHttpHandler : HttpMessageHandler
     {

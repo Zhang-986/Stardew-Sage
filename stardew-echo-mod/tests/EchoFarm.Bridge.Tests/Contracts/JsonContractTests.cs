@@ -62,6 +62,66 @@ public sealed class JsonContractTests
         Assert.Equal(LearningChangeKind.Strengthened, view.RecentLearningChange!.Kind);
     }
 
+    [Fact]
+    public void ReflectiveDecisionAndCorrectionContractsMatchGoFields()
+    {
+        const string responseJson = """
+            {
+              "action":{"saveId":"farm-1","sessionId":"day-2","snapshotVersion":7,"kind":"deposit_items","targetId":"chest-west","reason":"learned correction"},
+              "confidence":0.93,
+              "alternatives":[{"saveId":"farm-1","sessionId":"day-2","snapshotVersion":7,"kind":"stop_session","reason":"safe fallback"}],
+              "appliedExperiences":["exp-corrected-chest"]
+            }
+            """;
+
+        ActionResponse response = EchoJson.Deserialize<ActionResponse>(responseJson);
+
+        Assert.Equal(0.93, response.Confidence);
+        Assert.Equal(ActionKind.StopSession, response.Alternatives[0].Kind);
+        Assert.Equal("exp-corrected-chest", response.AppliedExperiences[0]);
+
+        var correction = new PlayerCorrection
+        {
+            Id = "correction-1",
+            SaveId = "farm-1",
+            SessionId = "day-2",
+            RejectedDecisionSnapshotVersion = 6,
+            RejectedAction = new HighLevelAction
+            {
+                SaveId = "farm-1",
+                SessionId = "day-2",
+                SnapshotVersion = 6,
+                Kind = ActionKind.DepositItems,
+                TargetId = "chest-east",
+                Reason = "initial choice"
+            },
+            Snapshot = new WorldSnapshot
+            {
+                SaveId = "farm-1",
+                SessionId = "day-2",
+                SnapshotVersion = 7,
+                Day = 2,
+                Weather = Weather.Sunny,
+                MaxEnergy = 270,
+                Chests = new[] { new Chest { Id = "chest-west" } }
+            },
+            PreferredAction = new HighLevelAction
+            {
+                SaveId = "farm-1",
+                SessionId = "day-2",
+                SnapshotVersion = 7,
+                Kind = ActionKind.DepositItems,
+                TargetId = "chest-west",
+                Reason = "player demonstration"
+            },
+            ObservedAtTick = 240
+        };
+        using JsonDocument correctionDocument = JsonDocument.Parse(EchoJson.Serialize(correction));
+
+        Assert.Equal(6, correctionDocument.RootElement.GetProperty("rejectedDecisionSnapshotVersion").GetInt64());
+        Assert.Equal("chest-west", correctionDocument.RootElement.GetProperty("preferredAction").GetProperty("targetId").GetString());
+    }
+
     [Theory]
     [InlineData("changed-rainy-farm.json", Weather.Rainy, 18)]
     [InlineData("empty-can-farm.json", Weather.Sunny, 0)]

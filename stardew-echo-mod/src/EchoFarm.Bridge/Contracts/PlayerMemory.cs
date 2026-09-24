@@ -114,6 +114,50 @@ public enum PlayerIntent
     Depositing
 }
 
+public enum ExperienceTrigger
+{
+    InventoryFull,
+    OutOfWater,
+    PathBlocked,
+    ChestFull,
+    PlayerCorrection
+}
+
+public enum SituationSignal
+{
+    InventoryFull,
+    InventoryHasItems,
+    CanEmpty,
+    Raining,
+    TargetBlocked
+}
+
+public enum ExperienceSource
+{
+    Failure,
+    Correction
+}
+
+public sealed class PolicyExperience : StrictContract
+{
+    public string Id { get; init; } = string.Empty;
+    public string SaveId { get; init; } = string.Empty;
+    public ExperienceTrigger Trigger { get; init; }
+    public TraitContext Context { get; init; }
+    public IReadOnlyList<SituationSignal> WhenSignals { get; init; } = Array.Empty<SituationSignal>();
+    public ActionKind? AvoidAction { get; init; }
+    public ActionKind PreferAction { get; init; }
+    public string? PreferredTargetId { get; init; }
+    public string Summary { get; init; } = string.Empty;
+    public double Confidence { get; init; }
+    public int ObservationCount { get; init; }
+    public int ContradictionCount { get; init; }
+    public int FirstSeenDay { get; init; }
+    public int LastSeenDay { get; init; }
+    public IReadOnlyList<string> EvidenceRefs { get; init; } = Array.Empty<string>();
+    public ExperienceSource Source { get; init; }
+}
+
 public sealed class DecisionRecord : StrictContract
 {
     public string SaveId { get; init; } = string.Empty;
@@ -125,6 +169,10 @@ public sealed class DecisionRecord : StrictContract
     public IReadOnlyList<string> PlayerClaimedTargets { get; init; } = Array.Empty<string>();
     public HighLevelAction CandidateAction { get; init; } = new();
     public HighLevelAction FinalAction { get; init; } = new();
+    public ActionProposal? Proposal { get; init; }
+    public double PolicyConfidence { get; init; }
+    public int SelectedCandidate { get; init; }
+    public IReadOnlyList<HighLevelAction> SafeAlternatives { get; init; } = Array.Empty<HighLevelAction>();
     public ActionResult? Result { get; init; }
 }
 
@@ -144,4 +192,5 @@ public sealed class EchoMemoryView : StrictContract
     public LearningChange? RecentLearningChange { get; init; }
     public EchoSessionMemory? ActiveSession { get; init; }
     public DecisionRecord? LastDecision { get; init; }
+    public IReadOnlyList<PolicyExperience> Experiences { get; init; } = Array.Empty<PolicyExperience>();
 }

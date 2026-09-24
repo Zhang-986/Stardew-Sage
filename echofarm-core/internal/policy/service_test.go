@@ -254,8 +254,9 @@ func TestNextDecisionRejectsFabricatedExperienceReference(t *testing.T) {
 func TestNextDecisionStopsWhenPolicyConfidenceIsLow(t *testing.T) {
 	snapshot := validSnapshot()
 	primary := actionFor(snapshot, domain.ActionHarvestTarget, "crop-mature")
+	unsafe := actionFor(snapshot, domain.ActionWaterTarget, "missing-crop")
 	actor := &actorStub{nextProposal: domain.ActionProposal{
-		Primary: primary, ModelConfidence: 0.4,
+		Primary: primary, Alternatives: []domain.HighLevelAction{unsafe}, ModelConfidence: 0.4,
 		UncertaintyCodes: []domain.UncertaintyCode{domain.UncertaintyNovelContext},
 	}}
 	service := newPolicyService(t, actor)
@@ -264,7 +265,8 @@ func TestNextDecisionStopsWhenPolicyConfidenceIsLow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if decision.Action.Kind != domain.ActionStopSession || decision.Confidence != 0.2 {
+	if decision.Action.Kind != domain.ActionStopSession || decision.Confidence != 0.2 ||
+		len(decision.Alternatives) != 1 || decision.Alternatives[0] != primary {
 		t.Fatalf("NextDecision() = %+v", decision)
 	}
 }

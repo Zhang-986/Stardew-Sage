@@ -11,7 +11,8 @@ public enum EchoSessionState
     Learning,
     Ready,
     Acting,
-    AwaitingResult
+    AwaitingResult,
+    Correcting
 }
 
 public sealed class EchoSession
@@ -20,21 +21,25 @@ public sealed class EchoSession
     private readonly IEchoFarmClient client;
     private readonly IGamePort game;
     private readonly ActionSafetyGate safetyGate;
+    private readonly CorrectionCapture correctionCapture;
     private string? saveId;
     private string? sessionId;
-    private HighLevelAction? pendingAction;
+    private ActionResponse? pendingDecision;
     private int actionInFlight;
 
-    public EchoSession(TeachingRecorder recorder, IEchoFarmClient client, IGamePort game, ActionSafetyGate safetyGate)
+    public EchoSession(TeachingRecorder recorder, IEchoFarmClient client, IGamePort game, ActionSafetyGate safetyGate, CorrectionCapture? correctionCapture = null)
     {
         this.recorder = recorder ?? throw new ArgumentNullException(nameof(recorder));
         this.client = client ?? throw new ArgumentNullException(nameof(client));
         this.game = game ?? throw new ArgumentNullException(nameof(game));
         this.safetyGate = safetyGate ?? throw new ArgumentNullException(nameof(safetyGate));
+        this.correctionCapture = correctionCapture ?? new CorrectionCapture();
     }
 
     public EchoSessionState State { get; private set; } = EchoSessionState.Idle;
     public Exception? LastError { get; private set; }
+    public ActionResponse? LastDecision { get; private set; }
+    public bool HasPendingCorrection => correctionCapture.PendingCorrection is not null;
 
     public EchoSessionState BeginTeaching(string saveId, long tick, int day = 0, Weather weather = Weather.Sunny)
     {
@@ -71,7 +76,7 @@ public sealed class EchoSession
 
     public void MarkReady(string saveId)
     {
-        if (State is EchoSessionState.Recording or EchoSessionState.Learning or EchoSessionState.Acting or EchoSessionState.AwaitingResult)
+        if (State is EchoSessionState.Recording or EchoSessionState.Learning or EchoSessionState.Acting or EchoSessionState.AwaitingResult or EchoSessionState.Correcting)
             throw new InvalidOperationException($"Cannot mark ready while Echo is {State}.");
         this.saveId = string.IsNullOrWhiteSpace(saveId)
             ? throw new ArgumentException("Save ID is required.", nameof(saveId))
@@ -89,7 +94,9 @@ public sealed class EchoSession
             throw new ArgumentException("Session ID is required.", nameof(sessionId));
 
         this.sessionId = sessionId;
-        pendingAction = null;
+        pendingDecision = null;
+        LastDecision = null;
+        correctionCapture.Cancel();
         LastError = null;
         game.ShowEcho();
         State = EchoSessionState.Acting;
@@ -104,8 +111,10 @@ public sealed class EchoSession
         try
         {
             WorldSnapshot snapshot = await game.CaptureSnapshotAsync(saveId!, sessionId!, cancellationToken).ConfigureAwait(false);
-            HighLevelAction action = pendingAction ?? await client.NextActionAsync(snapshot, cancellationToken).ConfigureAwait(false);
-            pendingAction = null;
+            ActionResponse decision = pendingDecision ?? await client.NextActionAsync(snapshot, cancellationToken).ConfigureAwait(false);
+            pendingDecision = null;
+            LastDecision = decision;
+            HighLevelAction action = decision.Action;
             safetyGate.EnsureSafe(action, snapshot);
             if (action.Kind == ActionKind.StopSession)
             {
@@ -117,12 +126,13 @@ public sealed class EchoSession
             State = EchoSessionState.AwaitingResult;
             ActionResult result = await game.ExecuteAsync(action, cancellationToken).ConfigureAwait(false);
             WorldSnapshot latest = await game.CaptureSnapshotAsync(saveId!, sessionId!, cancellationToken).ConfigureAwait(false);
-            pendingAction = await client.ReportActionResultAsync(new ActionResultRequest
+            pendingDecision = await client.ReportActionResultAsync(new ActionResultRequest
             {
                 SaveId = saveId!,
                 Snapshot = latest,
                 Result = result
             }, cancellationToken).ConfigureAwait(false);
+            LastDecision = pendingDecision;
             State = EchoSessionState.Acting;
             return true;
         }
@@ -138,10 +148,72 @@ public sealed class EchoSession
         }
     }
 
+    public bool BeginCorrection(long currentTick)
+    {
+        if (State != EchoSessionState.Acting || pendingDecision is null)
+            return false;
+        correctionCapture.Arm(pendingDecision.Action, currentTick);
+        pendingDecision = null;
+        LastError = null;
+        State = EchoSessionState.Correcting;
+        return true;
+    }
+
+    public async Task<bool> ObserveCorrectionAsync(ObservedGameEvent observed, CancellationToken cancellationToken)
+    {
+        if (State != EchoSessionState.Correcting || correctionCapture.PendingCorrection is not null)
+            return false;
+        WorldSnapshot snapshot = await game.CaptureSnapshotAsync(saveId!, sessionId!, cancellationToken).ConfigureAwait(false);
+        if (!correctionCapture.TryCapture(snapshot, observed, out _))
+            return false;
+        return await SubmitPendingCorrectionAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public Task<bool> RetryCorrectionAsync(CancellationToken cancellationToken) =>
+        State == EchoSessionState.Correcting && correctionCapture.PendingCorrection is not null
+            ? SubmitPendingCorrectionAsync(cancellationToken)
+            : Task.FromResult(false);
+
+    public bool ExpireCorrection(long currentTick)
+    {
+        if (State != EchoSessionState.Correcting || !correctionCapture.Expire(currentTick))
+            return false;
+        State = EchoSessionState.Acting;
+        return true;
+    }
+
+    public void CancelCorrection()
+    {
+        if (State != EchoSessionState.Correcting)
+            return;
+        correctionCapture.Cancel();
+        LastError = null;
+        State = EchoSessionState.Acting;
+    }
+
+    private async Task<bool> SubmitPendingCorrectionAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await client.CorrectAsync(correctionCapture.PendingCorrection!, cancellationToken).ConfigureAwait(false);
+            correctionCapture.Commit();
+            LastError = null;
+            State = EchoSessionState.Acting;
+            return true;
+        }
+        catch (Exception error) when (error is EchoFarmException or OperationCanceledException)
+        {
+            LastError = error;
+            return false;
+        }
+    }
+
     public void Abort()
     {
         recorder.Cancel();
-        pendingAction = null;
+        pendingDecision = null;
+        LastDecision = null;
+        correctionCapture.Cancel();
         sessionId = null;
         game.HideEcho();
         State = EchoSessionState.Idle;

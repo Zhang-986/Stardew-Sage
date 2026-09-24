@@ -29,23 +29,23 @@ public sealed class GoCoreContractTests
 
             WorldSnapshot rainy = EchoJson.Deserialize<WorldSnapshot>(
                 File.ReadAllText(Path.Combine(repository, "demo", "fixtures", "changed-rainy-farm.json")));
-            HighLevelAction rainyAction = await client.NextActionAsync(rainy, CancellationToken.None);
+            HighLevelAction rainyAction = (await client.NextActionAsync(rainy, CancellationToken.None)).Action;
             Assert.Equal(ActionKind.HarvestTarget, rainyAction.Kind);
             Assert.Equal("crop-new-ripe", rainyAction.TargetId);
 
             WorldSnapshot emptyCan = EchoJson.Deserialize<WorldSnapshot>(
                 File.ReadAllText(Path.Combine(repository, "demo", "fixtures", "empty-can-farm.json")));
-            HighLevelAction refillAction = await client.NextActionAsync(emptyCan, CancellationToken.None);
+            HighLevelAction refillAction = (await client.NextActionAsync(emptyCan, CancellationToken.None)).Action;
             Assert.Equal(ActionKind.RefillCan, refillAction.Kind);
             Assert.Equal("pond-south", refillAction.TargetId);
 
             ActionResultRequest fullInventory = EchoJson.Deserialize<ActionResultRequest>(
                 File.ReadAllText(Path.Combine(repository, "demo", "fixtures", "full-inventory-result.json")));
             WorldSnapshot beforeFullInventory = WithVersion(fullInventory.Snapshot, fullInventory.Result.SnapshotVersion);
-            HighLevelAction attemptedHarvest = await client.NextActionAsync(beforeFullInventory, CancellationToken.None);
+            HighLevelAction attemptedHarvest = (await client.NextActionAsync(beforeFullInventory, CancellationToken.None)).Action;
             Assert.Equal(fullInventory.Result.Action.Kind, attemptedHarvest.Kind);
             Assert.Equal(fullInventory.Result.Action.TargetId, attemptedHarvest.TargetId);
-            HighLevelAction depositAction = await client.ReportActionResultAsync(fullInventory, CancellationToken.None);
+            HighLevelAction depositAction = (await client.ReportActionResultAsync(fullInventory, CancellationToken.None)).Action;
             Assert.Equal(ActionKind.DepositItems, depositAction.Kind);
             Assert.Equal("shipping-chest", depositAction.TargetId);
         }

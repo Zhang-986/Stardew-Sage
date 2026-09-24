@@ -15,4 +15,5 @@ internal sealed class ModConfig
     public SButton RecordKey { get; set; } = SButton.F7;
     public SButton SummonKey { get; set; } = SButton.F8;
     public SButton MemoryKey { get; set; } = SButton.F9;
+    public SButton CorrectionKey { get; set; } = SButton.F10;
 }

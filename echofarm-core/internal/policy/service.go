@@ -214,13 +214,20 @@ func (s *Service) selectDecision(proposal domain.ActionProposal, input intellige
 	}
 	confidence := policyConfidence(proposal, input)
 	if confidence < 0.35 {
+		alternatives := make([]domain.HighLevelAction, 0, len(proposal.Alternatives)+1)
+		for _, candidate := range append([]domain.HighLevelAction{proposal.Primary}, proposal.Alternatives...) {
+			if candidate.Kind == domain.ActionStopSession || validateActionForSnapshot(candidate, input.Snapshot) != nil || coordination.ValidateChoice(input.Coordination, candidate) != nil {
+				continue
+			}
+			alternatives = append(alternatives, candidate)
+		}
 		stop := domain.HighLevelAction{
 			SaveID: input.Snapshot.SaveID, SessionID: input.Snapshot.SessionID, SnapshotVersion: input.Snapshot.SnapshotVersion,
 			Kind: domain.ActionStopSession, Reason: "policy confidence is below the safe execution threshold",
 		}
 		return domain.ActionDecision{
 			Action: stop, Confidence: confidence,
-			Alternatives:         append([]domain.HighLevelAction(nil), proposal.Alternatives...),
+			Alternatives:         alternatives,
 			AppliedExperienceIDs: append([]string(nil), proposal.AppliedExperienceIDs...),
 		}, -1, nil
 	}

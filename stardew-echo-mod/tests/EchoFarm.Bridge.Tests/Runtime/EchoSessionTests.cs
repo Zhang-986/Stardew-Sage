@@ -16,8 +16,8 @@ public sealed class EchoSessionTests
         var client = new ClientStub
         {
             LearnResponse = new LearnResponse { PlayerModel = Model(), Skill = Skill() },
-            NextAction = ActionSafetyGateTests.Action(snapshot, ActionKind.WaterTarget, "crop-dry"),
-            AfterResultAction = ActionSafetyGateTests.Action(snapshot, ActionKind.StopSession, null)
+            NextDecision = new ActionResponse { Action = ActionSafetyGateTests.Action(snapshot, ActionKind.WaterTarget, "crop-dry") },
+            AfterResultDecision = new ActionResponse { Action = ActionSafetyGateTests.Action(snapshot, ActionKind.StopSession, null) }
         };
         var game = new GamePortStub(snapshot);
         var session = new EchoSession(recorder, client, game, new ActionSafetyGate());
@@ -48,7 +48,7 @@ public sealed class EchoSessionTests
     public async Task ConcurrentTickDoesNotStartSecondAction()
     {
         WorldSnapshot snapshot = ActionSafetyGateTests.Snapshot();
-        var client = new ClientStub { NextAction = ActionSafetyGateTests.Action(snapshot, ActionKind.WaterTarget, "crop-dry") };
+        var client = new ClientStub { NextDecision = new ActionResponse { Action = ActionSafetyGateTests.Action(snapshot, ActionKind.WaterTarget, "crop-dry") } };
         var game = new GamePortStub(snapshot) { BlockExecution = true };
         var session = ReadySession(client, game);
         session.StartEcho("farm-1", "echo-day-2");
@@ -92,6 +92,90 @@ public sealed class EchoSessionTests
         Assert.Equal(1, game.HideCalls);
     }
 
+    [Fact]
+    public async Task CorrectionPausesEchoAndLearnsFromOneSuccessfulPlayerAction()
+    {
+        WorldSnapshot snapshot = ActionSafetyGateTests.Snapshot();
+        var client = new ClientStub
+        {
+            NextDecision = new ActionResponse { Action = ActionSafetyGateTests.Action(snapshot, ActionKind.WaterTarget, "crop-dry") },
+            AfterResultDecision = new ActionResponse
+            {
+                Action = ActionSafetyGateTests.Action(snapshot, ActionKind.HarvestTarget, "crop-ripe"),
+                Confidence = 0.72
+            }
+        };
+        var session = ReadySession(client, new GamePortStub(snapshot));
+        session.StartEcho("farm-1", "echo-day-2");
+        await session.TickAsync(CancellationToken.None);
+
+        Assert.True(session.BeginCorrection(currentTick: 100));
+        Assert.Equal(EchoSessionState.Correcting, session.State);
+        Assert.False(await session.ObserveCorrectionAsync(Observed(EventKind.WaterTarget, "crop-dry", 101, success: false), CancellationToken.None));
+        Assert.True(await session.ObserveCorrectionAsync(Observed(EventKind.WaterTarget, "crop-dry", 102, success: true), CancellationToken.None));
+
+        Assert.Equal(EchoSessionState.Acting, session.State);
+        Assert.Equal(1, client.CorrectionCalls);
+        Assert.Equal(ActionKind.HarvestTarget, client.LastCorrection!.RejectedAction.Kind);
+        Assert.Equal(ActionKind.WaterTarget, client.LastCorrection.PreferredAction.Kind);
+        Assert.Equal("crop-dry", client.LastCorrection.PreferredAction.TargetId);
+        Assert.False(await session.ObserveCorrectionAsync(Observed(EventKind.HarvestTarget, "crop-ripe", 103, success: true), CancellationToken.None));
+        Assert.Equal(1, client.CorrectionCalls);
+    }
+
+    [Fact]
+    public async Task CorrectionExpiresOrCanBeCancelledWithoutExecutingEcho()
+    {
+        WorldSnapshot snapshot = ActionSafetyGateTests.Snapshot();
+        var client = new ClientStub
+        {
+            NextDecision = new ActionResponse { Action = ActionSafetyGateTests.Action(snapshot, ActionKind.WaterTarget, "crop-dry") },
+            AfterResultDecision = new ActionResponse { Action = ActionSafetyGateTests.Action(snapshot, ActionKind.HarvestTarget, "crop-ripe") }
+        };
+        var game = new GamePortStub(snapshot);
+        var session = ReadySession(client, game);
+        session.StartEcho("farm-1", "echo-day-2");
+        await session.TickAsync(CancellationToken.None);
+
+        Assert.True(session.BeginCorrection(currentTick: 100));
+        Assert.True(session.ExpireCorrection(currentTick: 1300));
+        Assert.Equal(EchoSessionState.Acting, session.State);
+        Assert.Equal(1, game.ExecuteCalls);
+
+        await session.TickAsync(CancellationToken.None);
+        Assert.True(session.BeginCorrection(currentTick: 1400));
+        session.CancelCorrection();
+        Assert.Equal(EchoSessionState.Acting, session.State);
+        Assert.False(session.HasPendingCorrection);
+    }
+
+    [Fact]
+    public async Task FailedCorrectionSubmissionStaysPausedAndCanRetrySameEvidence()
+    {
+        WorldSnapshot snapshot = ActionSafetyGateTests.Snapshot();
+        var client = new ClientStub
+        {
+            NextDecision = new ActionResponse { Action = ActionSafetyGateTests.Action(snapshot, ActionKind.WaterTarget, "crop-dry") },
+            AfterResultDecision = new ActionResponse { Action = ActionSafetyGateTests.Action(snapshot, ActionKind.HarvestTarget, "crop-ripe") },
+            CorrectionFailure = new ModelUnavailableException()
+        };
+        var session = ReadySession(client, new GamePortStub(snapshot));
+        session.StartEcho("farm-1", "echo-day-2");
+        await session.TickAsync(CancellationToken.None);
+        Assert.True(session.BeginCorrection(currentTick: 100));
+
+        Assert.False(await session.ObserveCorrectionAsync(Observed(EventKind.WaterTarget, "crop-dry", 102, success: true), CancellationToken.None));
+        Assert.Equal(EchoSessionState.Correcting, session.State);
+        Assert.True(session.HasPendingCorrection);
+        PlayerCorrection first = client.LastCorrection!;
+
+        client.CorrectionFailure = null;
+        Assert.True(await session.RetryCorrectionAsync(CancellationToken.None));
+        Assert.Equal(EchoSessionState.Acting, session.State);
+        Assert.Equal(2, client.CorrectionCalls);
+        Assert.Same(first, client.LastCorrection);
+    }
+
     private static EchoSession ReadySession(ClientStub client, GamePortStub game)
     {
         var session = new EchoSession(new TeachingRecorder(), client, game, new ActionSafetyGate());
@@ -115,18 +199,30 @@ public sealed class EchoSessionTests
     private sealed class ClientStub : IEchoFarmClient
     {
         public LearnResponse LearnResponse { get; init; } = new();
-        public HighLevelAction NextAction { get; init; } = new();
-        public HighLevelAction AfterResultAction { get; init; } = new();
+        public ActionResponse NextDecision { get; init; } = new();
+        public ActionResponse AfterResultDecision { get; init; } = new();
         public Exception? Failure { get; init; }
+        public Exception? CorrectionFailure { get; set; }
+        public int CorrectionCalls { get; private set; }
+        public PlayerCorrection? LastCorrection { get; private set; }
 
         public Task<LearnResponse> LearnAsync(Demonstration demonstration, CancellationToken cancellationToken) =>
             Failure is null ? Task.FromResult(LearnResponse) : Task.FromException<LearnResponse>(Failure);
 
-        public Task<HighLevelAction> NextActionAsync(WorldSnapshot snapshot, CancellationToken cancellationToken) =>
-            Failure is null ? Task.FromResult(NextAction) : Task.FromException<HighLevelAction>(Failure);
+        public Task<ActionResponse> NextActionAsync(WorldSnapshot snapshot, CancellationToken cancellationToken) =>
+            Failure is null ? Task.FromResult(NextDecision) : Task.FromException<ActionResponse>(Failure);
 
-        public Task<HighLevelAction> ReportActionResultAsync(ActionResultRequest request, CancellationToken cancellationToken) =>
-            Failure is null ? Task.FromResult(AfterResultAction) : Task.FromException<HighLevelAction>(Failure);
+        public Task<ActionResponse> ReportActionResultAsync(ActionResultRequest request, CancellationToken cancellationToken) =>
+            Failure is null ? Task.FromResult(AfterResultDecision) : Task.FromException<ActionResponse>(Failure);
+
+        public Task<CorrectionResponse> CorrectAsync(PlayerCorrection correction, CancellationToken cancellationToken)
+        {
+            CorrectionCalls++;
+            LastCorrection = correction;
+            return CorrectionFailure is null
+                ? Task.FromResult(new CorrectionResponse())
+                : Task.FromException<CorrectionResponse>(CorrectionFailure);
+        }
 
         public Task<PlayerModel> GetPlayerModelAsync(string saveId, CancellationToken cancellationToken) =>
             Failure is null ? Task.FromResult(LearnResponse.PlayerModel) : Task.FromException<PlayerModel>(Failure);
@@ -136,6 +232,16 @@ public sealed class EchoSessionTests
                 ? Task.FromResult(new EchoMemoryView { SaveId = saveId, ModelRevision = LearnResponse.PlayerModel.Revision })
                 : Task.FromException<EchoMemoryView>(Failure);
     }
+
+    private static ObservedGameEvent Observed(EventKind kind, string targetId, long tick, bool success) => new()
+    {
+        Kind = kind,
+        TargetId = targetId,
+        Tick = tick,
+        Success = success,
+        Before = new GameStateSample(),
+        After = new GameStateSample()
+    };
 
     private sealed class GamePortStub : IGamePort
     {

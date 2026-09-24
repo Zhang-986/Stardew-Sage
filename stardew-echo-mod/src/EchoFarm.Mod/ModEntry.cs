@@ -87,7 +87,7 @@ public sealed class ModEntry : Mod
 
     private async void OnDayStarted(object? sender, DayStartedEventArgs e)
     {
-        if (session.State is EchoSessionState.Acting or EchoSessionState.AwaitingResult)
+        if (session.State is EchoSessionState.Acting or EchoSessionState.AwaitingResult or EchoSessionState.Correcting)
             session.Abort();
         ResetSaveLifetime();
         await RestoreLearnedStateAsync();
@@ -107,6 +107,35 @@ public sealed class ModEntry : Mod
             memoryOverlay.Toggle();
             if (memoryOverlay.Visible)
                 await RefreshMemoryAsync();
+            return;
+        }
+
+        if (e.Button == config.CorrectionKey)
+        {
+            if (session.State == EchoSessionState.Correcting)
+            {
+                if (session.HasPendingCorrection)
+                {
+                    bool learned = await session.RetryCorrectionAsync(saveLifetime.Token);
+                    Monitor.Log(
+                        learned ? "Echo accepted the correction and will replan." : "Echo is still paused; press the correction key to retry.",
+                        learned ? LogLevel.Info : LogLevel.Warn
+                    );
+                }
+                else
+                {
+                    session.CancelCorrection();
+                    Monitor.Log("Echo correction cancelled.", LogLevel.Info);
+                }
+            }
+            else if (session.BeginCorrection(Game1.ticks))
+            {
+                Monitor.Log("Echo paused. Perform one successful farm action within 20 seconds to teach the better choice.", LogLevel.Info);
+            }
+            else
+            {
+                Monitor.Log("Echo has no pending decision to correct.", LogLevel.Info);
+            }
             return;
         }
 
@@ -150,7 +179,7 @@ public sealed class ModEntry : Mod
             return;
         }
 
-        if ((session.State is EchoSessionState.Recording or EchoSessionState.Acting or EchoSessionState.AwaitingResult) &&
+        if ((session.State is EchoSessionState.Recording or EchoSessionState.Acting or EchoSessionState.AwaitingResult or EchoSessionState.Correcting) &&
             (e.Button.IsUseToolButton() || e.Button.IsActionButton()))
             pendingObservation = gamePort.BeginObservation(e.Button, Game1.ticks);
     }
@@ -166,10 +195,26 @@ public sealed class ModEntry : Mod
             ObservedGameEvent observed = gamePort.CompleteObservation(pendingObservation, Game1.ticks);
             if (session.State == EchoSessionState.Recording)
                 session.Observe(observed);
+            else if (session.State == EchoSessionState.Correcting)
+            {
+                bool learned = await session.ObserveCorrectionAsync(observed, saveLifetime.Token);
+                if (learned)
+                {
+                    Monitor.Log("Echo learned the corrected action and will use it in similar situations.", LogLevel.Info);
+                    if (memoryOverlay.Visible)
+                        await RefreshMemoryAsync();
+                }
+                else if (session.HasPendingCorrection && session.LastError is not null)
+                {
+                    Monitor.Log("Echo could not save the correction and remains paused. Press the correction key to retry.", LogLevel.Warn);
+                }
+            }
             else if (session.State is EchoSessionState.Acting or EchoSessionState.AwaitingResult)
                 gamePort.RecordPlayerActivity(observed);
             pendingObservation = null;
         }
+        if (session.ExpireCorrection(Game1.ticks))
+            Monitor.Log("Echo correction timed out; normal planning resumed.", LogLevel.Info);
         if (session.State == EchoSessionState.Recording)
         {
             ObservedGameEvent? movement = gamePort.ObserveMovement(Game1.ticks);

@@ -29,10 +29,29 @@ public sealed class EchoMemoryPresenterTests
             RecentLearningChange = new LearningChange { ModelRevision = 3, Kind = LearningChangeKind.Strengthened, Summary = "task order strengthened" },
             LastDecision = new DecisionRecord
             {
-                SaveId = "farm-1", SessionId = "echo-4", SnapshotVersion = 1, Day = 4, ModelRevision = 3,
+                SaveId = "farm-1",
+                SessionId = "echo-4",
+                SnapshotVersion = 1,
+                Day = 4,
+                ModelRevision = 3,
                 InferredIntent = PlayerIntent.Watering,
                 PlayerClaimedTargets = new[] { "crop-1", "crop-2" },
-                FinalAction = new HighLevelAction { Kind = ActionKind.HarvestTarget, TargetId = "crop-3", Reason = "complement player work" }
+                FinalAction = new HighLevelAction { Kind = ActionKind.HarvestTarget, TargetId = "crop-3", Reason = "complement player work" },
+                PolicyConfidence = 0.91,
+                SafeAlternatives = new[] { new HighLevelAction { Kind = ActionKind.StopSession, Reason = "safe fallback" } },
+                Proposal = new ActionProposal { AppliedExperienceIds = new[] { "exp-correction" } }
+            },
+            Experiences = new[]
+            {
+                new PolicyExperience
+                {
+                    Id = "exp-correction", SaveId = "farm-1", Trigger = ExperienceTrigger.PlayerCorrection,
+                    Context = TraitContext.Sunny, WhenSignals = new[] { SituationSignal.InventoryHasItems },
+                    PreferAction = ActionKind.DepositItems, PreferredTargetId = "chest-west",
+                    Summary = "use the player's demonstrated chest", Confidence = 0.85,
+                    ObservationCount = 1, FirstSeenDay = 3, LastSeenDay = 3,
+                    EvidenceRefs = new[] { "correction-1" }, Source = ExperienceSource.Correction
+                }
             }
         };
 
@@ -43,6 +62,8 @@ public sealed class EchoMemoryPresenterTests
         Assert.Contains(lines, line => line.Contains("浇水", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("crop-3", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("2", StringComparison.Ordinal) && line.Contains("避开", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("91%", StringComparison.Ordinal) && line.Contains("备选", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("玩家纠正", StringComparison.Ordinal) && line.Contains("chest-west", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -50,7 +71,9 @@ public sealed class EchoMemoryPresenterTests
     {
         IReadOnlyList<string> lines = EchoMemoryPresenter.BuildLines(new EchoMemoryView
         {
-            SaveId = "farm-1", ModelRevision = 1, LearnedThroughDay = 1
+            SaveId = "farm-1",
+            ModelRevision = 1,
+            LearnedThroughDay = 1
         });
 
         Assert.Single(lines);

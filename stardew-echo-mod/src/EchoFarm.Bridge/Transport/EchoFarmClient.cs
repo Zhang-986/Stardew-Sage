@@ -30,22 +30,35 @@ public sealed class EchoFarmClient : IEchoFarmClient
         return response;
     }
 
-    public async Task<HighLevelAction> NextActionAsync(WorldSnapshot snapshot, CancellationToken cancellationToken)
+    public async Task<ActionResponse> NextActionAsync(WorldSnapshot snapshot, CancellationToken cancellationToken)
     {
         ActionResponse response = await PostAsync<WorldSnapshot, ActionResponse>(
             "/v1/echo/next-action", snapshot, cancellationToken).ConfigureAwait(false);
-        ValidateCorrelation(response.Action, snapshot);
-        return response.Action;
+        ValidateDecision(response, snapshot);
+        return response;
     }
 
-    public async Task<HighLevelAction> ReportActionResultAsync(ActionResultRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResponse> ReportActionResultAsync(ActionResultRequest request, CancellationToken cancellationToken)
     {
         if (request.SaveId != request.Snapshot.SaveId || request.SaveId != request.Result.SaveId)
             throw new EchoFarmProtocolException("Action result save IDs do not match.");
         ActionResponse response = await PostAsync<ActionResultRequest, ActionResponse>(
             "/v1/echo/action-result", request, cancellationToken).ConfigureAwait(false);
-        ValidateCorrelation(response.Action, request.Snapshot);
-        return response.Action;
+        ValidateDecision(response, request.Snapshot);
+        return response;
+    }
+
+    public async Task<CorrectionResponse> CorrectAsync(PlayerCorrection correction, CancellationToken cancellationToken)
+    {
+        ValidateCorrection(correction);
+        CorrectionResponse response = await PostAsync<PlayerCorrection, CorrectionResponse>(
+            "/v1/echo/corrections", correction, cancellationToken).ConfigureAwait(false);
+        if (response.Experience.SaveId != correction.SaveId ||
+            !response.Experience.EvidenceRefs.Contains(correction.Id, StringComparer.Ordinal))
+        {
+            throw new EchoFarmProtocolException("EchoFarm returned correction experience with invalid evidence correlation.");
+        }
+        return response;
     }
 
     public async Task<PlayerModel> GetPlayerModelAsync(string saveId, CancellationToken cancellationToken)
@@ -175,5 +188,50 @@ public sealed class EchoFarmClient : IEchoFarmClient
         {
             throw new StaleActionException();
         }
+    }
+
+    private static void ValidateDecision(ActionResponse response, WorldSnapshot snapshot)
+    {
+        ValidateCorrelation(response.Action, snapshot);
+        if (!double.IsFinite(response.Confidence) || response.Confidence < 0 || response.Confidence > 1)
+            throw new EchoFarmProtocolException("EchoFarm returned an invalid policy confidence.");
+        if (response.Alternatives.Count > 2)
+            throw new EchoFarmProtocolException("EchoFarm returned too many fallback actions.");
+        foreach (HighLevelAction alternative in response.Alternatives)
+            ValidateCorrelation(alternative, snapshot);
+        if (response.AppliedExperiences.Any(string.IsNullOrWhiteSpace) ||
+            response.AppliedExperiences.Distinct(StringComparer.Ordinal).Count() != response.AppliedExperiences.Count)
+        {
+            throw new EchoFarmProtocolException("EchoFarm returned invalid experience references.");
+        }
+    }
+
+    private static void ValidateCorrection(PlayerCorrection correction)
+    {
+        if (string.IsNullOrWhiteSpace(correction.Id) ||
+            correction.SaveId != correction.Snapshot.SaveId ||
+            correction.SessionId != correction.Snapshot.SessionId ||
+            correction.RejectedAction.SaveId != correction.SaveId ||
+            correction.RejectedAction.SessionId != correction.SessionId ||
+            correction.PreferredAction.SaveId != correction.SaveId ||
+            correction.PreferredAction.SessionId != correction.SessionId ||
+            correction.RejectedAction.SnapshotVersion != correction.RejectedDecisionSnapshotVersion ||
+            correction.Snapshot.SnapshotVersion < correction.RejectedDecisionSnapshotVersion ||
+            correction.PreferredAction.SnapshotVersion != correction.Snapshot.SnapshotVersion ||
+            correction.ObservedAtTick < 0)
+        {
+            throw new EchoFarmProtocolException("Player correction correlation is invalid.");
+        }
+        if (correction.PreferredAction.Kind is not (ActionKind.WaterTarget or ActionKind.RefillCan or ActionKind.HarvestTarget or ActionKind.DepositItems))
+            throw new EchoFarmProtocolException("Player correction action is not supported.");
+        bool targetPresent = correction.PreferredAction.Kind switch
+        {
+            ActionKind.WaterTarget or ActionKind.HarvestTarget => correction.Snapshot.Crops.Any(item => item.Id == correction.PreferredAction.TargetId),
+            ActionKind.RefillCan => correction.Snapshot.WaterSources.Any(item => item.Id == correction.PreferredAction.TargetId),
+            ActionKind.DepositItems => correction.Snapshot.Chests.Any(item => item.Id == correction.PreferredAction.TargetId),
+            _ => false
+        };
+        if (!targetPresent)
+            throw new EchoFarmProtocolException("Player correction target is not present in the snapshot.");
     }
 }
