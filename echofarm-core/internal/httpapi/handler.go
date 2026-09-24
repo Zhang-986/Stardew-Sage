@@ -19,8 +19,12 @@ type teacher interface {
 }
 
 type echoPolicy interface {
-	NextAction(context.Context, string, domain.WorldSnapshot) (domain.HighLevelAction, error)
-	HandleResult(context.Context, string, domain.WorldSnapshot, domain.ActionResult) (domain.HighLevelAction, error)
+	NextDecision(context.Context, string, domain.WorldSnapshot) (domain.ActionDecision, error)
+	HandleResultDecision(context.Context, string, domain.WorldSnapshot, domain.ActionResult) (domain.ActionDecision, error)
+}
+
+type correctionLearner interface {
+	LearnFromCorrection(context.Context, domain.PlayerCorrection) (domain.ExperienceOutcome, error)
 }
 
 type memoryReader interface {
@@ -35,6 +39,7 @@ type memoryViewReader interface {
 type Handler struct {
 	teacher teacher
 	policy  echoPolicy
+	learner correctionLearner
 	memory  memoryReader
 	views   memoryViewReader
 	mux     *http.ServeMux
@@ -47,7 +52,14 @@ type LearnResponse struct {
 }
 
 type ActionResponse struct {
-	Action domain.HighLevelAction `json:"action"`
+	Action             domain.HighLevelAction   `json:"action"`
+	Confidence         float64                  `json:"confidence"`
+	Alternatives       []domain.HighLevelAction `json:"alternatives,omitempty"`
+	AppliedExperiences []string                 `json:"appliedExperiences,omitempty"`
+}
+
+type CorrectionResponse struct {
+	Experience domain.PolicyExperience `json:"experience"`
 }
 
 type ActionResultRequest struct {
@@ -61,15 +73,16 @@ type errorResponse struct {
 	Message string `json:"message"`
 }
 
-func NewHandler(teacher teacher, policy echoPolicy, memory memoryReader, views memoryViewReader) (*Handler, error) {
-	if teacher == nil || policy == nil || memory == nil || views == nil {
-		return nil, errors.New("teacher, policy, memory, and memory views are required")
+func NewHandler(teacher teacher, policy echoPolicy, learner correctionLearner, memory memoryReader, views memoryViewReader) (*Handler, error) {
+	if teacher == nil || policy == nil || learner == nil || memory == nil || views == nil {
+		return nil, errors.New("teacher, policy, correction learner, memory, and memory views are required")
 	}
-	h := &Handler{teacher: teacher, policy: policy, memory: memory, views: views, mux: http.NewServeMux()}
+	h := &Handler{teacher: teacher, policy: policy, learner: learner, memory: memory, views: views, mux: http.NewServeMux()}
 	h.mux.HandleFunc("GET /healthz", h.health)
 	h.mux.HandleFunc("POST /v1/demonstrations/learn", h.learn)
 	h.mux.HandleFunc("POST /v1/echo/next-action", h.nextAction)
 	h.mux.HandleFunc("POST /v1/echo/action-result", h.actionResult)
+	h.mux.HandleFunc("POST /v1/echo/corrections", h.correction)
 	h.mux.HandleFunc("GET /v1/player-model", h.playerModel)
 	h.mux.HandleFunc("GET /v1/skills/morning-farm-routine", h.skill)
 	h.mux.HandleFunc("GET /v1/echo/memory", h.echoMemory)
@@ -106,12 +119,12 @@ func (h *Handler) nextAction(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "invalid_request", "request body is not a valid world snapshot")
 		return
 	}
-	action, err := h.policy.NextAction(r.Context(), snapshot.SaveID, snapshot)
+	decision, err := h.policy.NextDecision(r.Context(), snapshot.SaveID, snapshot)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, ActionResponse{Action: action})
+	writeJSON(w, http.StatusOK, actionResponse(decision))
 }
 
 func (h *Handler) actionResult(w http.ResponseWriter, r *http.Request) {
@@ -124,12 +137,34 @@ func (h *Handler) actionResult(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "save_mismatch", "saveId must match snapshot and result")
 		return
 	}
-	action, err := h.policy.HandleResult(r.Context(), request.SaveID, request.Snapshot, request.Result)
+	decision, err := h.policy.HandleResultDecision(r.Context(), request.SaveID, request.Snapshot, request.Result)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, ActionResponse{Action: action})
+	writeJSON(w, http.StatusOK, actionResponse(decision))
+}
+
+func (h *Handler) correction(w http.ResponseWriter, r *http.Request) {
+	var correction domain.PlayerCorrection
+	if err := decodeJSON(w, r, &correction); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "request body is not a valid player correction")
+		return
+	}
+	outcome, err := h.learner.LearnFromCorrection(r.Context(), correction)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, CorrectionResponse{Experience: outcome.Experience})
+}
+
+func actionResponse(decision domain.ActionDecision) ActionResponse {
+	return ActionResponse{
+		Action: decision.Action, Confidence: decision.Confidence,
+		Alternatives:       append([]domain.HighLevelAction(nil), decision.Alternatives...),
+		AppliedExperiences: append([]string(nil), decision.AppliedExperienceIDs...),
+	}
 }
 
 func (h *Handler) playerModel(w http.ResponseWriter, r *http.Request) {

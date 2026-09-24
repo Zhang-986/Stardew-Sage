@@ -20,6 +20,9 @@ type apiStub struct {
 	outcome          domain.LearningOutcome
 	memoryView       domain.EchoMemoryView
 	action           domain.HighLevelAction
+	decision         domain.ActionDecision
+	correction       domain.PlayerCorrection
+	correctionResult domain.ExperienceOutcome
 	observedSnapshot domain.WorldSnapshot
 	err              error
 }
@@ -45,6 +48,29 @@ func (s *apiStub) NextAction(_ context.Context, _ string, snapshot domain.WorldS
 
 func (s *apiStub) HandleResult(context.Context, string, domain.WorldSnapshot, domain.ActionResult) (domain.HighLevelAction, error) {
 	return s.action, s.err
+}
+
+func (s *apiStub) NextDecision(_ context.Context, _ string, snapshot domain.WorldSnapshot) (domain.ActionDecision, error) {
+	s.observedSnapshot = snapshot
+	if s.decision.Action.Kind == "" {
+		s.decision = domain.ActionDecision{Action: s.action}
+	}
+	return s.decision, s.err
+}
+
+func (s *apiStub) HandleResultDecision(context.Context, string, domain.WorldSnapshot, domain.ActionResult) (domain.ActionDecision, error) {
+	if s.decision.Action.Kind == "" {
+		s.decision = domain.ActionDecision{Action: s.action}
+	}
+	return s.decision, s.err
+}
+
+func (s *apiStub) LearnFromCorrection(_ context.Context, correction domain.PlayerCorrection) (domain.ExperienceOutcome, error) {
+	s.correction = correction
+	if err := correction.Validate(); err != nil {
+		return domain.ExperienceOutcome{}, err
+	}
+	return s.correctionResult, s.err
 }
 
 func (s *apiStub) GetPlayerModel(context.Context, string) (domain.PlayerModel, error) {
@@ -118,7 +144,14 @@ func TestNextActionEndpointUsesSnapshotSaveID(t *testing.T) {
 		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
 		Kind: domain.ActionWaterTarget, TargetID: "crop-new", Reason: "learned routine",
 	}
-	handler := newTestHandler(t, &apiStub{action: want})
+	alternative := want
+	alternative.Kind = domain.ActionStopSession
+	alternative.TargetID = ""
+	stub := &apiStub{decision: domain.ActionDecision{
+		Action: want, Confidence: 0.88, Alternatives: []domain.HighLevelAction{alternative},
+		AppliedExperienceIDs: []string{"exp-inventory"},
+	}}
+	handler := newTestHandler(t, stub)
 	body, _ := json.Marshal(snapshot)
 	request := httptest.NewRequest(http.MethodPost, "/v1/echo/next-action", bytes.NewReader(body))
 	response := httptest.NewRecorder()
@@ -132,11 +165,72 @@ func TestNextActionEndpointUsesSnapshotSaveID(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if got.Action.TargetID != "crop-new" {
-		t.Fatalf("action = %+v", got.Action)
+	if got.Action.TargetID != "crop-new" || got.Confidence != 0.88 || len(got.Alternatives) != 1 || len(got.AppliedExperiences) != 1 {
+		t.Fatalf("action response = %+v", got)
 	}
 	if len(handler.(*Handler).policy.(*apiStub).observedSnapshot.RecentPlayerActions) != 1 {
 		t.Fatal("recent player activity was not decoded")
+	}
+}
+
+func TestCorrectionEndpointReturnsPersistedExperience(t *testing.T) {
+	correction := validCorrection()
+	experience := domain.PolicyExperience{
+		ID: "exp-corrected-chest", SaveID: correction.SaveID, Trigger: domain.ExperiencePlayerCorrection,
+		Context: domain.TraitContextSunny, WhenSignals: []domain.SituationSignal{domain.SignalInventoryHasItems},
+		AvoidAction: domain.ActionDepositItems, PreferAction: domain.ActionDepositItems,
+		PreferredTargetID: "chest-west", Summary: "use the player's chosen chest", Confidence: 0.85,
+		ObservationCount: 1, FirstSeenDay: 2, LastSeenDay: 2,
+		EvidenceRefs: []string{correction.ID}, Source: domain.ExperienceSourceCorrection,
+	}
+	stub := &apiStub{correctionResult: domain.ExperienceOutcome{
+		SourceID: correction.ID, Source: domain.ExperienceSourceCorrection, Experience: experience,
+	}}
+	handler := newTestHandler(t, stub)
+	body, _ := json.Marshal(correction)
+	request := httptest.NewRequest(http.MethodPost, "/v1/echo/corrections", bytes.NewReader(body))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	var got CorrectionResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Experience.ID != experience.ID || stub.correction.ID != correction.ID {
+		t.Fatalf("correction response/input = %+v / %+v", got, stub.correction)
+	}
+}
+
+func TestCorrectionEndpointRejectsBadCorrelation(t *testing.T) {
+	correction := validCorrection()
+	correction.PreferredAction.SnapshotVersion--
+	handler := newTestHandler(t, &apiStub{})
+	body, _ := json.Marshal(correction)
+	request := httptest.NewRequest(http.MethodPost, "/v1/echo/corrections", bytes.NewReader(body))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestCorrectionEndpointMapsModelOutageSafely(t *testing.T) {
+	correction := validCorrection()
+	handler := newTestHandler(t, &apiStub{err: intelligence.ErrModelUnavailable})
+	body, _ := json.Marshal(correction)
+	request := httptest.NewRequest(http.MethodPost, "/v1/echo/corrections", bytes.NewReader(body))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusServiceUnavailable || bytes.Contains(response.Body.Bytes(), []byte("correction")) {
+		t.Fatalf("response = %d %s", response.Code, response.Body.String())
 	}
 }
 
@@ -214,7 +308,7 @@ func TestGetPlayerModelMapsMissingMemoryToNotFound(t *testing.T) {
 
 func newTestHandler(t *testing.T, stub *apiStub) http.Handler {
 	t.Helper()
-	handler, err := NewHandler(stub, stub, stub, stub)
+	handler, err := NewHandler(stub, stub, stub, stub, stub)
 	if err != nil {
 		t.Fatalf("NewHandler() error = %v", err)
 	}
@@ -246,5 +340,28 @@ func validWorldSnapshot() domain.WorldSnapshot {
 		Weather: domain.WeatherSunny, Location: "Farm", Energy: 200, MaxEnergy: 270,
 		WateringCan: domain.ToolState{Name: "Watering Can", Water: 5, Capacity: 40},
 		Crops:       []domain.Crop{{ID: "crop-new", NeedsWater: true}},
+	}
+}
+
+func validCorrection() domain.PlayerCorrection {
+	snapshot := validWorldSnapshot()
+	snapshot.Inventory = domain.InventorySummary{
+		FreeSlots: 0,
+		Items:     []domain.InventoryItem{{ItemID: "parsnip", Name: "Parsnip", Quantity: 1}},
+	}
+	snapshot.Chests = []domain.Chest{{ID: "chest-east"}, {ID: "chest-west"}}
+	rejected := domain.HighLevelAction{
+		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion - 1,
+		Kind: domain.ActionDepositItems, TargetID: "chest-east", Reason: "first choice",
+	}
+	return domain.PlayerCorrection{
+		ID: "correction-1", SaveID: snapshot.SaveID, SessionID: snapshot.SessionID,
+		RejectedDecisionSnapshotVersion: rejected.SnapshotVersion, RejectedAction: rejected,
+		Snapshot: snapshot,
+		PreferredAction: domain.HighLevelAction{
+			SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
+			Kind: domain.ActionDepositItems, TargetID: "chest-west", Reason: "player demonstration",
+		},
+		ObservedAtTick: 240,
 	}
 }

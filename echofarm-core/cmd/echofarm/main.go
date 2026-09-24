@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/coordination"
+	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/experience"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/httpapi"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/intelligence"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/learning"
@@ -102,6 +103,10 @@ func buildHandler(ctx context.Context, store *memory.SQLite, generator intellige
 	if err != nil {
 		return nil, err
 	}
+	reflectionGraph, err := intelligence.NewReflectionGraph(generator)
+	if err != nil {
+		return nil, err
+	}
 	intentGraph, err := intelligence.NewIntentGraph(generator)
 	if err != nil {
 		return nil, err
@@ -114,7 +119,11 @@ func buildHandler(ctx context.Context, store *memory.SQLite, generator intellige
 	if err != nil {
 		return nil, err
 	}
-	echoPolicy, err := policy.NewService(store, actionGraph, coordinator)
+	experienceService, err := experience.NewService(store, reflectionGraph)
+	if err != nil {
+		return nil, err
+	}
+	echoPolicy, err := policy.NewReflectiveService(store, actionGraph, coordinator, experienceService)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +131,7 @@ func buildHandler(ctx context.Context, store *memory.SQLite, generator intellige
 	if err != nil {
 		return nil, err
 	}
-	return httpapi.NewHandler(teacher, echoPolicy, store, views)
+	return httpapi.NewHandler(teacher, echoPolicy, experienceService, store, views)
 }
 
 func loadConfig(lookup func(string) (string, bool)) (config, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/domain"
@@ -20,6 +21,7 @@ type experienceStore interface {
 	GetExperienceOutcome(context.Context, string, string) (domain.ExperienceOutcome, error)
 	SaveExperienceOutcome(context.Context, domain.ExperienceOutcome) error
 	ListPolicyExperiences(context.Context, string) ([]domain.PolicyExperience, error)
+	GetLatestDecision(context.Context, string) (domain.DecisionRecord, error)
 }
 
 type Service struct {
@@ -64,6 +66,20 @@ func (s *Service) LearnFromResult(ctx context.Context, snapshot domain.WorldSnap
 func (s *Service) LearnFromCorrection(ctx context.Context, correction domain.PlayerCorrection) (domain.ExperienceOutcome, error) {
 	if err := correction.Validate(); err != nil {
 		return domain.ExperienceOutcome{}, fmt.Errorf("validate player correction: %w", err)
+	}
+	if stored, err := s.store.GetExperienceOutcome(ctx, correction.SaveID, CorrectionSourceID(correction)); err == nil {
+		return stored, nil
+	} else if !errors.Is(err, memory.ErrNotFound) {
+		return domain.ExperienceOutcome{}, fmt.Errorf("load experience outcome: %w", err)
+	}
+	latest, err := s.store.GetLatestDecision(ctx, correction.SaveID)
+	if err != nil {
+		return domain.ExperienceOutcome{}, fmt.Errorf("load latest decision for correction: %w", err)
+	}
+	if latest.SessionID != correction.SessionID ||
+		latest.SnapshotVersion != correction.RejectedDecisionSnapshotVersion ||
+		!reflect.DeepEqual(latest.FinalAction, correction.RejectedAction) {
+		return domain.ExperienceOutcome{}, errors.New("correction does not reference the latest persisted decision")
 	}
 	return s.learn(ctx, correction.Snapshot, CorrectionSourceID(correction), domain.ExperienceSourceCorrection, nil, &correction)
 }

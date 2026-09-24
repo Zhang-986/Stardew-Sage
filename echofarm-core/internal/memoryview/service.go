@@ -14,6 +14,7 @@ type store interface {
 	GetLatestLearningOutcome(context.Context, string) (domain.LearningOutcome, error)
 	GetLatestDecision(context.Context, string) (domain.DecisionRecord, error)
 	GetActiveSession(context.Context, string) (domain.EchoSessionMemory, error)
+	ListPolicyExperiences(context.Context, string) ([]domain.PolicyExperience, error)
 }
 
 type Service struct {
@@ -68,5 +69,24 @@ func (s *Service) Get(ctx context.Context, saveID string) (domain.EchoMemoryView
 	} else if !errors.Is(err, memory.ErrNotFound) {
 		return domain.EchoMemoryView{}, err
 	}
+	experiences, err := s.store.ListPolicyExperiences(ctx, saveID)
+	if err != nil {
+		return domain.EchoMemoryView{}, err
+	}
+	sort.Slice(experiences, func(i, j int) bool {
+		left, right := experiences[i], experiences[j]
+		if left.LastSeenDay != right.LastSeenDay {
+			return left.LastSeenDay > right.LastSeenDay
+		}
+		if left.Confidence != right.Confidence {
+			return left.Confidence > right.Confidence
+		}
+		return left.ID < right.ID
+	})
+	const maxVisibleExperiences = 5
+	if len(experiences) > maxVisibleExperiences {
+		experiences = experiences[:maxVisibleExperiences]
+	}
+	view.Experiences = experiences
 	return view, nil
 }

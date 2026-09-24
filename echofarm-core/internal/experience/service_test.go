@@ -29,6 +29,8 @@ type experienceStoreStub struct {
 	outcomes        map[string]domain.ExperienceOutcome
 	saveCalls       int
 	canonicalWinner *domain.ExperienceOutcome
+	latestDecision  domain.DecisionRecord
+	latestErr       error
 }
 
 func (s *experienceStoreStub) GetPlayerModel(context.Context, string) (domain.PlayerModel, error) {
@@ -60,6 +62,16 @@ func (s *experienceStoreStub) SaveExperienceOutcome(_ context.Context, outcome d
 
 func (s *experienceStoreStub) ListPolicyExperiences(context.Context, string) ([]domain.PolicyExperience, error) {
 	return append([]domain.PolicyExperience(nil), s.experiences...), nil
+}
+
+func (s *experienceStoreStub) GetLatestDecision(context.Context, string) (domain.DecisionRecord, error) {
+	if s.latestErr != nil {
+		return domain.DecisionRecord{}, s.latestErr
+	}
+	if s.latestDecision.SaveID == "" {
+		return domain.DecisionRecord{}, memory.ErrNotFound
+	}
+	return s.latestDecision, nil
 }
 
 func TestLearnFromResultPersistsGeneralizedExperience(t *testing.T) {
@@ -124,6 +136,10 @@ func TestLearnFromCorrectionUsesHighSignalCapAndCanonicalWinner(t *testing.T) {
 	store := &experienceStoreStub{
 		model:           domain.PlayerModel{SaveID: correction.SaveID, Revision: 2, EnergyReserve: 40},
 		canonicalWinner: &winner,
+		latestDecision: domain.DecisionRecord{
+			SaveID: correction.SaveID, SessionID: correction.SessionID,
+			SnapshotVersion: correction.RejectedDecisionSnapshotVersion, FinalAction: correction.RejectedAction,
+		},
 	}
 	service, err := NewService(store, &reflectorStub{observation: observation})
 	if err != nil {
@@ -136,6 +152,36 @@ func TestLearnFromCorrectionUsesHighSignalCapAndCanonicalWinner(t *testing.T) {
 	}
 	if got.Experience.ID != winner.Experience.ID || store.saveCalls != 1 {
 		t.Fatalf("outcome = %+v, want canonical winner %+v", got, winner)
+	}
+}
+
+func TestLearnFromCorrectionRejectsAnythingButLatestPersistedDecision(t *testing.T) {
+	correction := reflectiveCorrection()
+	observation := experienceObservation("chest-west", correction.ID)
+	observation.Trigger = domain.ExperiencePlayerCorrection
+	reflector := &reflectorStub{observation: observation}
+	store := &experienceStoreStub{
+		model: domain.PlayerModel{SaveID: correction.SaveID, Revision: 2, EnergyReserve: 40},
+		latestDecision: domain.DecisionRecord{
+			SaveID: correction.SaveID, SessionID: correction.SessionID,
+			SnapshotVersion: correction.RejectedDecisionSnapshotVersion,
+			FinalAction: domain.HighLevelAction{
+				SaveID: correction.SaveID, SessionID: correction.SessionID,
+				SnapshotVersion: correction.RejectedDecisionSnapshotVersion,
+				Kind:            domain.ActionDepositItems, TargetID: "chest-east", Reason: "different recorded action",
+			},
+		},
+	}
+	service, err := NewService(store, reflector)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := service.LearnFromCorrection(context.Background(), correction); err == nil {
+		t.Fatal("LearnFromCorrection() error = nil, want latest-decision mismatch")
+	}
+	if reflector.calls != 0 || store.saveCalls != 0 {
+		t.Fatalf("reflect/save calls = %d/%d, want 0/0", reflector.calls, store.saveCalls)
 	}
 }
 

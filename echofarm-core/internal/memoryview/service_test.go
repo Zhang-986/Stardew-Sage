@@ -8,10 +8,11 @@ import (
 )
 
 type storeStub struct {
-	model    domain.PlayerModel
-	outcome  domain.LearningOutcome
-	decision domain.DecisionRecord
-	session  domain.EchoSessionMemory
+	model       domain.PlayerModel
+	outcome     domain.LearningOutcome
+	decision    domain.DecisionRecord
+	session     domain.EchoSessionMemory
+	experiences []domain.PolicyExperience
 }
 
 func (s *storeStub) GetPlayerModel(context.Context, string) (domain.PlayerModel, error) {
@@ -26,6 +27,9 @@ func (s *storeStub) GetLatestDecision(context.Context, string) (domain.DecisionR
 func (s *storeStub) GetActiveSession(context.Context, string) (domain.EchoSessionMemory, error) {
 	return s.session, nil
 }
+func (s *storeStub) ListPolicyExperiences(context.Context, string) ([]domain.PolicyExperience, error) {
+	return append([]domain.PolicyExperience(nil), s.experiences...), nil
+}
 
 func TestGetBuildsStableSortedMemoryView(t *testing.T) {
 	store := &storeStub{
@@ -37,9 +41,16 @@ func TestGetBuildsStableSortedMemoryView(t *testing.T) {
 				{Key: domain.PreferenceTaskOrder, Value: "watering,harvesting", Context: domain.TraitContextSunny, Confidence: 0.91, ObservationCount: 3, EvidenceRefs: []string{"d1:e"}},
 			},
 		},
-		outcome:  domain.LearningOutcome{Change: domain.LearningChange{ModelRevision: 3, Kind: domain.LearningChangeStrengthened, Summary: "task order strengthened"}},
-		decision: domain.DecisionRecord{SaveID: "farm-1", SessionID: "echo-4", SnapshotVersion: 8},
-		session:  domain.EchoSessionMemory{SessionID: "echo-4", Day: 4, Status: "active"},
+		outcome: domain.LearningOutcome{Change: domain.LearningChange{ModelRevision: 3, Kind: domain.LearningChangeStrengthened, Summary: "task order strengthened"}},
+		decision: domain.DecisionRecord{
+			SaveID: "farm-1", SessionID: "echo-4", SnapshotVersion: 8, PolicyConfidence: 0.91,
+			SafeAlternatives: []domain.HighLevelAction{{SaveID: "farm-1", SessionID: "echo-4", SnapshotVersion: 8, Kind: domain.ActionStopSession}},
+		},
+		session: domain.EchoSessionMemory{SessionID: "echo-4", Day: 4, Status: "active"},
+		experiences: []domain.PolicyExperience{
+			{ID: "exp-low", SaveID: "farm-1", Trigger: domain.ExperienceInventoryFull, Context: domain.TraitContextSunny, WhenSignals: []domain.SituationSignal{domain.SignalInventoryFull}, PreferAction: domain.ActionDepositItems, Summary: "older", Confidence: 0.6, ObservationCount: 1, FirstSeenDay: 2, LastSeenDay: 2, EvidenceRefs: []string{"decision:echo-2:1"}, Source: domain.ExperienceSourceFailure},
+			{ID: "exp-correction", SaveID: "farm-1", Trigger: domain.ExperiencePlayerCorrection, Context: domain.TraitContextSunny, WhenSignals: []domain.SituationSignal{domain.SignalInventoryHasItems}, PreferAction: domain.ActionDepositItems, PreferredTargetID: "chest-west", Summary: "newer", Confidence: 0.85, ObservationCount: 1, FirstSeenDay: 4, LastSeenDay: 4, EvidenceRefs: []string{"correction-1"}, Source: domain.ExperienceSourceCorrection},
+		},
 	}
 	service, err := NewService(store)
 	if err != nil {
@@ -55,6 +66,12 @@ func TestGetBuildsStableSortedMemoryView(t *testing.T) {
 	}
 	if view.RecentLearningChange == nil || view.LastDecision == nil || view.ActiveSession == nil {
 		t.Fatalf("incomplete memory view = %+v", view)
+	}
+	if view.LastDecision.PolicyConfidence != 0.91 || len(view.LastDecision.SafeAlternatives) != 1 {
+		t.Fatalf("last decision metadata = %+v", view.LastDecision)
+	}
+	if len(view.Experiences) != 2 || view.Experiences[0].ID != "exp-correction" {
+		t.Fatalf("experiences = %+v", view.Experiences)
 	}
 }
 
