@@ -79,11 +79,11 @@ git commit -m "feat(echofarm): version semantic activity events"
 - Create: `stardew-echo-mod/tests/EchoFarm.Bridge.Tests/Recording/SemanticActivityTrackerTests.cs`
 - Modify: `stardew-echo-mod/src/EchoFarm.Bridge/Recording/ObservedGameEvent.cs`
 
-- [ ] **Step 1: Write failing classifier tests**
+- [x] **Step 1: Write failing classifier tests**
 
 Cover tree and rock episodes that aggregate repeated progress signals into one event; target disappearance as success; target replacement, cancellation, and a 600-tick timeout as bounded failures; confirmed mine-floor transition; caught fish with item evidence; and escaped fish without a fabricated item. Verify a second concurrent episode is rejected and `Reset` discards pending state without emitting evidence.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -94,7 +94,7 @@ dotnet test EchoFarm.sln --filter 'FullyQualifiedName~SemanticActivityTrackerTes
 
 Expected: compile failure because `SemanticActivityTracker` and its signal contracts do not exist.
 
-- [ ] **Step 3: Implement the classifier state machine**
+- [x] **Step 3: Implement the classifier state machine**
 
 Expose this game-neutral API:
 
@@ -127,7 +127,7 @@ public sealed class SemanticActivityTracker
 
 Normalize item deltas by item ID, use the first sample as the episode baseline, and emit only the bounded codes `activity_timeout`, `target_changed`, `location_changed`, `activity_cancelled`, and `fish_escaped`.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 Run the full bridge suite and commit:
 
