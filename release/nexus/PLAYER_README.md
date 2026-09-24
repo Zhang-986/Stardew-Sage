@@ -21,10 +21,10 @@ On Windows, repository owners can use the checked workflow instead of copying fi
 
 ```powershell
 $game = "C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley"
-.\scripts\windows\Install-EchoFarm.ps1 -Doctor -GamePath $game
-.\scripts\windows\Install-EchoFarm.ps1 -Build -GamePath $game
-.\scripts\windows\Install-EchoFarm.ps1 -Install -GamePath $game -PackagePath .\dist\windows\EchoFarm
+.\scripts\windows\Install-EchoFarm.ps1 -Prepare -GamePath $game
 ```
+
+The command produces `dist\windows\EchoFarm.acceptance.json`. Continue with a disposable save only when it says `readyForDisposableSave: true`; public release remains blocked until the real SMAPI launch and semantic-activity checks are recorded.
 
 On macOS, the Mod restores the executable permission if the unzip tool removed it. If Gatekeeper still quarantines the unsigned preview binary, remove quarantine from this Mod folder only after verifying the downloaded SHA-256 checksum:
 

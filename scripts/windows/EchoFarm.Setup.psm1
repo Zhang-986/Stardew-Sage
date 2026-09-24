@@ -470,6 +470,7 @@ function Test-EchoFarmCoreHealth {
         return [pscustomobject]@{ Ready = $false; Endpoint = $null; Issues = @($issues.ToArray()) }
     }
     $CoreExecutablePath = [System.IO.Path]::GetFullPath($CoreExecutablePath)
+    $createdWorkingDirectory = [string]::IsNullOrWhiteSpace($WorkingDirectory)
     if ([string]::IsNullOrWhiteSpace($WorkingDirectory)) {
         $WorkingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ('echofarm-health-' + [Guid]::NewGuid().ToString('N'))
     }
@@ -532,6 +533,9 @@ function Test-EchoFarmCoreHealth {
         foreach ($path in @($databasePath, "$databasePath-shm", "$databasePath-wal")) {
             Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
         }
+        if ($createdWorkingDirectory) {
+            Remove-Item -LiteralPath $WorkingDirectory -Force -ErrorAction SilentlyContinue
+        }
     }
     return [pscustomobject]@{ Ready = $false; Endpoint = $endpoint; Issues = @($issues.ToArray()) }
 }
@@ -566,8 +570,7 @@ function New-EchoFarmCandidate {
     $installedPackage = Test-EchoFarmPackage -PackagePath $install.InstallPath -AllowConfig
     if ($null -eq $HealthProbe) {
         $health = Test-EchoFarmCoreHealth `
-            -CoreExecutablePath (Join-Path $install.InstallPath 'core/echofarm-core.exe') `
-            -WorkingDirectory (Join-Path ([System.IO.Path]::GetTempPath()) ('echofarm-candidate-' + [Guid]::NewGuid().ToString('N')))
+            -CoreExecutablePath (Join-Path $install.InstallPath 'core/echofarm-core.exe')
     }
     else {
         $health = & $HealthProbe `

@@ -21,13 +21,12 @@ Open PowerShell in the repository and replace the example game path with the dir
 
 ```powershell
 $game = "C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley"
-
-.\scripts\windows\Install-EchoFarm.ps1 -Doctor -GamePath $game
-.\scripts\windows\Install-EchoFarm.ps1 -Build -GamePath $game
-.\scripts\windows\Install-EchoFarm.ps1 -Install -GamePath $game -PackagePath .\dist\windows\EchoFarm
+.\scripts\windows\Install-EchoFarm.ps1 -Prepare -GamePath $game
 ```
 
-The build command compiles the real SMAPI Mod against the local legal game installation, cross-builds the Windows x64 Go sidecar, validates an exact file allowlist, and writes `dist\windows\EchoFarm.zip`, its SHA-256 file, and `EchoFarm.evidence.json`. Installation stages into `Mods\.EchoFarm.installing`, preserves an existing `Mods\EchoFarm\config.json`, and then replaces the program directory.
+The prepare command compiles the real SMAPI Mod against the local legal game installation, cross-builds the Windows x64 Go sidecar, validates an exact file allowlist, installs atomically, and proves the installed sidecar can answer `/healthz` in offline fixture mode. It writes `dist\windows\EchoFarm.zip`, its SHA-256 file, `EchoFarm.evidence.json`, and `EchoFarm.acceptance.json`. Installation stages into `Mods\.EchoFarm.installing`, preserves an existing `Mods\EchoFarm\config.json`, and then replaces the program directory.
+
+`readyForDisposableSave: true` in the acceptance report means the automated handoff passed. It intentionally keeps `readyForPublicRelease: false` while `smapi_launch` and `semantic_activity_gameplay` are pending; those two stages require the real-game checklist and must not be inferred from CI.
 
 Uninstall removes only the Mod program directory by default, preserving the learned SQLite memory under local application data:
 

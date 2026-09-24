@@ -101,12 +101,10 @@ Windows 仓库所有者可直接执行：
 
 ```powershell
 $game = "C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley"
-.\scripts\windows\Install-EchoFarm.ps1 -Doctor -GamePath $game
-.\scripts\windows\Install-EchoFarm.ps1 -Build -GamePath $game
-.\scripts\windows\Install-EchoFarm.ps1 -Install -GamePath $game -PackagePath .\dist\windows\EchoFarm
+.\scripts\windows\Install-EchoFarm.ps1 -Prepare -GamePath $game
 ```
 
-实机验收按 [Windows 冒烟清单](docs/echofarm/windows-smoke-checklist.md) 执行。构建脚本会同时产出 SHA-256 和 `EchoFarm.evidence.json`，游戏内项目在真实观察前一律保持 `pending`。
+`-Prepare` 会串行完成环境检查、真实 Mod 编译、Windows Sidecar 构建、包校验、原子安装和本地 `/healthz` 探测，并产出 SHA-256、`EchoFarm.evidence.json` 与 `EchoFarm.acceptance.json`。其中 `readyForDisposableSave: true` 表示可进入一次性存档实测；游戏内项目在真实观察前保持 `pending`，因此 `readyForPublicRelease` 仍为 `false`。实机验收按 [Windows 冒烟清单](docs/echofarm/windows-smoke-checklist.md) 执行。
 
 ```bash
 ./scripts/package-nexus.sh --version 0.4.0 --game-path "/path/to/Stardew Valley"

@@ -57,19 +57,19 @@ git commit -m "feat(release): add Windows candidate acceptance gate"
 - Modify: `release/nexus/PLAYER_README.md`
 - Modify: `docs/echofarm/windows-smoke-checklist.md`
 
-- [ ] **Step 1: Write the failing entry-point assertion**
+- [x] **Step 1: Write the failing entry-point assertion**
 
 Extend `Test-EchoFarmSetup.ps1` to parse `Install-EchoFarm.ps1` and assert that `-Prepare` is one of the mutually exclusive operations and dispatches to `Prepare-EchoFarmCandidate` without a `PackagePath` requirement.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run the PowerShell suite. Expected: FAIL because the entry point does not expose `-Prepare`.
 
-- [ ] **Step 3: Add `-Prepare` and CI health coverage**
+- [x] **Step 3: Add `-Prepare` and CI health coverage**
 
 Add the switch to the entry point and operation-count guard. Dispatch it with `GamePath` and optional `OutputPath`. Replace the duplicated Windows workflow health-smoke body with a call to `Test-EchoFarmCoreHealth` against the freshly built executable and fail unless `Ready` is true.
 
-- [ ] **Step 4: Document the exact player path**
+- [x] **Step 4: Document the exact player path**
 
 Make this the primary owner command in all three readmes:
 
@@ -79,6 +79,6 @@ Make this the primary owner command in all three readmes:
 
 Document the resulting acceptance JSON and state explicitly that `readyForDisposableSave` is an automated handoff, while `readyForPublicRelease` remains false until the SMAPI launch and semantic activity checklist are signed on a real disposable save.
 
-- [ ] **Step 5: Run full verification and commit**
+- [x] **Step 5: Run full verification and commit**
 
 Run the PowerShell suite, full .NET Release suite, Go race/vet, all four cross-process demos, Nexus package smoke, tracked-source secret scan, and `git diff --check`. Commit and push the exact SHA, then require Linux `verify` and Windows `windows-sidecar` to pass.

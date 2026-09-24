@@ -3,6 +3,7 @@ param(
     [switch]$Doctor,
     [switch]$Build,
     [switch]$Install,
+    [switch]$Prepare,
     [switch]$Uninstall,
     [string]$GamePath,
     [string]$PackagePath,
@@ -18,9 +19,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'EchoFarm.Setup.psm1') -Force
 
-$selected = @($Doctor, $Build, $Install, $Uninstall | Where-Object { $_ }).Count
+$selected = @($Doctor, $Build, $Install, $Prepare, $Uninstall | Where-Object { $_ }).Count
 if ($selected -ne 1) {
-    throw 'Choose exactly one operation: -Doctor, -Build, -Install, or -Uninstall.'
+    throw 'Choose exactly one operation: -Doctor, -Build, -Install, -Prepare, or -Uninstall.'
 }
 
 if ($Doctor) {
@@ -40,6 +41,12 @@ elseif ($Install) {
         throw '-Install requires -GamePath and -PackagePath.'
     }
     $result = Install-EchoFarm -GamePath $GamePath -PackagePath $PackagePath
+}
+elseif ($Prepare) {
+    if ([string]::IsNullOrWhiteSpace($GamePath)) {
+        throw '-Prepare requires -GamePath.'
+    }
+    $result = New-EchoFarmCandidate -GamePath $GamePath -OutputPath $OutputPath
 }
 else {
     if ([string]::IsNullOrWhiteSpace($GamePath)) {

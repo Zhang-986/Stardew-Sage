@@ -79,39 +79,12 @@ jobs:
 
       - name: Smoke Windows sidecar health
         shell: pwsh
+        working-directory: .
         run: |
           $ErrorActionPreference = "Stop"
-          $env:ECHOFARM_MODEL_MODE = "fixture"
-          $env:ECHOFARM_ADDRESS = "127.0.0.1:18474"
-          $env:ECHOFARM_DATABASE_PATH = "$env:RUNNER_TEMP\echofarm-ci.db"
-          $stdout = "$env:RUNNER_TEMP\echofarm-stdout.log"
-          $stderr = "$env:RUNNER_TEMP\echofarm-stderr.log"
-          $process = Start-Process -FilePath "$env:RUNNER_TEMP\echofarm-core.exe" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-          try {
-            $healthy = $false
-            foreach ($attempt in 1..80) {
-              if ($process.HasExited) {
-                Get-Content $stdout, $stderr -ErrorAction SilentlyContinue
-                throw "EchoFarm sidecar exited before becoming healthy with code $($process.ExitCode)."
-              }
-              try {
-                $response = Invoke-RestMethod -Uri "http://127.0.0.1:18474/healthz" -TimeoutSec 2
-                if ($response.status -eq "ok") {
-                  $healthy = $true
-                  break
-                }
-              }
-              catch {
-                Start-Sleep -Milliseconds 250
-              }
-            }
-            if (-not $healthy) {
-              Get-Content $stdout, $stderr -ErrorAction SilentlyContinue
-              throw "EchoFarm sidecar did not become healthy."
-            }
-          }
-          finally {
-            if (-not $process.HasExited) {
-              Stop-Process -Id $process.Id -Force
-            }
+          Import-Module .\scripts\windows\EchoFarm.Setup.psm1 -Force
+          $result = Test-EchoFarmCoreHealth -CoreExecutablePath "$env:RUNNER_TEMP\echofarm-core.exe"
+          $result | ConvertTo-Json -Depth 8
+          if (-not $result.Ready) {
+            throw "EchoFarm sidecar health verification failed: $($result.Issues.Code -join ', ')"
           }

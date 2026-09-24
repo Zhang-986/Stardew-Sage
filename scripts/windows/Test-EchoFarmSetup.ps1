@@ -198,6 +198,15 @@ try {
         Assert-True ($result.GamePath -eq $gamePath) 'Doctor entry point returned the wrong game path.'
     }
 
+    Invoke-Test 'command entry point exposes one-command candidate preparation' {
+        $entryScript = Join-Path $PSScriptRoot 'Install-EchoFarm.ps1'
+        $entrySource = Get-Content -LiteralPath $entryScript -Raw
+
+        Assert-True ($entrySource.Contains('[switch]$Prepare')) 'The -Prepare operation is missing.'
+        Assert-True ($entrySource.Contains('New-EchoFarmCandidate')) 'The -Prepare operation is not wired to candidate orchestration.'
+        Assert-True ($entrySource.Contains('Choose exactly one operation: -Doctor, -Build, -Install, -Prepare, or -Uninstall.')) 'The operation guard does not describe -Prepare.'
+    }
+
     Invoke-Test 'evidence report records versions and redacts diagnostics' {
         $output = Join-Path $tempRoot 'evidence/report.json'
         $checks = @(

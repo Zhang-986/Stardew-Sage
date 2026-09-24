@@ -6,7 +6,8 @@ Generated on 2026-09-24 from branch `codex/living-valley-director`.
 
 - `.NET bridge`: 125 tests passed, 0 failed, including capability gates, setup readiness, endpoint conflict detection, diagnostic redaction, model-usage contracts, semantic activity classification, and F9 usage presentation.
 - `Go core`: all packages passed with `-race -count=1`; `go vet ./...` passed.
-- `Windows workflow`: 9 self-tests passed for doctor results, package allowlisting, atomic install, `config.json` preservation, safe uninstall, and evidence redaction.
+- `Windows workflow`: 11 self-tests passed for doctor results, package allowlisting, atomic install, `config.json` preservation, safe uninstall, evidence redaction, and the one-command candidate acceptance contract.
+- `Candidate handoff`: `Install-EchoFarm.ps1 -Prepare` composes the legal-game Mod build, Windows sidecar build, package validation, atomic installation, and owned-process `/healthz` smoke. Its separate acceptance report permits disposable-save testing only after every automated stage passes and keeps public release false while native gameplay remains pending.
 - `Action capability boundary`: the Mod emits explicit capabilities; Go skips disabled candidates; C# rejects disabled harvesting again before mutation. Harvesting defaults off.
 - `Model operations`: every generation reserves a durable request ledger row with purpose and safe status; provider token metadata remains explicitly known/unknown; concurrent call limits do not overshoot; exhausted action/intent budgets persist `stop_session`.
 - `Model data boundary`: the usage schema contains no prompt, response, API-key, or provider-error-body column. Only bounded error classes are persisted, and no currency estimate is produced.
@@ -52,7 +53,7 @@ Then perform the disposable-save smoke checklist and upload only the validated f
 
 ## Machine-readable Windows evidence
 
-`Install-EchoFarm.ps1 -Build` writes `dist/windows/EchoFarm.evidence.json` next to the staged directory, ZIP, and SHA-256 file. It records:
+`Install-EchoFarm.ps1 -Prepare` writes `dist/windows/EchoFarm.evidence.json` and `dist/windows/EchoFarm.acceptance.json` next to the staged directory, ZIP, and SHA-256 file. The build evidence records:
 
 - source commit;
 - Windows/x64 target;
@@ -62,4 +63,4 @@ Then perform the disposable-save smoke checklist and upload only the validated f
 - unsigned `pending` gameplay checks;
 - redacted diagnostics only.
 
-The JSON is evidence input, not automatic game certification. Complete [the Windows smoke checklist](../../docs/echofarm/windows-smoke-checklist.md) on a disposable save and sign the pending checks before calling an archive playable.
+The acceptance report separately records build, package, install, and sidecar-health stages as automated checks, then leaves SMAPI launch and semantic-activity gameplay pending. The JSON files are evidence inputs, not automatic game certification. Complete [the Windows smoke checklist](../../docs/echofarm/windows-smoke-checklist.md) on a disposable save and sign the pending checks before calling an archive playable.

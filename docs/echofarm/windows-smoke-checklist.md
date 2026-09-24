@@ -17,6 +17,8 @@ The build script fills machine-verifiable fields and leaves gameplay checks `pen
 
 ## Install and first launch
 
+- [ ] `Install-EchoFarm.ps1 -Prepare -GamePath <path>` completes and writes `dist\windows\EchoFarm.acceptance.json`.
+- [ ] The acceptance report says `readyForDisposableSave: true`, `readyForPublicRelease: false`, `smapi_launch: pending`, and `semantic_activity_gameplay: pending` before the game is launched.
 - [ ] `Install-EchoFarm.ps1 -Doctor` reports `Ready: True`.
 - [ ] `-Build` creates `EchoFarm.zip`, `EchoFarm.sha256`, and `EchoFarm.evidence.json`.
 - [ ] `-Install` produces `Mods/EchoFarm/manifest.json` without an extra nested directory.
