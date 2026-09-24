@@ -1,7 +1,12 @@
 package main
 
 import (
+	"context"
+	"path/filepath"
 	"testing"
+
+	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/intelligence"
+	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/memory"
 )
 
 func TestLoadConfigUsesSafeLocalDefaultsInFixtureMode(t *testing.T) {
@@ -18,6 +23,17 @@ func TestLoadConfigUsesSafeLocalDefaultsInFixtureMode(t *testing.T) {
 	}
 	if config.DatabasePath != "echofarm.db" {
 		t.Fatalf("database path = %q", config.DatabasePath)
+	}
+}
+
+func TestBuildHandlerWiresContinuumServices(t *testing.T) {
+	store, err := memory.OpenSQLite(filepath.Join(t.TempDir(), "echo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	if _, err := buildHandler(context.Background(), store, intelligence.NewFixtureGenerator()); err != nil {
+		t.Fatalf("buildHandler() error = %v", err)
 	}
 }
 

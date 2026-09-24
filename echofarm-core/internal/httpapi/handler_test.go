@@ -15,17 +15,31 @@ import (
 )
 
 type apiStub struct {
-	model  domain.PlayerModel
-	skill  domain.SkillProgram
-	action domain.HighLevelAction
-	err    error
+	model            domain.PlayerModel
+	skill            domain.SkillProgram
+	outcome          domain.LearningOutcome
+	memoryView       domain.EchoMemoryView
+	action           domain.HighLevelAction
+	observedSnapshot domain.WorldSnapshot
+	err              error
+}
+
+func (s *apiStub) TeachOutcome(context.Context, domain.Demonstration) (domain.LearningOutcome, error) {
+	if s.outcome.PlayerModel.SaveID == "" {
+		s.outcome = domain.LearningOutcome{
+			PlayerModel: s.model, Skill: s.skill,
+			Change: domain.LearningChange{ModelRevision: s.model.Revision, Kind: domain.LearningChangeAdded, Summary: "learned"},
+		}
+	}
+	return s.outcome, s.err
 }
 
 func (s *apiStub) Teach(context.Context, domain.Demonstration) (domain.PlayerModel, domain.SkillProgram, error) {
 	return s.model, s.skill, s.err
 }
 
-func (s *apiStub) NextAction(context.Context, string, domain.WorldSnapshot) (domain.HighLevelAction, error) {
+func (s *apiStub) NextAction(_ context.Context, _ string, snapshot domain.WorldSnapshot) (domain.HighLevelAction, error) {
+	s.observedSnapshot = snapshot
 	return s.action, s.err
 }
 
@@ -39,6 +53,10 @@ func (s *apiStub) GetPlayerModel(context.Context, string) (domain.PlayerModel, e
 
 func (s *apiStub) GetSkill(context.Context, string, string) (domain.SkillProgram, error) {
 	return s.skill, s.err
+}
+
+func (s *apiStub) Get(context.Context, string) (domain.EchoMemoryView, error) {
+	return s.memoryView, s.err
 }
 
 func TestHealthEndpoint(t *testing.T) {
@@ -73,6 +91,9 @@ func TestLearnEndpointReturnsPlayerMemory(t *testing.T) {
 	if got.PlayerModel.SaveID != "farm-1" || got.Skill.Name != "morning-farm-routine" {
 		t.Fatalf("learn response = %+v", got)
 	}
+	if got.LearningChange.Kind != domain.LearningChangeAdded {
+		t.Fatalf("learning change = %+v", got.LearningChange)
+	}
 }
 
 func TestLearnEndpointRejectsUnknownFields(t *testing.T) {
@@ -92,6 +113,7 @@ func TestLearnEndpointRejectsUnknownFields(t *testing.T) {
 
 func TestNextActionEndpointUsesSnapshotSaveID(t *testing.T) {
 	snapshot := validWorldSnapshot()
+	snapshot.RecentPlayerActions = []domain.PlayerActivity{{Kind: domain.EventWater, TargetID: "crop-old", Tick: 120, Success: true}}
 	want := domain.HighLevelAction{
 		SaveID: snapshot.SaveID, SessionID: snapshot.SessionID, SnapshotVersion: snapshot.SnapshotVersion,
 		Kind: domain.ActionWaterTarget, TargetID: "crop-new", Reason: "learned routine",
@@ -112,6 +134,35 @@ func TestNextActionEndpointUsesSnapshotSaveID(t *testing.T) {
 	}
 	if got.Action.TargetID != "crop-new" {
 		t.Fatalf("action = %+v", got.Action)
+	}
+	if len(handler.(*Handler).policy.(*apiStub).observedSnapshot.RecentPlayerActions) != 1 {
+		t.Fatal("recent player activity was not decoded")
+	}
+}
+
+func TestMemoryEndpointReturnsExplainableView(t *testing.T) {
+	stub := &apiStub{memoryView: domain.EchoMemoryView{
+		SaveID: "farm-1", ModelRevision: 3, LearnedThroughDay: 3,
+		StableTraits: []domain.TraitMemory{{
+			Key: domain.PreferenceTaskOrder, Value: "watering,harvesting", Context: domain.TraitContextSunny,
+			Confidence: 0.82, ObservationCount: 2, EvidenceRefs: []string{"demo-1:water-1"},
+		}},
+	}}
+	handler := newTestHandler(t, stub)
+	request := httptest.NewRequest(http.MethodGet, "/v1/echo/memory?saveId=farm-1", nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	var got domain.EchoMemoryView
+	if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.ModelRevision != 3 || len(got.StableTraits) != 1 {
+		t.Fatalf("memory view = %+v", got)
 	}
 }
 
@@ -163,7 +214,7 @@ func TestGetPlayerModelMapsMissingMemoryToNotFound(t *testing.T) {
 
 func newTestHandler(t *testing.T, stub *apiStub) http.Handler {
 	t.Helper()
-	handler, err := NewHandler(stub, stub, stub)
+	handler, err := NewHandler(stub, stub, stub, stub)
 	if err != nil {
 		t.Fatalf("NewHandler() error = %v", err)
 	}

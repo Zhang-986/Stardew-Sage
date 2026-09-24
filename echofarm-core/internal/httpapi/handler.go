@@ -15,7 +15,7 @@ import (
 const maxRequestBytes = 2 << 20
 
 type teacher interface {
-	Teach(context.Context, domain.Demonstration) (domain.PlayerModel, domain.SkillProgram, error)
+	TeachOutcome(context.Context, domain.Demonstration) (domain.LearningOutcome, error)
 }
 
 type echoPolicy interface {
@@ -28,16 +28,22 @@ type memoryReader interface {
 	GetSkill(context.Context, string, string) (domain.SkillProgram, error)
 }
 
+type memoryViewReader interface {
+	Get(context.Context, string) (domain.EchoMemoryView, error)
+}
+
 type Handler struct {
 	teacher teacher
 	policy  echoPolicy
 	memory  memoryReader
+	views   memoryViewReader
 	mux     *http.ServeMux
 }
 
 type LearnResponse struct {
-	PlayerModel domain.PlayerModel  `json:"playerModel"`
-	Skill       domain.SkillProgram `json:"skill"`
+	PlayerModel    domain.PlayerModel    `json:"playerModel"`
+	Skill          domain.SkillProgram   `json:"skill"`
+	LearningChange domain.LearningChange `json:"learningChange"`
 }
 
 type ActionResponse struct {
@@ -55,17 +61,18 @@ type errorResponse struct {
 	Message string `json:"message"`
 }
 
-func NewHandler(teacher teacher, policy echoPolicy, memory memoryReader) (*Handler, error) {
-	if teacher == nil || policy == nil || memory == nil {
-		return nil, errors.New("teacher, policy, and memory are required")
+func NewHandler(teacher teacher, policy echoPolicy, memory memoryReader, views memoryViewReader) (*Handler, error) {
+	if teacher == nil || policy == nil || memory == nil || views == nil {
+		return nil, errors.New("teacher, policy, memory, and memory views are required")
 	}
-	h := &Handler{teacher: teacher, policy: policy, memory: memory, mux: http.NewServeMux()}
+	h := &Handler{teacher: teacher, policy: policy, memory: memory, views: views, mux: http.NewServeMux()}
 	h.mux.HandleFunc("GET /healthz", h.health)
 	h.mux.HandleFunc("POST /v1/demonstrations/learn", h.learn)
 	h.mux.HandleFunc("POST /v1/echo/next-action", h.nextAction)
 	h.mux.HandleFunc("POST /v1/echo/action-result", h.actionResult)
 	h.mux.HandleFunc("GET /v1/player-model", h.playerModel)
 	h.mux.HandleFunc("GET /v1/skills/morning-farm-routine", h.skill)
+	h.mux.HandleFunc("GET /v1/echo/memory", h.echoMemory)
 	return h, nil
 }
 
@@ -83,12 +90,14 @@ func (h *Handler) learn(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "invalid_request", "request body is not a valid demonstration")
 		return
 	}
-	model, skill, err := h.teacher.Teach(r.Context(), demonstration)
+	outcome, err := h.teacher.TeachOutcome(r.Context(), demonstration)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, LearnResponse{PlayerModel: model, Skill: skill})
+	writeJSON(w, http.StatusOK, LearnResponse{
+		PlayerModel: outcome.PlayerModel, Skill: outcome.Skill, LearningChange: outcome.Change,
+	})
 }
 
 func (h *Handler) nextAction(w http.ResponseWriter, r *http.Request) {
@@ -149,6 +158,20 @@ func (h *Handler) skill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, skill)
+}
+
+func (h *Handler) echoMemory(w http.ResponseWriter, r *http.Request) {
+	saveID := r.URL.Query().Get("saveId")
+	if saveID == "" {
+		writeAPIError(w, http.StatusBadRequest, "missing_save_id", "saveId is required")
+		return
+	}
+	view, err := h.views.Get(r.Context(), saveID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, output any) error {

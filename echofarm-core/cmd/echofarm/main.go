@@ -12,10 +12,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/coordination"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/httpapi"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/intelligence"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/learning"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/memory"
+	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/memoryview"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/policy"
 )
 
@@ -60,23 +62,7 @@ func run(ctx context.Context) error {
 			return err
 		}
 	}
-	learningGraph, err := intelligence.NewLearningGraph(generator)
-	if err != nil {
-		return err
-	}
-	actionGraph, err := intelligence.NewActionGraph(generator)
-	if err != nil {
-		return err
-	}
-	teacher, err := learning.NewService(store, learningGraph)
-	if err != nil {
-		return err
-	}
-	echoPolicy, err := policy.NewService(store, actionGraph)
-	if err != nil {
-		return err
-	}
-	handler, err := httpapi.NewHandler(teacher, echoPolicy, store)
+	handler, err := buildHandler(ctx, store, generator)
 	if err != nil {
 		return err
 	}
@@ -105,6 +91,38 @@ func run(ctx context.Context) error {
 	}
 	<-shutdownDone
 	return nil
+}
+
+func buildHandler(ctx context.Context, store *memory.SQLite, generator intelligence.StructuredGenerator) (http.Handler, error) {
+	learningGraph, err := intelligence.NewLearningGraph(generator)
+	if err != nil {
+		return nil, err
+	}
+	actionGraph, err := intelligence.NewActionGraph(generator)
+	if err != nil {
+		return nil, err
+	}
+	intentGraph, err := intelligence.NewIntentGraph(generator)
+	if err != nil {
+		return nil, err
+	}
+	coordinator, err := coordination.NewService(intentGraph)
+	if err != nil {
+		return nil, err
+	}
+	teacher, err := learning.NewService(store, learningGraph)
+	if err != nil {
+		return nil, err
+	}
+	echoPolicy, err := policy.NewService(store, actionGraph, coordinator)
+	if err != nil {
+		return nil, err
+	}
+	views, err := memoryview.NewService(store)
+	if err != nil {
+		return nil, err
+	}
+	return httpapi.NewHandler(teacher, echoPolicy, store, views)
 }
 
 func loadConfig(lookup func(string) (string, bool)) (config, error) {
