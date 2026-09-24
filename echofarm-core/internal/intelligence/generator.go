@@ -61,9 +61,14 @@ func NewOpenAIGenerator(ctx context.Context, config OpenAIConfig) (*ChatGenerato
 }
 
 func (g *ChatGenerator) GenerateJSON(ctx context.Context, systemPrompt string, input any, output any) error {
+	_, err := g.GenerateJSONWithUsage(ctx, systemPrompt, input, output)
+	return err
+}
+
+func (g *ChatGenerator) GenerateJSONWithUsage(ctx context.Context, systemPrompt string, input any, output any) (GenerationUsage, error) {
 	payload, err := json.Marshal(input)
 	if err != nil {
-		return fmt.Errorf("marshal model input: %w", err)
+		return GenerationUsage{}, fmt.Errorf("marshal model input: %w", err)
 	}
 
 	requestCtx, cancel := context.WithTimeout(ctx, g.timeout)
@@ -73,20 +78,34 @@ func (g *ChatGenerator) GenerateJSON(ctx context.Context, systemPrompt string, i
 		schema.UserMessage(string(payload)),
 	})
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrModelUnavailable, err)
+		return GenerationUsage{}, fmt.Errorf("%w: %v", ErrModelUnavailable, err)
 	}
 	if response == nil {
-		return fmt.Errorf("%w: empty response", ErrInvalidModelOutput)
+		return GenerationUsage{}, fmt.Errorf("%w: empty response", ErrInvalidModelOutput)
 	}
+	usage := generationUsage(response)
 
 	decoder := json.NewDecoder(bytes.NewBufferString(response.Content))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(output); err != nil {
-		return fmt.Errorf("%w: decode JSON: %v", ErrInvalidModelOutput, err)
+		return usage, fmt.Errorf("%w: decode JSON: %v", ErrInvalidModelOutput, err)
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return fmt.Errorf("%w: response contains trailing content", ErrInvalidModelOutput)
+		return usage, fmt.Errorf("%w: response contains trailing content", ErrInvalidModelOutput)
 	}
-	return nil
+	return usage, nil
+}
+
+func generationUsage(response *schema.Message) GenerationUsage {
+	if response.ResponseMeta == nil || response.ResponseMeta.Usage == nil {
+		return GenerationUsage{}
+	}
+	usage := response.ResponseMeta.Usage
+	return GenerationUsage{
+		Reported:         true,
+		PromptTokens:     usage.PromptTokens,
+		CompletionTokens: usage.CompletionTokens,
+		TotalTokens:      usage.TotalTokens,
+	}
 }

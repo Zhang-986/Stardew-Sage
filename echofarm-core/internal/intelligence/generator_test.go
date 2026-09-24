@@ -81,6 +81,48 @@ func TestChatGeneratorMapsModelFailure(t *testing.T) {
 	}
 }
 
+func TestChatGeneratorReportsProviderTokenUsage(t *testing.T) {
+	response := schema.AssistantMessage(`{"ok":true}`, nil)
+	response.ResponseMeta = &schema.ResponseMeta{Usage: &schema.TokenUsage{
+		PromptTokens: 41, CompletionTokens: 7, TotalTokens: 48,
+	}}
+	generator, err := NewChatGenerator(&stubChatModel{response: response}, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output struct {
+		OK bool `json:"ok"`
+	}
+
+	usage, err := generator.GenerateJSONWithUsage(context.Background(), "return JSON", struct{}{}, &output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !output.OK || !usage.Reported || usage.PromptTokens != 41 || usage.CompletionTokens != 7 || usage.TotalTokens != 48 {
+		t.Fatalf("output/usage = %+v / %+v", output, usage)
+	}
+}
+
+func TestChatGeneratorLeavesProviderTokenUsageUnknownWhenAbsent(t *testing.T) {
+	generator, err := NewChatGenerator(
+		&stubChatModel{response: schema.AssistantMessage(`{"ok":true}`, nil)},
+		time.Second,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	usage, err := generator.GenerateJSONWithUsage(context.Background(), "return JSON", struct{}{}, &struct {
+		OK bool `json:"ok"`
+	}{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if usage.Reported || usage.PromptTokens != 0 || usage.CompletionTokens != 0 || usage.TotalTokens != 0 {
+		t.Fatalf("usage = %+v, want explicitly unknown zero values", usage)
+	}
+}
+
 func TestNewOpenAIGeneratorRequiresConfiguration(t *testing.T) {
 	_, err := NewOpenAIGenerator(context.Background(), OpenAIConfig{})
 	if err == nil {

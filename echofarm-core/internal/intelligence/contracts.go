@@ -71,3 +71,14 @@ type Intelligence interface {
 type StructuredGenerator interface {
 	GenerateJSON(ctx context.Context, systemPrompt string, input any, output any) error
 }
+
+type GenerationUsage struct {
+	Reported         bool
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+}
+
+type UsageReportingGenerator interface {
+	GenerateJSONWithUsage(ctx context.Context, systemPrompt string, input any, output any) (GenerationUsage, error)
+}

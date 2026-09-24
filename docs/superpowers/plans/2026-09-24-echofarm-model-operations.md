@@ -17,11 +17,11 @@
 - Modify: `echofarm-core/internal/intelligence/generator.go`
 - Modify: `echofarm-core/internal/intelligence/generator_test.go`
 
-- [ ] **Step 1: Write failing generator metadata tests**
+- [x] **Step 1: Write failing generator metadata tests**
 
 Add tests in `generator_test.go` proving that a response with `schema.ResponseMeta.Usage` returns prompt, completion, and total tokens through a new optional `UsageReportingGenerator` interface, while a response without metadata returns `Reported=false`. Verify provider errors remain classifiable through `ErrModelUnavailable` without exposing response content.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -32,7 +32,7 @@ go test ./internal/intelligence -run 'TestChatGeneratorReports|TestChatGenerator
 
 Expected: compile failure because `GenerationUsage` and `GenerateJSONWithUsage` do not exist.
 
-- [ ] **Step 3: Implement minimal usage extraction**
+- [x] **Step 3: Implement minimal usage extraction**
 
 Define:
 
@@ -51,7 +51,7 @@ type UsageReportingGenerator interface {
 
 Refactor `ChatGenerator.GenerateJSON` to delegate to `GenerateJSONWithUsage`. Read only `response.ResponseMeta.Usage`; do not retain request/response bodies in the returned metadata.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 Run the targeted tests and `go test ./internal/intelligence -count=1`, then commit:
 
