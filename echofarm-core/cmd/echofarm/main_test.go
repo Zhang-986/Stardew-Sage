@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoadConfigUsesProductionModelBudgetDefaults(t *testing.T) {
@@ -12,6 +13,19 @@ func TestLoadConfigUsesProductionModelBudgetDefaults(t *testing.T) {
 	}
 	if config.MaxModelCallsPerSession != 32 || config.MaxReportedTokensPerSession != 100000 {
 		t.Fatalf("model budgets = %d/%d", config.MaxModelCallsPerSession, config.MaxReportedTokensPerSession)
+	}
+}
+
+func TestLoadConfigUsesConfiguredModelTimeout(t *testing.T) {
+	config, err := loadConfig(mapLookup(map[string]string{
+		"ECHOFARM_MODEL_MODE":            "fixture",
+		"ECHOFARM_MODEL_TIMEOUT_SECONDS": "90",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.ModelTimeout != 90*time.Second {
+		t.Fatalf("model timeout = %s, want 1m30s", config.ModelTimeout)
 	}
 }
 

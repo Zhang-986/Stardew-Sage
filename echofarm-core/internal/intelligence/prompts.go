@@ -8,7 +8,9 @@ Use activity_order for repeated ordering across farm care, woodcutting, mining, 
 Use trait context any for context-free habits or the demonstration weather for weather-specific behavior. Strength must be between 0 and 1.
 Every trait observation and skill must cite real event IDs from this demonstration. Do not calculate long-term confidence or replace the existing player model; deterministic code merges observations across days.
 Use only these skill actions: move_to, equip_tool, water_target, refill_can, harvest_target, deposit_items, stop_session.
-Return only a JSON object matching LearningInference. Do not include markdown or explanatory prose.`
+Return only a JSON object using this exact wire shape and exact camelCase field names; do not rename, wrap, or add fields:
+{"observations":[{"key":"task_order","value":"watering,depositing","context":"sunny","supportingEventIds":["real-event-id"],"strength":0.7}],"skill":{"name":"morning-farm-routine","revision":0,"goal":"care for current farm targets","preconditions":[],"targetSelector":"current_actionable_targets","preferredOrder":["watering","depositing"],"steps":[{"action":"water_target","targetSelector":"dry_crops"}],"successConditions":["no actionable targets remain"],"stopConditions":[],"recoveryStrategies":[],"evidenceEventIds":["real-event-id"]}}
+Replace the example values with evidence from the input. Do not emit trait_observations, reusable_skill, snake_case keys, markdown, or explanatory prose.`
 
 const intentSystemPrompt = `You are EchoFarm's live player-intent interpreter.
 Infer only the player's current farm-work intent from the supplied recent semantic activities and evidence-backed player model.

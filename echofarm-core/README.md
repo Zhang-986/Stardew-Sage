@@ -54,6 +54,7 @@ export ECHOFARM_MODEL_MODE=openai
 export ECHOFARM_MODEL_BASE_URL=https://your-openai-compatible-endpoint/v1
 export ECHOFARM_MODEL_API_KEY=your-key
 export ECHOFARM_MODEL_NAME=your-model
+export ECHOFARM_MODEL_TIMEOUT_SECONDS=90
 go run ./cmd/echofarm
 ```
 
@@ -61,6 +62,7 @@ Optional settings:
 
 - `ECHOFARM_ADDRESS` defaults to `127.0.0.1:18471` and must remain loopback-only.
 - `ECHOFARM_DATABASE_PATH` defaults to `echofarm.db`.
+- `ECHOFARM_MODEL_TIMEOUT_SECONDS` defaults to `30`; reasoning models may need a higher bounded value such as `90`.
 - `ECHOFARM_MAX_MODEL_CALLS_PER_SESSION` defaults to `32` and must be positive.
 - `ECHOFARM_MAX_REPORTED_TOKENS_PER_SESSION` defaults to `100000` and must be positive.
 

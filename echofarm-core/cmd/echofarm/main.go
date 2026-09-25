@@ -159,9 +159,13 @@ func loadConfig(lookup func(string) (string, bool)) (config, error) {
 		ModelBaseURL: get("ECHOFARM_MODEL_BASE_URL", ""),
 		ModelAPIKey:  get("ECHOFARM_MODEL_API_KEY", ""),
 		ModelName:    get("ECHOFARM_MODEL_NAME", ""),
-		ModelTimeout: 30 * time.Second,
 	}
 	var err error
+	modelTimeoutSeconds, err := positiveIntSetting(get("ECHOFARM_MODEL_TIMEOUT_SECONDS", "30"), "ECHOFARM_MODEL_TIMEOUT_SECONDS")
+	if err != nil {
+		return config{}, err
+	}
+	result.ModelTimeout = time.Duration(modelTimeoutSeconds) * time.Second
 	result.MaxModelCallsPerSession, err = positiveIntSetting(get("ECHOFARM_MAX_MODEL_CALLS_PER_SESSION", "32"), "ECHOFARM_MAX_MODEL_CALLS_PER_SESSION")
 	if err != nil {
 		return config{}, err

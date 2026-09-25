@@ -3,10 +3,26 @@ package intelligence
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/domain"
 )
+
+func TestLearningPromptDefinesExactJSONFieldNames(t *testing.T) {
+	for _, field := range []string{
+		`"observations"`,
+		`"skill"`,
+		`"supportingEventIds"`,
+		`"targetSelector"`,
+		`"successConditions"`,
+		`"evidenceEventIds"`,
+	} {
+		if !strings.Contains(learningSystemPrompt, field) {
+			t.Fatalf("learning prompt does not define JSON field %s", field)
+		}
+	}
+}
 
 type stubGenerator struct {
 	result LearningInference
