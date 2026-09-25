@@ -52,7 +52,7 @@ The relay is transport-only. It does not interpret gameplay, cache model respons
 Loopback remains the default. A non-loopback bind is rejected unless all LAN requirements are explicitly configured:
 
 - `ECHOFARM_ALLOW_LAN=true`
-- `ECHOFARM_LAN_TOKEN` with at least 32 bytes of entropy
+- `ECHOFARM_LAN_TOKEN` as exactly 64 hexadecimal characters generated from 32 random bytes
 - `ECHOFARM_TLS_CERT_FILE`
 - `ECHOFARM_TLS_KEY_FILE`
 - an `ECHOFARM_ADDRESS` whose port is explicitly chosen for the LAN service
@@ -86,6 +86,8 @@ There are two unrelated credentials:
 
 1. The model API key exists only in the Mac server process environment. It is never transmitted to Windows.
 2. The LAN relay token authorizes only the fixed EchoFarm HTTP API. It cannot access the provider or other Mac resources.
+
+All persistent player data remains on the Mac. When a cloud model is selected, the minimum semantic gameplay payload required for inference is necessarily sent from the Mac to that configured provider; host paths, database contents, logs, credentials, and unrelated Mac data are never included. A strict zero-egress deployment must use an OpenAI-compatible model running locally on the Mac instead of a cloud API.
 
 Mac setup creates a self-signed server certificate and a random relay token outside the repository under the user's local application-data directory with owner-only permissions. Generated keys, certificates, tokens, databases, logs, and `.env` files are excluded from Git packaging.
 
