@@ -48,6 +48,77 @@ func TestLoadConfigRejectsInvalidModelBudgets(t *testing.T) {
 	}
 }
 
+func TestLoadConfigRejectsNonLoopbackAddressWithoutLANOptIn(t *testing.T) {
+	_, err := loadConfig(mapLookup(map[string]string{
+		"ECHOFARM_MODEL_MODE": "fixture",
+		"ECHOFARM_ADDRESS":    "0.0.0.0:18472",
+	}))
+	if err == nil || !strings.Contains(err.Error(), "ECHOFARM_ALLOW_LAN") {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+}
+
+func TestLoadConfigRejectsIncompleteLANMode(t *testing.T) {
+	complete := map[string]string{
+		"ECHOFARM_MODEL_MODE":    "fixture",
+		"ECHOFARM_ADDRESS":       "0.0.0.0:18472",
+		"ECHOFARM_ALLOW_LAN":     "true",
+		"ECHOFARM_LAN_TOKEN":     strings.Repeat("a", 64),
+		"ECHOFARM_TLS_CERT_FILE": "/private/cert.pem",
+		"ECHOFARM_TLS_KEY_FILE":  "/private/key.pem",
+	}
+	for _, key := range []string{
+		"ECHOFARM_LAN_TOKEN",
+		"ECHOFARM_TLS_CERT_FILE",
+		"ECHOFARM_TLS_KEY_FILE",
+	} {
+		t.Run("missing_"+key, func(t *testing.T) {
+			values := make(map[string]string, len(complete))
+			for name, value := range complete {
+				values[name] = value
+			}
+			delete(values, key)
+			_, err := loadConfig(mapLookup(values))
+			if err == nil || !strings.Contains(err.Error(), key) {
+				t.Fatalf("loadConfig() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadConfigRejectsInvalidLANToken(t *testing.T) {
+	for _, token := range []string{strings.Repeat("a", 63), strings.Repeat("z", 64)} {
+		_, err := loadConfig(mapLookup(map[string]string{
+			"ECHOFARM_MODEL_MODE":    "fixture",
+			"ECHOFARM_ADDRESS":       "0.0.0.0:18472",
+			"ECHOFARM_ALLOW_LAN":     "true",
+			"ECHOFARM_LAN_TOKEN":     token,
+			"ECHOFARM_TLS_CERT_FILE": "/private/cert.pem",
+			"ECHOFARM_TLS_KEY_FILE":  "/private/key.pem",
+		}))
+		if err == nil || !strings.Contains(err.Error(), "ECHOFARM_LAN_TOKEN") {
+			t.Fatalf("loadConfig() token length %d error = %v", len(token), err)
+		}
+	}
+}
+
+func TestLoadConfigAcceptsCompleteLANMode(t *testing.T) {
+	config, err := loadConfig(mapLookup(map[string]string{
+		"ECHOFARM_MODEL_MODE":    "fixture",
+		"ECHOFARM_ADDRESS":       "0.0.0.0:18472",
+		"ECHOFARM_ALLOW_LAN":     "true",
+		"ECHOFARM_LAN_TOKEN":     strings.Repeat("a", 64),
+		"ECHOFARM_TLS_CERT_FILE": "/private/cert.pem",
+		"ECHOFARM_TLS_KEY_FILE":  "/private/key.pem",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !config.AllowLAN || config.LANToken == "" || config.TLSCertFile == "" || config.TLSKeyFile == "" {
+		t.Fatalf("LAN config = %+v", config)
+	}
+}
+
 func mapLookup(values map[string]string) func(string) (string, bool) {
 	return func(key string) (string, bool) {
 		value, ok := values[key]

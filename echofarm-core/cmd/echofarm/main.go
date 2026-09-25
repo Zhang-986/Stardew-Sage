@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -34,6 +35,10 @@ type config struct {
 	ModelTimeout                time.Duration
 	MaxModelCallsPerSession     int
 	MaxReportedTokensPerSession int
+	AllowLAN                    bool
+	LANToken                    string
+	TLSCertFile                 string
+	TLSKeyFile                  string
 }
 
 func main() {
@@ -174,13 +179,32 @@ func loadConfig(lookup func(string) (string, bool)) (config, error) {
 	if err != nil {
 		return config{}, err
 	}
+	result.AllowLAN, err = strconv.ParseBool(get("ECHOFARM_ALLOW_LAN", "false"))
+	if err != nil {
+		return config{}, errors.New("ECHOFARM_ALLOW_LAN must be true or false")
+	}
+	result.LANToken = get("ECHOFARM_LAN_TOKEN", "")
+	result.TLSCertFile = get("ECHOFARM_TLS_CERT_FILE", "")
+	result.TLSKeyFile = get("ECHOFARM_TLS_KEY_FILE", "")
 	host, _, err := net.SplitHostPort(result.Address)
 	if err != nil {
 		return config{}, fmt.Errorf("invalid ECHOFARM_ADDRESS: %w", err)
 	}
 	ip := net.ParseIP(host)
-	if host != "localhost" && (ip == nil || !ip.IsLoopback()) {
-		return config{}, errors.New("ECHOFARM_ADDRESS must use a loopback host")
+	loopback := host == "localhost" || (ip != nil && ip.IsLoopback())
+	if !loopback && !result.AllowLAN {
+		return config{}, errors.New("non-loopback ECHOFARM_ADDRESS requires ECHOFARM_ALLOW_LAN=true")
+	}
+	if result.AllowLAN {
+		if !validHexSecret(result.LANToken, 32) {
+			return config{}, errors.New("ECHOFARM_LAN_TOKEN must be exactly 64 hexadecimal characters")
+		}
+		if result.TLSCertFile == "" {
+			return config{}, errors.New("ECHOFARM_TLS_CERT_FILE is required in LAN mode")
+		}
+		if result.TLSKeyFile == "" {
+			return config{}, errors.New("ECHOFARM_TLS_KEY_FILE is required in LAN mode")
+		}
 	}
 	if result.ModelMode != "fixture" && result.ModelMode != "openai" {
 		return config{}, errors.New("ECHOFARM_MODEL_MODE must be fixture or openai")
@@ -189,6 +213,14 @@ func loadConfig(lookup func(string) (string, bool)) (config, error) {
 		return config{}, errors.New("openai mode requires ECHOFARM_MODEL_BASE_URL, ECHOFARM_MODEL_API_KEY, and ECHOFARM_MODEL_NAME")
 	}
 	return result, nil
+}
+
+func validHexSecret(raw string, size int) bool {
+	if len(raw) != size*2 {
+		return false
+	}
+	decoded, err := hex.DecodeString(raw)
+	return err == nil && len(decoded) == size
 }
 
 func positiveIntSetting(raw, key string) (int, error) {
