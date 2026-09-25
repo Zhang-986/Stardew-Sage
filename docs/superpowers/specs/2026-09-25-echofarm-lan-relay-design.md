@@ -89,7 +89,7 @@ There are two unrelated credentials:
 
 All persistent player data remains on the Mac. When a cloud model is selected, the minimum semantic gameplay payload required for inference is necessarily sent from the Mac to that configured provider; host paths, database contents, logs, credentials, and unrelated Mac data are never included. A strict zero-egress deployment must use an OpenAI-compatible model running locally on the Mac instead of a cloud API.
 
-Mac setup creates a self-signed server certificate and a random relay token outside the repository under the user's local application-data directory with owner-only permissions. Generated keys, certificates, tokens, databases, logs, and `.env` files are excluded from Git packaging.
+Mac setup creates a self-signed server certificate and a random relay token outside the repository under the user's local application-data directory with owner-only permissions. The initialization command shows the LAN token once on its controlling terminal for manual pairing with Windows; it never places the token in command history. Generated keys, certificates, tokens, databases, logs, and `.env` files are excluded from Git packaging.
 
 Windows setup stores the relay token through Windows DPAPI for the current user. The launcher decrypts it only into the relay child process environment. The non-secret upstream URL and pinned certificate fingerprint may be stored in `%LOCALAPPDATA%\EchoFarm`.
 

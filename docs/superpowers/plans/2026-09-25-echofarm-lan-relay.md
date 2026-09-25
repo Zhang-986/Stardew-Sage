@@ -116,7 +116,7 @@ Use `httptest` to prove missing/wrong tokens return 401 without calling the wrap
 func TestMiddlewareAuthenticatesBeforeReadingBody(t *testing.T) {
     called := false
     next := http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true })
-    handler, _ := lanserver.New(next, strings.Repeat("s", 32), log.New(io.Discard, "", 0))
+    handler, _ := lanserver.New(next, strings.Repeat("a", 64), log.New(io.Discard, "", 0))
     request := httptest.NewRequest(http.MethodPost, "/v1/demonstrations/learn", strings.NewReader(`{"private":"game-data"}`))
     response := httptest.NewRecorder()
     handler.ServeHTTP(response, request)
@@ -224,7 +224,7 @@ Expected: FAIL because the proxy implementation is missing.
 
 - [ ] **Step 5: Implement the relay and executable**
 
-Build an `http.Client` that disables redirects and uses a TLS config with normal certificate verification replaced by an explicit SHA-256 leaf-certificate pin. Read each request through `http.MaxBytesReader`, copy only `Content-Type` and `Accept`, add bearer auth and request ID, acquire a bounded semaphore, and return only upstream status/content type/body. Generate local errors as fixed JSON codes without including upstream error strings.
+Build an `http.Client` that disables redirects and uses a TLS config which verifies the exact SHA-256 leaf-certificate pin plus the certificate validity window. Read each request through `http.MaxBytesReader`, copy only `Content-Type` and `Accept`, add bearer auth and request ID, acquire a bounded semaphore, and return only upstream status/content type/body. Generate local errors as fixed JSON codes without including upstream error strings.
 
 `cmd/echofarm-relay/main.go` loads configuration, handles SIGINT/SIGTERM, applies server timeouts, and logs only the loopback address and upstream host.
 
@@ -326,7 +326,7 @@ Expected before implementation: commands fail because the scripts are absent.
 
 - [ ] **Step 3: Implement Mac initialization and startup**
 
-`Initialize-EchoFarmLan.sh --host <LAN-IP>` uses `openssl req -x509` with an IP subject alternative name, writes certificate/key/token below `${HOME}/Library/Application Support/EchoFarm/LAN`, applies `chmod 600`, and prints only the public certificate SHA-256 fingerprint and file locations. `Start-EchoFarmLanServer.sh` reads the LAN token from that protected file, prompts for the provider key with terminal echo disabled, exports the required variables to the core child only, and cleans the shell variables on exit.
+`Initialize-EchoFarmLan.sh --host <LAN-IP>` uses `openssl req -x509` with an IP subject alternative name, writes certificate/key/token below `${HOME}/Library/Application Support/EchoFarm/LAN`, applies `chmod 600`, and prints the public certificate SHA-256 fingerprint plus the newly generated LAN token once to the controlling terminal for manual Windows pairing. It never places either value in shell history or repository files. `Start-EchoFarmLanServer.sh` reads the LAN token from that protected file, prompts for the provider key with terminal echo disabled, exports the required variables to the core child only, and cleans the shell variables on exit.
 
 - [ ] **Step 4: Implement Windows DPAPI configuration and startup**
 
