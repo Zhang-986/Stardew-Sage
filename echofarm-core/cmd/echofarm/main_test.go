@@ -1,6 +1,10 @@
 package main
 
 import (
+	"io"
+	"log"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -116,6 +120,29 @@ func TestLoadConfigAcceptsCompleteLANMode(t *testing.T) {
 	}
 	if !config.AllowLAN || config.LANToken == "" || config.TLSCertFile == "" || config.TLSKeyFile == "" {
 		t.Fatalf("LAN config = %+v", config)
+	}
+}
+
+func TestNewHTTPServerAppliesLANAuthentication(t *testing.T) {
+	cfg := config{
+		Address:      "0.0.0.0:18472",
+		ModelTimeout: 90 * time.Second,
+		AllowLAN:     true,
+		LANToken:     strings.Repeat("a", 64),
+	}
+	server, err := newHTTPServer(cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}), log.New(io.Discard, "", 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	response := httptest.NewRecorder()
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", response.Code)
 	}
 }
 

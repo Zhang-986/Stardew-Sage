@@ -19,6 +19,7 @@ import (
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/experience"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/httpapi"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/intelligence"
+	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/lanserver"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/learning"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/memory"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/memoryview"
@@ -84,13 +85,9 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	server := &http.Server{
-		Addr:              config.Address,
-		Handler:           handler,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      config.ModelTimeout + 5*time.Second,
-		IdleTimeout:       30 * time.Second,
+	server, err := newHTTPServer(config, handler, log.Default())
+	if err != nil {
+		return err
 	}
 	shutdownDone := make(chan struct{})
 	go func() {
@@ -101,13 +98,39 @@ func run(ctx context.Context) error {
 		_ = server.Shutdown(shutdownCtx)
 	}()
 
-	log.Printf("EchoFarm core listening on http://%s (mode=%s)", config.Address, config.ModelMode)
-	err = server.ListenAndServe()
+	scheme := "http"
+	if config.AllowLAN {
+		scheme = "https"
+	}
+	log.Printf("EchoFarm core listening on %s://%s (mode=%s)", scheme, config.Address, config.ModelMode)
+	if config.AllowLAN {
+		err = server.ListenAndServeTLS(config.TLSCertFile, config.TLSKeyFile)
+	} else {
+		err = server.ListenAndServe()
+	}
 	if !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("serve EchoFarm API: %w", err)
 	}
 	<-shutdownDone
 	return nil
+}
+
+func newHTTPServer(cfg config, handler http.Handler, logger *log.Logger) (*http.Server, error) {
+	if cfg.AllowLAN {
+		var err error
+		handler, err = lanserver.New(handler, cfg.LANToken, logger)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &http.Server{
+		Addr:              cfg.Address,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      cfg.ModelTimeout + 5*time.Second,
+		IdleTimeout:       30 * time.Second,
+	}, nil
 }
 
 func buildHandler(ctx context.Context, store *memory.SQLite, generator intelligence.StructuredGenerator) (http.Handler, error) {
