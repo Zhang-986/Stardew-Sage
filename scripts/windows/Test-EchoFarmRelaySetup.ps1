@@ -22,7 +22,8 @@ try {
         $tokens = $null
         $parseErrors = $null
         [void][Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$parseErrors)
-        Assert-True ($parseErrors.Count -eq 0) "PowerShell syntax errors in $scriptPath`: $($parseErrors.Message -join '; ')"
+        $parseMessage = (@($parseErrors | ForEach-Object { $_.Message }) -join '; ')
+        Assert-True ($parseErrors.Count -eq 0) "PowerShell syntax errors in $scriptPath`: $parseMessage"
     }
 
     $result = & $install `
