@@ -26,9 +26,9 @@ import (
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/policy"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/rpcgateway"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/kitex_gen/echofarmrpc/echofarmgateway"
-	"github.com/cloudwego/kitex/pkg/limit"
 	"github.com/cloudwego/kitex/pkg/remote/trans/gonet"
 	kitexserver "github.com/cloudwego/kitex/server"
+	"golang.org/x/net/netutil"
 )
 
 type config struct {
@@ -138,7 +138,8 @@ func runRPCServer(ctx context.Context, cfg config, handler http.Handler, logger 
 	if err != nil {
 		return fmt.Errorf("listen for LAN RPC: %w", err)
 	}
-	tlsListener := tls.NewListener(listener, &tls.Config{
+	limitedListener := netutil.LimitListener(listener, 8)
+	tlsListener := tls.NewListener(limitedListener, &tls.Config{
 		Certificates: []tls.Certificate{certificate},
 		MinVersion:   tls.VersionTLS12,
 	})
@@ -154,7 +155,6 @@ func runRPCServer(ctx context.Context, cfg config, handler http.Handler, logger 
 		kitexserver.WithTransHandlerFactory(gonet.NewSvrTransHandlerFactory()),
 		kitexserver.WithReadWriteTimeout(cfg.ModelTimeout+5*time.Second),
 		kitexserver.WithExitWaitTime(5*time.Second),
-		kitexserver.WithLimit(&limit.Option{MaxConnections: 8}),
 	)
 	stopDone := make(chan struct{})
 	go func() {
