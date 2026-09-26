@@ -10,9 +10,12 @@ public static class SetupIssueCodes
     public const string MissingApiKey = "missing_api_key";
     public const string MissingCore = "missing_core";
     public const string InvalidCoreUrl = "invalid_core_url";
+    public const string UnsupportedConnectionMode = "unsupported_connection_mode";
+    public const string InvalidRelayConfiguration = "invalid_relay_configuration";
     public const string UnhealthyCore = "unhealthy_core";
     public const string UnsupportedModelMode = "unsupported_model_mode";
     public const string InvalidStartupTimeout = "invalid_startup_timeout";
+    public const string InvalidCommandTimeout = "invalid_command_timeout";
     public const string InvalidModelBudget = "invalid_model_budget";
 }
 
@@ -26,6 +29,7 @@ public enum CoreEndpointStatus
 
 public sealed record SetupReadinessInput(
     string? CoreUrl,
+    string? ConnectionMode,
     string? ModelMode,
     string? ModelBaseUrl,
     string? ModelName,
@@ -35,6 +39,7 @@ public sealed record SetupReadinessInput(
     bool CoreExecutableExists,
     CoreEndpointStatus EndpointStatus,
     int StartupTimeoutSeconds,
+    int CommandTimeoutSeconds,
     int MaxModelCallsPerSession,
     int MaxReportedTokensPerSession
 );
@@ -62,6 +67,7 @@ public static class SetupReadiness
     public static SetupReadinessReport Evaluate(SetupReadinessInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
+        string connectionMode = input.ConnectionMode?.Trim().ToLowerInvariant() ?? string.Empty;
         string mode = input.ModelMode?.Trim().ToLowerInvariant() ?? string.Empty;
 
         if (!TryLoopbackHttpUri(input.CoreUrl, out _))
@@ -73,7 +79,25 @@ public static class SetupReadiness
                 "Set CoreUrl to http://127.0.0.1:18471."
             );
         }
-        if (mode is not ("fixture" or "openai"))
+        if (connectionMode is not ("local" or "relay"))
+        {
+            return Failure(
+                SetupIssueCodes.UnsupportedConnectionMode,
+                mode,
+                "The configured connection mode is unsupported.",
+                "Set ConnectionMode to local or relay."
+            );
+        }
+        if (connectionMode == "relay" && input.AutoStartCore)
+        {
+            return Failure(
+                SetupIssueCodes.InvalidRelayConfiguration,
+                "remote",
+                "Relay mode cannot start a model process on Windows.",
+                "Set AutoStartCore to false when ConnectionMode is relay."
+            );
+        }
+        if (connectionMode == "local" && mode is not ("fixture" or "openai"))
         {
             return Failure(
                 SetupIssueCodes.UnsupportedModelMode,
@@ -91,7 +115,16 @@ public static class SetupReadiness
                 "Set CoreStartupTimeoutSeconds to a value from 1 through 60."
             );
         }
-        if (input.MaxModelCallsPerSession <= 0 || input.MaxReportedTokensPerSession <= 0)
+        if (input.CommandTimeoutSeconds is < 1 or > 300)
+        {
+            return Failure(
+                SetupIssueCodes.InvalidCommandTimeout,
+                connectionMode == "relay" ? "remote" : mode,
+                "The command timeout is outside the supported range.",
+                "Set CommandTimeoutSeconds to a value from 1 through 300."
+            );
+        }
+        if (connectionMode == "local" && (input.MaxModelCallsPerSession <= 0 || input.MaxReportedTokensPerSession <= 0))
         {
             return Failure(
                 SetupIssueCodes.InvalidModelBudget,
@@ -100,7 +133,7 @@ public static class SetupReadiness
                 "Set both model budget values to positive integers."
             );
         }
-        if (mode == "openai")
+        if (connectionMode == "local" && mode == "openai")
         {
             if (string.IsNullOrWhiteSpace(input.ModelBaseUrl))
             {
@@ -159,11 +192,28 @@ public static class SetupReadiness
         }
         if (input.EndpointStatus == CoreEndpointStatus.Unreachable && !input.AutoStartCore)
         {
+            string correction = connectionMode == "relay"
+                ? "Start echofarm-relay.exe on Windows, then retry."
+                : "Start the core service or enable AutoStartCore.";
             return Failure(
                 SetupIssueCodes.UnhealthyCore,
-                mode,
-                "No healthy EchoFarm core is listening and auto-start is disabled.",
-                "Start the core service or enable AutoStartCore."
+                connectionMode == "relay" ? "remote" : mode,
+                connectionMode == "relay"
+                    ? "No healthy EchoFarm relay is listening on Windows loopback."
+                    : "No healthy EchoFarm core is listening and auto-start is disabled.",
+                correction
+            );
+        }
+
+        if (connectionMode == "relay")
+        {
+            return new SetupReadinessReport(
+                SetupIssueCodes.Ready,
+                "remote",
+                "EchoFarm secure relay is ready; AI and memory stay on the Mac server.",
+                string.Empty,
+                CanAttemptStart: true,
+                IsDemo: false
             );
         }
 

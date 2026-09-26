@@ -99,6 +99,58 @@ public sealed class SetupReadinessTests
     }
 
     [Fact]
+    public void RelayModeUsesHealthyLoopbackRelayWithoutWindowsModelSettings()
+    {
+        SetupReadinessReport report = SetupReadiness.Evaluate(Settings(
+            connectionMode: "relay",
+            modelMode: "fixture",
+            modelBaseUrl: null,
+            modelName: null,
+            apiKeyPresent: false,
+            autoStartCore: false,
+            coreExecutableExists: false,
+            endpointStatus: CoreEndpointStatus.Healthy));
+
+        Assert.Equal(SetupIssueCodes.Ready, report.Code);
+        Assert.True(report.CanAttemptStart);
+        Assert.False(report.IsDemo);
+        Assert.Equal("remote", report.ModelMode);
+        Assert.Contains("relay", report.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void RelayModeRequiresLocalProcessAutoStartToBeDisabled()
+    {
+        SetupReadinessReport report = SetupReadiness.Evaluate(Settings(
+            connectionMode: "relay",
+            autoStartCore: true));
+
+        Assert.Equal(SetupIssueCodes.InvalidRelayConfiguration, report.Code);
+        Assert.False(report.CanAttemptStart);
+        Assert.Contains("AutoStartCore", report.Correction, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnsupportedConnectionModeFailsClosed()
+    {
+        SetupReadinessReport report = SetupReadiness.Evaluate(Settings(connectionMode: "direct-lan"));
+
+        Assert.Equal(SetupIssueCodes.UnsupportedConnectionMode, report.Code);
+        Assert.False(report.CanAttemptStart);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(301)]
+    public void InvalidCommandTimeoutFailsClosed(int seconds)
+    {
+        SetupReadinessReport report = SetupReadiness.Evaluate(Settings(commandTimeoutSeconds: seconds));
+
+        Assert.Equal(SetupIssueCodes.InvalidCommandTimeout, report.Code);
+        Assert.False(report.CanAttemptStart);
+    }
+
+    [Fact]
     public void OccupiedButUnhealthyEndpointHasDistinctIssueCode()
     {
         SetupReadinessReport report = SetupReadiness.Evaluate(Settings(
@@ -173,6 +225,7 @@ public sealed class SetupReadinessTests
 
     private static SetupReadinessInput Settings(
         string coreUrl = "http://127.0.0.1:18471",
+        string connectionMode = "local",
         string modelMode = "fixture",
         string? modelBaseUrl = null,
         string? modelName = null,
@@ -181,9 +234,11 @@ public sealed class SetupReadinessTests
         bool coreExecutableExists = true,
         CoreEndpointStatus endpointStatus = CoreEndpointStatus.Unknown,
         int startupTimeoutSeconds = 10,
+        int commandTimeoutSeconds = 100,
         int maxModelCallsPerSession = 32,
         int maxReportedTokensPerSession = 100000) => new(
             CoreUrl: coreUrl,
+            ConnectionMode: connectionMode,
             ModelMode: modelMode,
             ModelBaseUrl: modelBaseUrl,
             ModelName: modelName,
@@ -193,6 +248,7 @@ public sealed class SetupReadinessTests
             CoreExecutableExists: coreExecutableExists,
             EndpointStatus: endpointStatus,
             StartupTimeoutSeconds: startupTimeoutSeconds,
+            CommandTimeoutSeconds: commandTimeoutSeconds,
             MaxModelCallsPerSession: maxModelCallsPerSession,
             MaxReportedTokensPerSession: maxReportedTokensPerSession);
 }

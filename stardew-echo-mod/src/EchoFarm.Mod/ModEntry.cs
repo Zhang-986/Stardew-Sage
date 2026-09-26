@@ -46,6 +46,7 @@ public sealed class ModEntry : Mod
         databasePath = ResolveDatabasePath(workingDirectory);
         setupInput = new SetupReadinessInput(
             config.CoreUrl,
+            config.ConnectionMode,
             config.ModelMode,
             config.ModelBaseUrl,
             config.ModelName,
@@ -55,6 +56,7 @@ public sealed class ModEntry : Mod
             File.Exists(executablePath),
             CoreEndpointStatus.Unknown,
             config.CoreStartupTimeoutSeconds,
+            config.CommandTimeoutSeconds,
             config.MaxModelCallsPerSession,
             config.MaxReportedTokensPerSession
         );
@@ -63,6 +65,7 @@ public sealed class ModEntry : Mod
 
         if (setupReadiness.CanAttemptStart && Uri.TryCreate(config.CoreUrl, UriKind.Absolute, out Uri? coreUrl))
         {
+            bool relayMode = string.Equals(config.ConnectionMode?.Trim(), "relay", StringComparison.OrdinalIgnoreCase);
             coreLaunchOptions = CoreLaunchOptionsFactory.Create(new CoreLaunchSettings(
                 helper.DirectoryPath,
                 applicationData,
@@ -70,15 +73,15 @@ public sealed class ModEntry : Mod
                 config.AutoStartCore,
                 config.CoreExecutablePath,
                 TimeSpan.FromSeconds(config.CoreStartupTimeoutSeconds),
-                setupReadiness.ModelMode,
-                config.ModelBaseUrl,
-                config.ModelName,
+                relayMode ? "fixture" : setupReadiness.ModelMode,
+                relayMode ? null : config.ModelBaseUrl,
+                relayMode ? null : config.ModelName,
                 config.DatabasePath,
                 config.MaxModelCallsPerSession,
                 config.MaxReportedTokensPerSession,
                 OperatingSystem.IsWindows()
             ));
-            databasePath = coreLaunchOptions.Environment["ECHOFARM_DATABASE_PATH"];
+            databasePath = relayMode ? "Mac server (private)" : coreLaunchOptions.Environment["ECHOFARM_DATABASE_PATH"];
             var healthProbe = new HttpCoreHealthProbe(new HttpClient(), TimeSpan.FromMilliseconds(500));
             coreEndpointInspector = new TcpCoreEndpointInspector(healthProbe, TimeSpan.FromMilliseconds(500));
             coreHost = new CoreProcessSupervisor(
@@ -87,7 +90,10 @@ public sealed class ModEntry : Mod
                     Monitor.Log($"[EchoFarm Core] {message}", isError ? LogLevel.Warn : LogLevel.Trace)),
                 new TaskAsyncDelay()
             );
-            EchoFarmClientSet clients = EchoFarmClientFactory.Create(coreUrl);
+            EchoFarmClientSet clients = EchoFarmClientFactory.Create(
+                coreUrl,
+                TimeSpan.FromSeconds(config.CommandTimeoutSeconds)
+            );
             readClient = clients.Reads;
             session = new EchoSession(recorder, clients.Commands, gamePort, new ActionSafetyGate());
             UpdateOperationalStatus();

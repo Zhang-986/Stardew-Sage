@@ -5,9 +5,11 @@ namespace EchoFarm.Mod;
 internal sealed class ModConfig
 {
     public string CoreUrl { get; set; } = "http://127.0.0.1:18471";
+    public string ConnectionMode { get; set; } = "local";
     public bool AutoStartCore { get; set; } = true;
     public string? CoreExecutablePath { get; set; }
     public int CoreStartupTimeoutSeconds { get; set; } = 10;
+    public int CommandTimeoutSeconds { get; set; } = 100;
     public string ModelMode { get; set; } = "fixture";
     public string? ModelBaseUrl { get; set; }
     public string? ModelName { get; set; }
