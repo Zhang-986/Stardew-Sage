@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -19,11 +20,15 @@ import (
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/experience"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/httpapi"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/intelligence"
-	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/lanserver"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/learning"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/memory"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/memoryview"
 	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/policy"
+	"github.com/Zhang-986/Stardew-Sage/echofarm-core/internal/rpcgateway"
+	"github.com/Zhang-986/Stardew-Sage/echofarm-core/kitex_gen/echofarmrpc/echofarmgateway"
+	"github.com/cloudwego/kitex/pkg/limit"
+	"github.com/cloudwego/kitex/pkg/remote/trans/gonet"
+	kitexserver "github.com/cloudwego/kitex/server"
 )
 
 type config struct {
@@ -84,8 +89,11 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if config.AllowLAN {
+		return runRPCServer(ctx, config, handler, log.Default())
+	}
 
-	server, err := newHTTPServer(config, handler, log.Default())
+	server, err := newHTTPServer(config, handler)
 	if err != nil {
 		return err
 	}
@@ -98,16 +106,8 @@ func run(ctx context.Context) error {
 		_ = server.Shutdown(shutdownCtx)
 	}()
 
-	scheme := "http"
-	if config.AllowLAN {
-		scheme = "https"
-	}
-	log.Printf("EchoFarm core listening on %s://%s (mode=%s)", scheme, config.Address, config.ModelMode)
-	if config.AllowLAN {
-		err = server.ListenAndServeTLS(config.TLSCertFile, config.TLSKeyFile)
-	} else {
-		err = server.ListenAndServe()
-	}
+	log.Printf("EchoFarm core listening on http://%s (mode=%s)", config.Address, config.ModelMode)
+	err = server.ListenAndServe()
 	if !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("serve EchoFarm API: %w", err)
 	}
@@ -115,13 +115,9 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-func newHTTPServer(cfg config, handler http.Handler, logger *log.Logger) (*http.Server, error) {
+func newHTTPServer(cfg config, handler http.Handler) (*http.Server, error) {
 	if cfg.AllowLAN {
-		var err error
-		handler, err = lanserver.New(handler, cfg.LANToken, logger)
-		if err != nil {
-			return nil, err
-		}
+		return nil, errors.New("LAN mode must use the Kitex RPC server")
 	}
 	return &http.Server{
 		Addr:              cfg.Address,
@@ -131,6 +127,48 @@ func newHTTPServer(cfg config, handler http.Handler, logger *log.Logger) (*http.
 		WriteTimeout:      cfg.ModelTimeout + 5*time.Second,
 		IdleTimeout:       30 * time.Second,
 	}, nil
+}
+
+func runRPCServer(ctx context.Context, cfg config, handler http.Handler, logger *log.Logger) error {
+	certificate, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
+	if err != nil {
+		return fmt.Errorf("load LAN TLS identity: %w", err)
+	}
+	listener, err := net.Listen("tcp", cfg.Address)
+	if err != nil {
+		return fmt.Errorf("listen for LAN RPC: %w", err)
+	}
+	tlsListener := tls.NewListener(listener, &tls.Config{
+		Certificates: []tls.Certificate{certificate},
+		MinVersion:   tls.VersionTLS12,
+	})
+	gateway, err := rpcgateway.New(handler, cfg.LANToken, 2<<20, logger)
+	if err != nil {
+		_ = listener.Close()
+		return err
+	}
+	rpcServer := echofarmgateway.NewServer(
+		gateway,
+		kitexserver.WithListener(tlsListener),
+		kitexserver.WithTransServerFactory(gonet.NewTransServerFactory()),
+		kitexserver.WithTransHandlerFactory(gonet.NewSvrTransHandlerFactory()),
+		kitexserver.WithReadWriteTimeout(cfg.ModelTimeout+5*time.Second),
+		kitexserver.WithExitWaitTime(5*time.Second),
+		kitexserver.WithLimit(&limit.Option{MaxConnections: 8, MaxQPS: 16}),
+	)
+	stopDone := make(chan struct{})
+	go func() {
+		defer close(stopDone)
+		<-ctx.Done()
+		_ = rpcServer.Stop()
+	}()
+	logger.Printf("EchoFarm Kitex/Thrift gateway listening on %s (mode=%s)", cfg.Address, cfg.ModelMode)
+	err = rpcServer.Run()
+	if ctx.Err() != nil {
+		<-stopDone
+		return nil
+	}
+	return fmt.Errorf("serve EchoFarm Kitex gateway: %w", err)
 }
 
 func buildHandler(ctx context.Context, store *memory.SQLite, generator intelligence.StructuredGenerator) (http.Handler, error) {
