@@ -47,6 +47,12 @@ nbdist/
 *.log
 *.db
 *.sqlite
+*.key
+*.pem
+*.crt
+*.token
+relay.json
+relay.pid
 .env
 .env.*
 *.xml.versionsBackup

@@ -4,20 +4,25 @@
 
 **Goal:** Keep the model credential, player memory, and AI processing on the Mac while a Windows-only Go relay securely carries the existing C# Mod protocol over a private LAN.
 
-**Architecture:** The C# Mod continues to use loopback HTTP. A new `echofarm-relay.exe` forwards an exact route allowlist over certificate-pinned HTTPS with a separate bearer token to an explicitly enabled LAN mode in `echofarm-core`. Mac-side middleware authenticates before parsing, adds correlated metadata-only access logs, and never exposes provider or host internals.
+**Architecture:** The C# Mod continues to use loopback HTTP. `echofarm-relay.exe` maps an exact route allowlist to generated Kitex/Thrift methods and calls the Mac core over certificate-pinned TLS. The Mac RPC gateway authenticates before forwarding into the existing in-process HTTP handler, adds correlated metadata-only access logs, and never exposes provider or host internals.
 
-**Tech Stack:** Go 1.24 standard library HTTP/TLS/crypto packages, existing Go/Eino core and SQLite store, C#/.NET 6 bridge, PowerShell 5.1 with Windows DPAPI, zsh/OpenSSL setup scripts, GitHub Actions.
+**Tech Stack:** Go 1.24, CloudWeGo Kitex, generated Thrift contracts, TLS/crypto packages, existing Go/Eino core and SQLite store, C#/.NET 6 bridge, PowerShell 5.1, zsh/OpenSSL setup scripts, GitHub Actions.
 
 ---
 
+## Delivered transport update (2026-09-26)
+
+The implementation replaced the planned Mac-facing HTTPS reverse proxy with generated CloudWeGo Kitex/Thrift RPC over certificate-pinned TLS. The Windows side still exposes the unchanged loopback HTTP contract to the Mod, while `rpcgateway` maps nine typed Thrift methods into the existing in-process core handler. Teaching and correction receive one idempotent transport retry; live decisions are never replayed. To keep pairing simple and avoid another persisted credential, the Windows launcher prompts for the relay token on each start instead of storing it with DPAPI. The detailed tasks below are the original plan; this section is authoritative where the transport or token-handling details differ.
+
 ## File Structure
 
-- `echofarm-core/internal/lanserver/middleware.go`: bearer authentication, request-ID validation/generation, and redacted access logging for LAN mode.
-- `echofarm-core/internal/lanserver/middleware_test.go`: auth-before-body, correlation, and secret-redaction tests.
-- `echofarm-core/cmd/echofarm/main.go`: strict LAN/TLS configuration and HTTPS server selection.
+- `echofarm-core/idl/echofarm_gateway.thrift` and `kitex_gen/`: typed RPC contract and generated Kitex client/server bindings.
+- `echofarm-core/internal/rpcgateway/handler.go`: token authentication, request-ID validation, bounded payload forwarding, and metadata-only audit logging.
+- `echofarm-core/cmd/echofarm/main.go`: strict LAN/TLS configuration and Kitex server selection.
 - `echofarm-core/cmd/echofarm/main_test.go`: loopback defaults and fail-closed LAN configuration tests.
 - `echofarm-core/internal/relay/config.go`: relay environment parsing and validation.
-- `echofarm-core/internal/relay/proxy.go`: route allowlist, bounded proxying, header filtering, TLS pinning, concurrency, and metadata logging.
+- `echofarm-core/internal/relay/handler.go`: route-to-RPC allowlist, bounded bodies, idempotent retry policy, concurrency, and metadata logging.
+- `echofarm-core/internal/relay/kitex_client.go`: generated Kitex client, TLS pinning, and GoNet transport adapter.
 - `echofarm-core/internal/relay/config_test.go`: invalid address, URL, token, fingerprint, limit, and timeout tests.
 - `echofarm-core/internal/relay/proxy_test.go`: forwarding, rejection, TLS pin, timeout, size, concurrency, and log-redaction tests.
 - `echofarm-core/cmd/echofarm-relay/main.go`: Windows-friendly relay lifecycle and loopback HTTP server.
@@ -28,8 +33,8 @@
 - matching C# tests under `stardew-echo-mod/tests/EchoFarm.Bridge.Tests`.
 - `scripts/lan/Initialize-EchoFarmLan.sh`: generate a local certificate/key, token, and fingerprint outside the repository.
 - `scripts/lan/Start-EchoFarmLanServer.sh`: hidden model-key prompt and Mac TLS-core startup.
-- `scripts/windows/Install-EchoFarmRelay.ps1`: build/copy the relay and save the LAN token with current-user DPAPI.
-- `scripts/windows/Start-EchoFarmRelay.ps1`: decrypt the token into child-process memory and start/probe the relay.
+- `scripts/windows/Install-EchoFarmRelay.ps1`: build/copy the relay and save only non-secret connection settings.
+- `scripts/windows/Start-EchoFarmRelay.ps1`: securely prompt for the non-persisted token and start/probe the relay.
 - `scripts/windows/Test-EchoFarmRelaySetup.ps1`: deterministic PowerShell setup tests without real secrets.
 - `.github/workflows/ci.yml`: Windows relay build and cross-process relay smoke.
 - `docs/echofarm/lan-relay-runbook.md`: exact Mac and Windows commands, firewall boundary, rotation, and troubleshooting.

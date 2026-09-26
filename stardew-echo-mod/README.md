@@ -101,6 +101,22 @@ ECHOFARM_MODEL_MODE=fixture go run ./cmd/echofarm
 
 Fixture mode is only for transport and gameplay-loop smoke testing. For actual learning, configure the OpenAI-compatible Eino model variables described in `echofarm-core/README.md`.
 
+## Run the AI brain privately on a Mac
+
+For the split Mac-server/Windows-game topology, the Mod still talks only to Windows loopback. Set the installed Mod configuration to:
+
+```json
+{
+  "CoreUrl": "http://127.0.0.1:18471",
+  "ConnectionMode": "relay",
+  "AutoStartCore": false,
+  "CoreStartupTimeoutSeconds": 15,
+  "CommandTimeoutSeconds": 100
+}
+```
+
+Start `echofarm-relay.exe` before SMAPI. In this mode the Windows readiness check does not require a model URL, model name, API key, local database, or bundled core. The relay maps the fixed HTTP routes to generated Kitex/Thrift methods and connects to the Mac through certificate-pinned TLS. See [the LAN runbook](../docs/echofarm/lan-relay-runbook.md) for the exact pairing and startup commands.
+
 ## Live smoke checklist
 
 Use a disposable test save:

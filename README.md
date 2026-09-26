@@ -74,6 +74,14 @@ EchoFarm 让玩家通过正常游玩，训练出一个能进入《星露谷物�
 
 它会提交两天版本化语义事件，覆盖砍树、破石、矿层迁移和钓鱼，验证 AI 将这些事件归纳为稳定的活动顺序、资源偏好、下矿与钓鱼习惯，并证明未认证玩法只参与学习、不会进入可执行动作白名单。
 
+Mac AI 服务端 + Windows 游戏端的真实跨机链路演示：
+
+```bash
+./demo/run-lan-relay-demo.sh
+```
+
+该脚本启动两个独立 Go 进程，验证 `Mod HTTP 协议 -> Windows relay -> TLS + Kitex/Thrift -> Mac core -> SQLite`，并检查证书固定、错误令牌拒绝、请求 ID 关联和日志脱敏。真实双机安装步骤见 [LAN relay 操作手册](docs/echofarm/lan-relay-runbook.md)。
+
 使用真实 OpenAI-compatible 模型：
 
 ```bash
@@ -148,11 +156,14 @@ stardew-echo-mod/  SMAPI 传感器、受控执行器与游戏内记忆面板
 - [x] Windows doctor/build/install/uninstall 工作流与自动证据 JSON
 - [x] SQLite AI 调用账本、provider token 统计、原子会话预算与 F9 用量面板
 - [x] 版本化语义活动协议、多帧分类器及砍树/采矿/矿层/钓鱼画像闭环
+- [x] Windows loopback relay、CloudWeGo Kitex/Thrift RPC、TLS 证书固定与限流/幂等重试
+- [x] Mac 私有 AI/SQLite 部署脚本、Windows 无密钥落盘启动器与跨进程验收
 - [ ] 在安装 Stardew Valley + SMAPI 的机器上完成编译与游戏内冒烟
 
 ## 安全边界
 
 - 服务默认只监听 `127.0.0.1`；
+- 双机模式只允许显式启用的 TLS Kitex/Thrift 端口，Windows 只保存非敏感地址和证书指纹；
 - 仓库不保存有效模型密钥；
 - 模型不能修改金币、好感度、存档或生成任意物品；
 - 未认证的收获动作在 Go 策略层和 C# 游戏执行层都被拒绝；

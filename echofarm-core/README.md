@@ -66,6 +66,19 @@ Optional settings:
 - `ECHOFARM_MAX_MODEL_CALLS_PER_SESSION` defaults to `32` and must be positive.
 - `ECHOFARM_MAX_REPORTED_TOKENS_PER_SESSION` defaults to `100000` and must be positive.
 
+## Run as the private Mac AI server
+
+LAN mode replaces the public HTTP listener with a TLS-protected CloudWeGo Kitex server generated from `idl/echofarm_gateway.thrift`. The Windows relay preserves the Mod's loopback HTTP contract and maps only the nine allowed routes to typed RPC calls.
+
+Use the setup scripts from the repository root:
+
+```bash
+./scripts/lan/Initialize-EchoFarmLan.sh --host 192.168.1.20
+./scripts/lan/Start-EchoFarmLanServer.sh --address 192.168.1.20:18472
+```
+
+LAN mode fails closed unless `ECHOFARM_ALLOW_LAN=true`, a 64-hex relay token, and certificate/key paths are all present. The relay pins the exact certificate fingerprint, caps payloads at 2 MiB and concurrent calls at two by default, retries only idempotent teaching/correction transport failures once, and never replays a live action. Full Windows pairing instructions are in [the LAN runbook](../docs/echofarm/lan-relay-runbook.md).
+
 Every fixture or real-model invocation reserves one durable SQLite ledger row before execution. The ledger stores a random local request ID, purpose (`learning`, `intent`, `action`, `recovery`, or `reflection`), save/session/day identity, status, latency, bounded error class, and provider-reported token counts when present. It never stores prompts, responses, API keys, or provider error bodies. Once either session budget is reached, no new model call starts. Runtime policy requests persist a `stop_session`; learning and correction requests return HTTP 429 with `model_budget_exhausted`.
 
 ## API

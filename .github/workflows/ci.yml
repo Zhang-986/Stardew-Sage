@@ -48,6 +48,12 @@ jobs:
       - name: Run semantic activity learning demo
         run: ./demo/run-activity-learning-demo.sh
 
+      - name: Test LAN setup scripts
+        run: ./scripts/tests/test-lan-scripts.sh
+
+      - name: Run TLS Kitex LAN relay demo
+        run: ./demo/run-lan-relay-demo.sh
+
       - name: Validate Nexus packaging
         run: ./scripts/tests/package-nexus-smoke.sh
 
@@ -71,6 +77,12 @@ jobs:
           go test -count=1 ./...
           go vet ./...
           go build -trimpath -ldflags "-s -w -buildid=" -o "$env:RUNNER_TEMP\echofarm-core.exe" ./cmd/echofarm
+          go build -trimpath -ldflags "-s -w -buildid=" -o "$env:RUNNER_TEMP\echofarm-relay.exe" ./cmd/echofarm-relay
+
+      - name: Test secret-safe relay setup
+        shell: pwsh
+        working-directory: .
+        run: pwsh -NoProfile -File scripts/windows/Test-EchoFarmRelaySetup.ps1
 
       - name: Test Windows doctor, package, install, and uninstall
         shell: pwsh
@@ -88,3 +100,10 @@ jobs:
           if (-not $result.Ready) {
             throw "EchoFarm sidecar health verification failed: $($result.Issues.Code -join ', ')"
           }
+
+      - name: Upload Windows relay
+        uses: actions/upload-artifact@v4
+        with:
+          name: echofarm-relay-windows-amd64
+          path: ${{ runner.temp }}/echofarm-relay.exe
+          if-no-files-found: error

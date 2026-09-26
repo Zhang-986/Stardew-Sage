@@ -37,7 +37,7 @@ Stardew Valley / SMAPI
         v
 echofarm-relay.exe : 127.0.0.1:18471
         |
-        | authenticated HTTPS over trusted private LAN
+        | certificate-pinned TLS + Kitex/Thrift RPC over private LAN
         v
 echofarm-core on Mac : 0.0.0.0:18472
         |                         |
@@ -57,7 +57,7 @@ Loopback remains the default. A non-loopback bind is rejected unless all LAN req
 - `ECHOFARM_TLS_KEY_FILE`
 - an `ECHOFARM_ADDRESS` whose port is explicitly chosen for the LAN service
 
-The server uses TLS for every LAN request. It authenticates a bearer token using a constant-time comparison before parsing request bodies. `/healthz` also requires authentication in LAN mode so unauthenticated devices cannot fingerprint the service.
+The server uses CloudWeGo Kitex with generated Thrift contracts over TLS for every LAN request. Nine typed RPC methods mirror the fixed HTTP contract; there is no generic proxy method. It authenticates the relay token using a constant-time comparison before parsing request bodies. `Health` also requires authentication so unauthenticated devices cannot fingerprint the service.
 
 The server exposes only the existing EchoFarm API routes. It never exposes filesystem, database, configuration, environment, diagnostics-download, or generic proxy endpoints. Existing response redaction remains in force: provider response bodies and internal errors are never returned to the relay.
 
@@ -68,8 +68,8 @@ The server exposes only the existing EchoFarm API routes. It never exposes files
 - listens only on `127.0.0.1:18471`;
 - accepts only the exact EchoFarm route and HTTP-method allowlist;
 - rejects request bodies larger than 2 MiB;
-- strips incoming authorization, cookie, forwarding, and hop-by-hop headers;
-- adds the dedicated LAN bearer token to the upstream request;
+- maps each accepted route to one generated Kitex/Thrift method;
+- adds the dedicated LAN token only to the typed RPC request;
 - validates the Mac TLS certificate against a configured SHA-256 fingerprint;
 - applies bounded connect, read, and total request timeouts;
 - forwards status and JSON response bodies without exposing upstream transport details;
@@ -78,7 +78,7 @@ The server exposes only the existing EchoFarm API routes. It never exposes files
 
 The relay returns a locally generated request ID in `X-EchoFarm-Request-ID`. The Mac server preserves that ID in its sanitized access log, allowing one Windows request to be correlated without logging gameplay payloads or credentials.
 
-The first version does not queue failed requests. Teaching and correction calls return an explicit temporary failure and can be retried by the user; next-action and action-result calls are never replayed because their snapshots become stale.
+The relay does not maintain a durable queue. Teaching and correction calls receive one bounded transport retry because their IDs make them idempotent. Live next-action and action-result calls are never replayed because their snapshots become stale.
 
 ## Secret Handling and Pairing
 
@@ -91,16 +91,16 @@ All persistent player data remains on the Mac. When a cloud model is selected, t
 
 Mac setup creates a self-signed server certificate and a random relay token outside the repository under the user's local application-data directory with owner-only permissions. The initialization command shows the LAN token once on its controlling terminal for manual pairing with Windows; it never places the token in command history. Generated keys, certificates, tokens, databases, logs, and `.env` files are excluded from Git packaging.
 
-Windows setup stores the relay token through Windows DPAPI for the current user. The launcher decrypts it only into the relay child process environment. The non-secret upstream URL and pinned certificate fingerprint may be stored in `%LOCALAPPDATA%\EchoFarm`.
+Windows setup stores only the non-secret upstream address, certificate fingerprint, and timeout settings under `%LOCALAPPDATA%\EchoFarm\relay`. The launcher requests the token as a `SecureString` on every start, passes it through the relay child process environment, clears the launcher environment immediately, and never writes the plaintext token to disk.
 
-Because the design uses HTTPS plus certificate pinning, another LAN device cannot read game payloads or impersonate the Mac merely by learning its IP address. The server port must be allowed only on the private Windows/Mac LAN profile and must not be forwarded by the router.
+Because the design uses TLS plus exact leaf-certificate pinning, another LAN device cannot read game payloads or impersonate the Mac merely by learning its IP address. The server port must be allowed only on the private Windows/Mac LAN profile and must not be forwarded by the router.
 
 ## Data Flow
 
 ### Teaching
 
 1. The C# Mod records semantic events and posts one bounded demonstration to localhost.
-2. The relay authenticates and forwards the encrypted request to the Mac.
+2. The relay maps the request to a typed Thrift call and forwards it over pinned TLS to the Mac.
 3. The core validates the contract, invokes the model under configured budgets, and stores the resulting model and skill in Mac SQLite.
 4. The validated learning response returns through the relay to the Mod.
 
@@ -127,7 +127,7 @@ The Windows and Mac logs share a request ID. Operational logs show transport tim
 
 ## Packaging and Operation
 
-The repository produces `echofarm-relay-windows-amd64.exe` separately from the normal bundled core. A Windows PowerShell setup command configures the upstream URL, pins the certificate, stores the LAN token with DPAPI, starts the relay, and verifies its authenticated upstream health check. The Mod uses `CoreUrl=http://127.0.0.1:18471` and `AutoStartCore=false` for the first LAN release; the relay is started by its launcher before SMAPI.
+The repository produces `echofarm-relay-windows-amd64.exe` separately from the normal bundled core. A Windows PowerShell setup command configures the upstream address and certificate pin without storing the token; the start command prompts for the token and verifies its authenticated upstream health check. The Mod uses `CoreUrl=http://127.0.0.1:18471`, `ConnectionMode=relay`, and `AutoStartCore=false`; the relay is started before SMAPI.
 
 The Mac start command loads the model key and LAN token without echo, starts the TLS core on port `18472`, and prints only the listening address and certificate fingerprint. Stopping the command removes credentials from the process environment.
 
@@ -137,8 +137,8 @@ Automated tests must prove:
 
 - non-loopback core binding fails closed without explicit LAN mode, TLS files, and a strong token;
 - missing or incorrect tokens receive 401 before request parsing;
-- the relay forwards every supported route and rejects unsupported routes;
-- sensitive and hop-by-hop headers are removed;
+- the relay maps every supported route to the correct generated Thrift method and rejects unsupported routes;
+- arbitrary HTTP headers cannot cross the typed RPC boundary;
 - certificate pin mismatch fails closed;
 - payload limits, timeouts, and concurrency bounds work;
 - logs contain correlation metadata but no token, authorization header, provider key, prompt, or response body;
