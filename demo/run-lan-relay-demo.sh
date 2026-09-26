@@ -29,6 +29,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
+on_error() {
+  status=$?
+  echo "LAN relay demo failed at line ${BASH_LINENO[0]} (exit $status)." >&2
+  for log_file in "$core_log" "$relay_log" "$wrong_relay_log"; do
+    if [[ -s "$log_file" ]]; then
+      echo "--- $(basename "$log_file") ---" >&2
+      tail -40 "$log_file" >&2
+    fi
+  done
+  return "$status"
+}
+trap on_error ERR
+
 core_port="$(pick_port)"
 relay_port="$(pick_port)"
 wrong_relay_port="$(pick_port)"

@@ -154,7 +154,7 @@ func runRPCServer(ctx context.Context, cfg config, handler http.Handler, logger 
 		kitexserver.WithTransHandlerFactory(gonet.NewSvrTransHandlerFactory()),
 		kitexserver.WithReadWriteTimeout(cfg.ModelTimeout+5*time.Second),
 		kitexserver.WithExitWaitTime(5*time.Second),
-		kitexserver.WithLimit(&limit.Option{MaxConnections: 8, MaxQPS: 16}),
+		kitexserver.WithLimit(&limit.Option{MaxConnections: 8}),
 	)
 	stopDone := make(chan struct{})
 	go func() {
